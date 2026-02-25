@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asclepius"
+version = "0.1.0"
+description = "Biological Data Infrastructure – Asclepius Research Labs"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+asclepius = "asclepius.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["asclepius*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
