@@ -12,12 +12,18 @@ Requirements:
 - Normalize column names to snake_case
 - Return structured Python objects
 
+Supported formats:
+- CSV (dense matrix)
+- 10x Genomics MTX directory (barcodes.tsv.gz, features.tsv.gz, matrix.mtx.gz)
+- 10x Genomics HDF5 (.h5)
+
 Focus on clarity over optimization.
 """
 
 from __future__ import annotations
 
 import csv
+import gzip
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -187,6 +193,124 @@ def load_expression_csv(path: str | Path) -> ExpressionMatrix:
 
     return ExpressionMatrix(
         cell_ids=cell_ids,
+        gene_ids=gene_ids,
+        counts=counts,
+        source_path=str(path),
+    )
+
+
+def load_10x_mtx(directory_path: str | Path) -> ExpressionMatrix:
+    """
+    Load a 10x Genomics feature-barcode matrix from a directory.
+
+    Expects the directory to contain:
+      - barcodes.tsv or barcodes.tsv.gz
+      - features.tsv or features.tsv.gz
+      - matrix.mtx or matrix.mtx.gz
+
+    The matrix is stored genes × cells (rows × columns) in MTX format and is
+    transposed to cells × genes in the returned ExpressionMatrix.
+
+    .. note::
+        The counts are stored as a dense ``List[List[float]]``.  For datasets
+        with many cells or genes this can require significant memory (cells ×
+        genes × 8 bytes).  The 3k PBMC dataset (≈ 2 752 cells × 54 950 genes)
+        uses roughly 1.2 GB in this representation.
+
+    Parameters
+    ----------
+    directory_path : str or Path
+
+    Returns
+    -------
+    ExpressionMatrix
+    """
+    try:
+        import scipy.io
+    except ImportError as exc:
+        raise ImportError("scipy is required for MTX loading: pip install scipy") from exc
+
+    directory = Path(directory_path)
+
+    def _open_tsv(stem: str):
+        gz = directory / (stem + ".gz")
+        plain = directory / stem
+        if gz.exists():
+            return gzip.open(gz, "rt")
+        if plain.exists():
+            return open(plain, "r", encoding="utf-8")
+        raise FileNotFoundError(f"Neither {gz} nor {plain} exists")
+
+    with _open_tsv("barcodes.tsv") as fh:
+        barcodes = [line.strip() for line in fh if line.strip()]
+
+    with _open_tsv("features.tsv") as fh:
+        gene_ids = [line.strip().split("\t")[0] for line in fh if line.strip()]
+
+    mtx_gz = directory / "matrix.mtx.gz"
+    mtx_plain = directory / "matrix.mtx"
+    if mtx_gz.exists():
+        with gzip.open(mtx_gz, "rb") as fh:
+            mat = scipy.io.mmread(fh)
+    elif mtx_plain.exists():
+        mat = scipy.io.mmread(str(mtx_plain))
+    else:
+        raise FileNotFoundError(f"matrix.mtx not found in {directory}")
+
+    # MTX is genes × cells; transpose to cells × genes
+    counts = mat.T.toarray().tolist()
+
+    return ExpressionMatrix(
+        cell_ids=barcodes,
+        gene_ids=gene_ids,
+        counts=counts,
+        source_path=str(directory),
+    )
+
+
+def load_10x_h5(h5_path: str | Path) -> ExpressionMatrix:
+    """
+    Load a 10x Genomics feature-barcode matrix from an HDF5 file.
+
+    The file must follow the CellRanger HDF5 convention where the sparse
+    matrix is stored under the ``matrix`` group.
+
+    .. note::
+        The counts are stored as a dense ``List[List[float]]``.  For datasets
+        with many cells or genes this can require significant memory (cells ×
+        genes × 8 bytes).  The 3k PBMC dataset (≈ 2 752 cells × 54 950 genes)
+        uses roughly 1.2 GB in this representation.
+
+    Parameters
+    ----------
+    h5_path : str or Path
+
+    Returns
+    -------
+    ExpressionMatrix
+    """
+    try:
+        import h5py
+        import scipy.sparse
+    except ImportError as exc:
+        raise ImportError("h5py and scipy are required for HDF5 loading: pip install h5py scipy") from exc
+
+    path = Path(h5_path)
+    with h5py.File(path, "r") as f:
+        grp = f["matrix"]
+        barcodes = [b.decode("utf-8") if isinstance(b, bytes) else b for b in grp["barcodes"][:]]
+        gene_ids = [g.decode("utf-8") if isinstance(g, bytes) else g for g in grp["features"]["id"][:]]
+        data = grp["data"][:]
+        indices = grp["indices"][:]
+        indptr = grp["indptr"][:]
+        shape = tuple(grp["shape"][:])
+
+    # CellRanger stores the matrix as genes × cells (CSC); transpose to cells × genes
+    mat = scipy.sparse.csc_matrix((data, indices, indptr), shape=shape)
+    counts = mat.T.toarray().tolist()
+
+    return ExpressionMatrix(
+        cell_ids=barcodes,
         gene_ids=gene_ids,
         counts=counts,
         source_path=str(path),

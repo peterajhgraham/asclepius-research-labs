@@ -7,7 +7,7 @@ name = "asclepius"
 version = "0.1.0"
 description = "Structured, Versioned Biological Data Layer – Asclepius Research Labs"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["scipy>=1.10", "h5py>=3.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
