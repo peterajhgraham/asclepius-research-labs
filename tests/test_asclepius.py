@@ -22,6 +22,8 @@ from asclepius.ingestion import (
     ingest,
     load_expression_csv,
     load_metadata_csv,
+    load_10x_mtx,
+    load_10x_h5,
 )
 from asclepius.versioning import VersionRegistry, _bump_patch
 
@@ -207,6 +209,88 @@ class TestIngestion:
         )
         result = ingest(meta, expr)
         assert len(result.warnings) == 2  # one for each direction
+
+    def test_load_10x_mtx(self, tmp_path):
+        import gzip
+        import scipy.io
+        import scipy.sparse
+
+        mtx_dir = tmp_path / "mtx"
+        mtx_dir.mkdir()
+
+        barcodes = ["AAACATAC-1", "AAACCGTG-1"]
+        features = [("ENSG001", "GeneA", "Gene Expression"), ("ENSG002", "GeneB", "Gene Expression")]
+
+        with gzip.open(mtx_dir / "barcodes.tsv.gz", "wt") as fh:
+            fh.write("\n".join(barcodes) + "\n")
+        with gzip.open(mtx_dir / "features.tsv.gz", "wt") as fh:
+            for f in features:
+                fh.write("\t".join(f) + "\n")
+
+        # genes × cells sparse matrix: 2 genes × 2 cells
+        data = scipy.sparse.coo_matrix([[3, 0], [1, 7]], dtype=float)
+        with gzip.open(mtx_dir / "matrix.mtx.gz", "wb") as fh:
+            scipy.io.mmwrite(fh, data)
+
+        matrix = load_10x_mtx(mtx_dir)
+        assert matrix.cell_ids == barcodes
+        assert matrix.gene_ids == ["ENSG001", "ENSG002"]
+        assert len(matrix.counts) == 2      # 2 cells
+        assert len(matrix.counts[0]) == 2  # 2 genes
+        assert matrix.counts[0][0] == 3.0  # cell 0, gene 0
+        assert matrix.counts[1][1] == 7.0  # cell 1, gene 1
+
+    def test_load_10x_mtx_plain_files(self, tmp_path):
+        import scipy.io
+        import scipy.sparse
+
+        mtx_dir = tmp_path / "mtx_plain"
+        mtx_dir.mkdir()
+
+        barcodes = ["CELL1-1"]
+        with open(mtx_dir / "barcodes.tsv", "w") as fh:
+            fh.write("CELL1-1\n")
+        with open(mtx_dir / "features.tsv", "w") as fh:
+            fh.write("ENSG001\tGeneA\tGene Expression\n")
+
+        data = scipy.sparse.coo_matrix([[5]], dtype=float)
+        scipy.io.mmwrite(str(mtx_dir / "matrix.mtx"), data)
+
+        matrix = load_10x_mtx(mtx_dir)
+        assert matrix.cell_ids == ["CELL1-1"]
+        assert matrix.gene_ids == ["ENSG001"]
+        assert matrix.counts[0][0] == 5.0
+
+    def test_load_10x_h5(self, tmp_path):
+        import h5py
+        import numpy as np
+        import scipy.sparse
+
+        h5_path = tmp_path / "matrix.h5"
+
+        barcodes = [b"AAACATAC-1", b"AAACCGTG-1"]
+        gene_ids = [b"ENSG001", b"ENSG002"]
+
+        # genes × cells CSC matrix
+        dense = np.array([[3, 0], [1, 7]], dtype=np.int32)
+        mat = scipy.sparse.csc_matrix(dense)
+
+        with h5py.File(h5_path, "w") as f:
+            grp = f.create_group("matrix")
+            grp.create_dataset("barcodes", data=barcodes)
+            grp.create_dataset("data", data=mat.data.astype(np.int32))
+            grp.create_dataset("indices", data=mat.indices)
+            grp.create_dataset("indptr", data=mat.indptr)
+            grp.create_dataset("shape", data=np.array(mat.shape, dtype=np.int32))
+            feat = grp.create_group("features")
+            feat.create_dataset("id", data=gene_ids)
+
+        matrix = load_10x_h5(h5_path)
+        assert len(matrix.cell_ids) == 2
+        assert len(matrix.gene_ids) == 2
+        assert matrix.counts[0][0] == 3.0  # cell 0, gene 0
+        assert matrix.counts[1][1] == 7.0  # cell 1, gene 1
+        assert matrix.source_path == str(h5_path)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
