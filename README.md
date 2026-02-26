@@ -1,6 +1,166 @@
-# Asclepius Research Labs — Structured, Versioned Biological Data Layer
+# Asclepius Research Labs — Monogenic Neurology Variant → Pathway Platform
 
 ## What This Is
+
+> A modular, neurology-focused platform that maps genetic variants to biological pathways, built as the foundation for a rare-disease AI MVP.
+
+The platform ingests public variant databases (ClinVar, gnomAD) and pathway
+resources (KEGG, Reactome), normalises all identifiers to a canonical form,
+and scores each pathway by the cumulative impact of variants mapped to its
+member genes.
+
+---
+
+## Neurology Variant → Pathway Module
+
+### Repository Layout
+
+```
+asclepius-neuro/
+├── data_ingestion/
+│   ├── load_clinvar.py          ← ClinVar variant–disease records
+│   ├── load_gnomad.py           ← gnomAD population frequencies (file + API)
+│   └── load_pathways.py         ← KEGG and Reactome pathway sets
+├── preprocessing/
+│   ├── normalize_variants.py    ← Canonical chrom:pos:ref:alt representation
+│   ├── gene_to_pathway_mapping.py ← Gene ↔ pathway bidirectional index
+│   └── ontology_normalization.py  ← HPO / OMIM / MONDO / MedGen term parsing
+├── models/
+│   ├── variant_pathway_model.py ← VariantPathwayGraph (bipartite graph)
+│   └── scoring.py               ← Pathway impact scoring + ranking
+├── experiments/
+│   ├── notebook_1_variant_pathway.ipynb  ← End-to-end mapping demo
+│   └── evaluation.ipynb                  ← P@K, Recall@K, MRR metrics
+├── utils/
+│   ├── helpers.py               ← to_snake_case, build_variant_key, chunked, …
+│   └── config.py                ← API URLs, weights, project paths
+├── README.md
+└── requirements.txt
+```
+
+### Quick Start
+
+```bash
+pip install -e .
+```
+
+#### Run the end-to-end demo (offline synthetic data)
+
+```python
+from data_ingestion.load_clinvar import ClinVarRecord
+from data_ingestion.load_pathways import Pathway
+from preprocessing.normalize_variants import normalize_clinvar_records
+from preprocessing.gene_to_pathway_mapping import build_gene_pathway_map
+from models.variant_pathway_model import build_variant_pathway_graph
+from models.scoring import rank_pathways
+
+# 1. Load variants (swap for load_clinvar_tsv in production)
+records = [
+    ClinVarRecord(variant_id='1388948', gene_symbol='LRRK2', chrom='12',
+                  pos=40340400, ref='G', alt='A',
+                  clinical_significance='Pathogenic',
+                  condition='Parkinson disease, late-onset',
+                  review_status='criteria provided, single submitter'),
+]
+
+# 2. Load pathways (swap for load_kegg_pathways in production)
+pathways = [
+    Pathway(pathway_id='hsa05012', name='Parkinson disease',
+            source='KEGG', gene_symbols=['LRRK2', 'PINK1', 'PARK7', 'SNCA']),
+]
+
+# 3. Normalise → index → graph → score
+variants  = normalize_clinvar_records(records)
+gene_map  = build_gene_pathway_map(pathways)
+graph     = build_variant_pathway_graph(variants, gene_map)
+ranked    = rank_pathways(graph)
+
+for ps in ranked:
+    print(ps.pathway_id, ps.normalised_score, ps.pathway_name)
+```
+
+#### Load real ClinVar data
+
+```python
+from data_ingestion.load_clinvar import load_clinvar_tsv
+
+# Download variant_summary.txt.gz from:
+# https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz
+records = load_clinvar_tsv("data/raw/variant_summary.txt.gz", neurology_only=True)
+print(f"{len(records)} neurology variants loaded")
+```
+
+#### Fetch gnomAD variants via API
+
+```python
+from data_ingestion.load_gnomad import fetch_gnomad_gene_variants
+
+records = fetch_gnomad_gene_variants("LRRK2", dataset="gnomad_r4")
+print(f"{len(records)} gnomAD variants for LRRK2")
+```
+
+#### Load KEGG pathways
+
+```python
+from data_ingestion.load_pathways import load_kegg_pathways
+
+pathways = load_kegg_pathways("hsa", fetch_genes=True)
+print(f"{len(pathways)} human KEGG pathways loaded")
+```
+
+### Architecture
+
+```
+ClinVar / gnomAD
+       │
+       ▼
+data_ingestion          ← raw records (ClinVarRecord, GnomadRecord, Pathway)
+       │
+       ▼
+preprocessing           ← NormalizedVariant + GenePathwayMap + OntologyTerm
+       │
+       ▼
+models                  ← VariantPathwayGraph + PathwayScore
+       │
+       ▼
+experiments             ← Jupyter notebooks (demo + evaluation)
+```
+
+### Scoring
+
+Each variant contributes a weight to every pathway its gene participates in:
+
+| Variant class         | Weight | Criteria                     |
+|-----------------------|--------|------------------------------|
+| High-confidence LoF   | 2.0    | `lof == "HC"`                |
+| Pathogenic            | 1.0    | ClinVar pathogenic/LP        |
+| VUS                   | 0.1    | Variant of uncertain significance |
+| Benign                | 0.0    | Excluded                     |
+
+Raw scores are burden-normalised by `log2(pathway_gene_count + 1)` to
+reduce bias towards large pathways.
+
+### Extensibility
+
+The modular design supports future expansion into:
+
+- **Gene Therapy Target Prioritisation** – prioritise genes with high
+  pathway burden and druggable annotations
+- **Mechanistic Disease Modelling** – integrate protein interaction
+  networks for multi-hop pathway reasoning
+- **Rare Oncology** – swap neurology filters for oncology phenotype terms
+- **Immunology** – plug in immune pathway gene sets (Reactome immune
+  pathways, InnateDB)
+
+---
+
+## Legacy scRNA-seq Data Layer
+
+> The sections below describe the original single-cell RNA-seq structured
+> data layer.  It remains fully functional alongside the new neurology
+> module.
+
+### What This Was
 
 > You are building a structured, versioned data layer that makes biological experiments reproducible, queryable, and model-ready.
 

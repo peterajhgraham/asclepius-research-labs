@@ -8,3 +8,9 @@ typer>=0.12
 uvicorn[standard]>=0.29
 pydantic>=2.0
 httpx>=0.27
+
+# Neurology variant → pathway platform
+pandas>=2.0
+requests>=2.28
+jupyter>=1.0
+nbformat>=5.9
