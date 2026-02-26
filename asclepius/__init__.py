@@ -10,16 +10,20 @@ from asclepius.ingestion import ingest, load_metadata_csv, load_expression_csv, 
 from asclepius.versioning import VersionRegistry, DatasetVersion
 
 __all__ = [
+    # schema
     "Experiment",
     "Sample",
     "CellState",
     "ProcessingPipeline",
+    # graph
     "BiologicalStateGraph",
+    # ingestion
     "ingest",
     "load_metadata_csv",
     "load_expression_csv",
     "load_10x_mtx",
     "load_10x_h5",
+    # versioning
     "VersionRegistry",
     "DatasetVersion",
 ]
