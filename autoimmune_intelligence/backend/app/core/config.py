@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     app_name: str = "Autoimmune Intelligence"
+    app_env: str = "development"
     openai_api_key: str = ""
     llm_model: str = "gpt-4o"
     cors_origins: list[str] = ["*"]
