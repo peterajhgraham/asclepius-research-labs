@@ -1,306 +1,175 @@
-# Asclepius Research Labs — Monogenic Neurology Variant → Pathway Platform
+# immunograph
 
-## What This Is
+> **Structured causal reasoning over immune signaling networks**
 
-> A modular, neurology-focused platform that maps genetic variants to biological pathways, built as the foundation for a rare-disease AI MVP.
-
-The platform ingests public variant databases (ClinVar, gnomAD) and pathway
-resources (KEGG, Reactome), normalises all identifiers to a canonical form,
-and scores each pathway by the cumulative impact of variants mapped to its
-member genes.
+immunograph is a modular, extensible reasoning engine for immune signaling
+research.  It provides a full pipeline from public data ingestion through
+knowledge-graph construction, node embedding, causal reasoning, and
+experiment suggestion — with an initial focus on autoimmune diseases and a
+design that supports future expansion into oncology and vaccines.
 
 ---
 
-## Neurology Variant → Pathway Module
-
-### Repository Layout
+## Repository Structure
 
 ```
-asclepius-neuro/
+immunograph/
 ├── data_ingestion/
-│   ├── load_clinvar.py          ← ClinVar variant–disease records
-│   ├── load_gnomad.py           ← gnomAD population frequencies (file + API)
-│   └── load_pathways.py         ← KEGG and Reactome pathway sets
-├── preprocessing/
-│   ├── normalize_variants.py    ← Canonical chrom:pos:ref:alt representation
-│   ├── gene_to_pathway_mapping.py ← Gene ↔ pathway bidirectional index
-│   └── ontology_normalization.py  ← HPO / OMIM / MONDO / MedGen term parsing
-├── models/
-│   ├── variant_pathway_model.py ← VariantPathwayGraph (bipartite graph)
-│   └── scoring.py               ← Pathway impact scoring + ranking
-├── experiments/
-│   ├── notebook_1_variant_pathway.ipynb  ← End-to-end mapping demo
-│   └── evaluation.ipynb                  ← P@K, Recall@K, MRR metrics
-├── utils/
-│   ├── helpers.py               ← to_snake_case, build_variant_key, chunked, …
-│   └── config.py                ← API URLs, weights, project paths
+│   ├── pubmed_parser.py           # PubMed abstract search & interaction extraction
+│   ├── pathway_loader.py          # KEGG & Reactome pathway loading
+│   ├── perturbation_loader.py     # CRISPR / cytokine perturbation datasets
+│   └── entity_normalizer.py       # HGNC / UniProt ID normalisation
+├── graph/
+│   ├── schema.py                  # Node & edge type definitions
+│   ├── graph_builder.py           # Build Neo4j or in-memory graph
+│   └── graph_queries.py           # Query & explore relationships
+├── embeddings/
+│   ├── train_gnn.py               # Graph neural network trainer
+│   ├── node2vec_baseline.py       # Node2Vec baseline
+│   └── inference.py               # Embedding inference & similarity
+├── causal/
+│   ├── propagation.py             # Probabilistic causal signal propagation
+│   ├── intervention_ranker.py     # Rank nodes for intervention impact
+│   └── scoring_utils.py           # Scoring utility functions
+├── optimizer/
+│   ├── active_learning.py         # Upper-confidence-bound experiment selection
+│   └── experiment_suggester.py    # End-to-end experiment suggestion
+├── notebooks/
+│   └── immune_demo.ipynb          # Demo: target ranking & experiment simulation
+├── api/
+│   └── app.py                     # Flask REST API wrapper
 ├── README.md
 └── requirements.txt
 ```
 
-### Quick Start
-
-```bash
-pip install -e .
-```
-
-#### Run the end-to-end demo (offline synthetic data)
-
-```python
-from data_ingestion.load_clinvar import ClinVarRecord
-from data_ingestion.load_pathways import Pathway
-from preprocessing.normalize_variants import normalize_clinvar_records
-from preprocessing.gene_to_pathway_mapping import build_gene_pathway_map
-from models.variant_pathway_model import build_variant_pathway_graph
-from models.scoring import rank_pathways
-
-# 1. Load variants (swap for load_clinvar_tsv in production)
-records = [
-    ClinVarRecord(variant_id='1388948', gene_symbol='LRRK2', chrom='12',
-                  pos=40340400, ref='G', alt='A',
-                  clinical_significance='Pathogenic',
-                  condition='Parkinson disease, late-onset',
-                  review_status='criteria provided, single submitter'),
-]
-
-# 2. Load pathways (swap for load_kegg_pathways in production)
-pathways = [
-    Pathway(pathway_id='hsa05012', name='Parkinson disease',
-            source='KEGG', gene_symbols=['LRRK2', 'PINK1', 'PARK7', 'SNCA']),
-]
-
-# 3. Normalise → index → graph → score
-variants  = normalize_clinvar_records(records)
-gene_map  = build_gene_pathway_map(pathways)
-graph     = build_variant_pathway_graph(variants, gene_map)
-ranked    = rank_pathways(graph)
-
-for ps in ranked:
-    print(ps.pathway_id, ps.normalised_score, ps.pathway_name)
-```
-
-#### Load real ClinVar data
-
-```python
-from data_ingestion.load_clinvar import load_clinvar_tsv
-
-# Download variant_summary.txt.gz from:
-# https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz
-records = load_clinvar_tsv("data/raw/variant_summary.txt.gz", neurology_only=True)
-print(f"{len(records)} neurology variants loaded")
-```
-
-#### Fetch gnomAD variants via API
-
-```python
-from data_ingestion.load_gnomad import fetch_gnomad_gene_variants
-
-records = fetch_gnomad_gene_variants("LRRK2", dataset="gnomad_r4")
-print(f"{len(records)} gnomAD variants for LRRK2")
-```
-
-#### Load KEGG pathways
-
-```python
-from data_ingestion.load_pathways import load_kegg_pathways
-
-pathways = load_kegg_pathways("hsa", fetch_genes=True)
-print(f"{len(pathways)} human KEGG pathways loaded")
-```
-
-### Architecture
-
-```
-ClinVar / gnomAD
-       │
-       ▼
-data_ingestion          ← raw records (ClinVarRecord, GnomadRecord, Pathway)
-       │
-       ▼
-preprocessing           ← NormalizedVariant + GenePathwayMap + OntologyTerm
-       │
-       ▼
-models                  ← VariantPathwayGraph + PathwayScore
-       │
-       ▼
-experiments             ← Jupyter notebooks (demo + evaluation)
-```
-
-### Scoring
-
-Each variant contributes a weight to every pathway its gene participates in:
-
-| Variant class         | Weight | Criteria                     |
-|-----------------------|--------|------------------------------|
-| High-confidence LoF   | 2.0    | `lof == "HC"`                |
-| Pathogenic            | 1.0    | ClinVar pathogenic/LP        |
-| VUS                   | 0.1    | Variant of uncertain significance |
-| Benign                | 0.0    | Excluded                     |
-
-Raw scores are burden-normalised by `log2(pathway_gene_count + 1)` to
-reduce bias towards large pathways.
-
-### Extensibility
-
-The modular design supports future expansion into:
-
-- **Gene Therapy Target Prioritisation** – prioritise genes with high
-  pathway burden and druggable annotations
-- **Mechanistic Disease Modelling** – integrate protein interaction
-  networks for multi-hop pathway reasoning
-- **Rare Oncology** – swap neurology filters for oncology phenotype terms
-- **Immunology** – plug in immune pathway gene sets (Reactome immune
-  pathways, InnateDB)
-
 ---
 
-## Legacy scRNA-seq Data Layer
+## Architecture Overview
 
-> The sections below describe the original single-cell RNA-seq structured
-> data layer.  It remains fully functional alongside the new neurology
-> module.
-
-### What This Was
-
-> You are building a structured, versioned data layer that makes biological experiments reproducible, queryable, and model-ready.
-
-You are **not** discovering drugs.  
-You are turning messy experimental outputs into clean, relational state graphs.
-
----
-
-## Project Layout
-
-```
-asclepius-research-labs/
-│
-├── data/
-│   ├── raw/            ← original, unmodified source files
-│   └── processed/      ← outputs of ingestion / preprocessing
-│
-├── notebooks/
-│   ├── 01_dataset_autopsy.ipynb    ← structural analysis of PBMC 3k
-│   └── 02_schema_mapping.ipynb     ← map raw fields → Asclepius v1 schema
-│
-├── asclepius/
-│   ├── schema.py       ← Experiment, Sample, CellState, ProcessingPipeline
-│   ├── models.py       ← BiologicalStateGraph
-│   ├── ingestion.py    ← load & validate scRNA-seq data
-│   └── versioning.py   ← git-like dataset lineage tracking
-│
-├── docs/
-│   ├── pain_points.md      ← concrete problems this project solves
-│   ├── schema_v1.md        ← formal schema specification
-│   └── landscape_map.md    ← tool landscape & where Asclepius fits
-│
-├── experiments/        ← ad-hoc experiment scripts (not notebooks)
-│
-└── README.md
-```
-
----
-
-## Core Concepts
-
-### Schema (`asclepius/schema.py`)
-
-Four entities form the biological state graph:
-
-| Entity | Description |
+### 1. Data Ingestion
+| Module | Description |
 |---|---|
-| `Experiment` | Top-level container (organism, assay, date, pipeline version) |
-| `Sample` | A sample within an experiment with perturbation metadata |
-| `CellState` | Observed state of a single cell with data pointers |
-| `ProcessingPipeline` | Versioned preprocessing pipeline definition |
+| `pubmed_parser.py` | Queries NCBI E-utilities and extracts `(source, target, edge_type)` triples via regex / NLP |
+| `pathway_loader.py` | Downloads KGML from KEGG REST API; parses Reactome event hierarchies |
+| `perturbation_loader.py` | Loads CRISPR screen CSVs and cytokine perturbation tables |
+| `entity_normalizer.py` | Maps aliases to canonical HGNC symbols via a local table + optional MyGene.info API |
 
-### State Graph (`asclepius/models.py`)
-
-`BiologicalStateGraph` assembles the four entities into a relational graph
-with validation:
-
+All loaders output a uniform edge list:
 ```python
-from datetime import date
-from asclepius import Experiment, ProcessingPipeline, Sample, CellState, BiologicalStateGraph
-
-graph = BiologicalStateGraph(
-    experiment=Experiment(id="GSE96315", organism="NCBITaxon:9606",
-                          assay_type="EFO:0009899", date=date(2017, 1, 1)),
-    pipeline=ProcessingPipeline(id="cellranger_v2", reference_genome="GRCh38",
-                                normalization_method="log1p_CP10K"),
-)
-graph.add_sample(Sample(id="S1", experiment_id="GSE96315"))
-print(graph.summary())
+[(source_id, target_id, edge_type, metadata_dict), ...]
 ```
 
-### Ingestion (`asclepius/ingestion.py`)
+### 2. Graph Construction
+- **Nodes**: `Gene`, `Protein`, `Cytokine`, `Receptor`, `TranscriptionFactor`, `CellType`, `Pathway`
+- **Edges**: `activates`, `inhibits`, `binds`, `expressed_in`, `downstream_of`, `part_of_pathway`
+- **Backend**: Neo4j (production) or in-memory Python dicts (development / testing)
 
-Validates and loads single-cell metadata and expression matrices:
+### 3. Representation Learning
+- `GNNTrainer` — message-passing GNN with NumPy (drop-in PyTorch Geometric replacement)
+- `Node2VecBaseline` — biased random walk + skip-gram with negative sampling
+- `EmbeddingInference` — cosine similarity, most-similar lookup, subgraph aggregation
 
-```python
-from asclepius import ingest
+### 4. Causal Reasoning
+- `CausalPropagator` — probabilistic belief propagation with signed edge weights, configurable decay
+- `InterventionRanker` — combines propagation scores with structural degree for intervention ranking
+- `scoring_utils` — normalisation helpers (`minmax`, `zscore`, `softmax`), composite influence scores
 
-result = ingest("data/raw/pbmc3k_metadata.csv", "data/raw/pbmc3k_expression.csv")
-print(f"Loaded {len(result.cells)} cells")
-for w in result.warnings:
-    print("WARNING:", w)
-```
+### 5. Experiment Suggestion
+- `ActiveLearner` — Bayesian upper-confidence-bound strategy over perturbation candidates
+- `ExperimentSuggester` — orchestrates causal ranking → prior initialisation → UCB selection
 
-**Required metadata fields:** `cell_id`, `experiment_id`, `assay_type`, `organism`
-
-Column names are automatically normalized to `snake_case`.
-
-### Versioning (`asclepius/versioning.py`)
-
-Git-like lineage tracking for processed datasets:
-
-```python
-from asclepius import VersionRegistry
-
-reg = VersionRegistry()
-
-v1 = reg.register("pbmc3k", {"norm": "log1p_CP10K", "genome": "GRCh38"})
-v2 = reg.commit(v1, {"norm": "scran", "genome": "GRCh38"}, notes="Switch to scran normalisation")
-
-branch = reg.branch(v1, "experiment-mito-filter", notes="Test tighter mito threshold")
-
-print([h.processing_version for h in reg.history(v2)])
-# ['1.0.0', '1.0.1']
-```
-
----
-
-## Dataset
-
-Starting point: **10x PBMC 3k** (Zheng et al., 2017)
-
-| Field | Value |
-|---|---|
-| GEO Accession | GSE96315 |
-| Organism | *Homo sapiens* |
-| Technology | 10x Chromium v2 |
-| Approx. cells | 2,700 |
-| Gene ID format | Ensembl IDs |
-
-Download raw data from [GEO GSE96315](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96315) into `data/raw/`.
+### 6. API & Notebooks
+- `api/app.py` — Flask REST endpoints for graph management, causal reasoning, and suggestions
+- `notebooks/immune_demo.ipynb` — interactive demo walkthrough
 
 ---
 
 ## Quick Start
 
+### Install dependencies
 ```bash
-# Install
-pip install -e .
+pip install -r requirements.txt
+```
 
-# Run tests
-python -m pytest tests/ -v
+### Run the demo notebook
+```bash
+jupyter notebook notebooks/immune_demo.ipynb
+```
+
+### Start the REST API
+```bash
+python api/app.py
+```
+
+### Minimal Python example
+```python
+from graph.graph_builder import ImmuneGraphBuilder
+from graph.graph_queries import GraphQueryEngine
+from causal.propagation import CausalPropagator
+from causal.intervention_ranker import InterventionRanker
+from optimizer.experiment_suggester import ExperimentSuggester
+
+# Build in-memory graph
+builder = ImmuneGraphBuilder(use_memory_backend=True)
+builder.create_node("IL6",    "Cytokine")
+builder.create_node("STAT3",  "TranscriptionFactor")
+builder.create_node("JAK1",   "Protein")
+builder.create_node("IL6R",   "Receptor")
+
+builder.create_edge("IL6",  "IL6R",  "binds",     confidence_score=0.95)
+builder.create_edge("IL6R", "JAK1",  "activates", confidence_score=0.90)
+builder.create_edge("JAK1", "STAT3", "activates", confidence_score=0.92)
+
+# Rank interventions upstream of STAT3
+edge_list = [(e["source"], e["target"], e["type"], e)
+             for e in builder.get_edge_list()]
+
+ranker = InterventionRanker()
+rankings = ranker.rank_interventions("STAT3", edge_list, top_k=5)
+for r in rankings:
+    print(r["node_id"], f"{r['score']:.3f}")
+
+# Suggest experiments
+suggester = ExperimentSuggester()
+suggestions = suggester.suggest_experiments("STAT3", edge_list, budget=3)
+for s in suggestions:
+    print(s["rank"], s["node_id"], s["rationale"])
 ```
 
 ---
 
-## Documentation
+## Neo4j Backend
 
-| Document | Contents |
-|---|---|
-| [`docs/schema_v1.md`](docs/schema_v1.md) | Formal schema specification for v1 |
-| [`docs/pain_points.md`](docs/pain_points.md) | Concrete problems this layer solves |
-| [`docs/landscape_map.md`](docs/landscape_map.md) | Tool landscape & positioning |
+Set `use_memory_backend=False` (the default) and provide connection details:
+
+```python
+builder = ImmuneGraphBuilder(
+    uri="bolt://localhost:7687",
+    user="neo4j",
+    password="your_password",
+)
+```
+
+Make sure Neo4j is running and the `neo4j` Python package is installed.
+
+---
+
+## Roadmap
+
+- [x] Autoimmune disease focus (NF-κB, JAK-STAT pathways)
+- [ ] Oncology immune network expansion
+- [ ] Vaccine / infectious disease module
+- [ ] spaCy + BioBERT NLP pipeline for pubmed_parser
+- [ ] PyTorch Geometric GNN backend
+- [ ] Immune cell atlas integration (CellTypist, scArches)
+- [ ] Interactive Cytoscape.js graph visualisation
+
+---
+
+## Contributing
+
+Contributions are welcome!  Please open an issue or pull request.
+
+## License
+
+MIT
