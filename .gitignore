@@ -8,3 +8,10 @@ build/
 *.db
 .pytest_cache/
 .mypy_cache/
+.env
+*.log
+.DS_Store
+venv/
+.venv/
+node_modules/
+data/
