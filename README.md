@@ -166,10 +166,3 @@ Make sure Neo4j is running and the `neo4j` Python package is installed.
 
 ---
 
-## Contributing
-
-Contributions are welcome!  Please open an issue or pull request.
-
-## License
-
-MIT
