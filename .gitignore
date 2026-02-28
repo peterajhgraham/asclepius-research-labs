@@ -15,3 +15,8 @@ venv/
 .venv/
 node_modules/
 data/
+.next/
+autoimmune_intelligence/frontend/.next/
+autoimmune_intelligence/frontend/node_modules/
+autoimmune_intelligence/backend/.venv/
+autoimmune_intelligence/backend/.env
