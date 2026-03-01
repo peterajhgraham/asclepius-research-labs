@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.API_URL || "http://localhost:8000";
+const BACKEND_URL =
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:8000";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,9 +15,12 @@ export async function POST(request: NextRequest) {
     });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Failed to reach backend service" },
+      {
+        error: `Backend unreachable at ${BACKEND_URL}/query — ${message}`,
+      },
       { status: 502 },
     );
   }

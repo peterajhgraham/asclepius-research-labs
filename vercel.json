@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
   "installCommand": "cd autoimmune_intelligence/frontend && npm install",
-  "buildCommand": "cd autoimmune_intelligence/frontend && npm run build",
-  "outputDirectory": "autoimmune_intelligence/frontend/.next"
+  "buildCommand": "cd autoimmune_intelligence/frontend && npm run build"
 }
