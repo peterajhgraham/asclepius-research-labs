@@ -45,8 +45,13 @@ export default function HomePage() {
         sources: result.sources,
       };
       setMessages((prev) => [...prev, aiMessage]);
-    } catch {
-      setError("Unable to reach the analysis service. Please try again.");
+    } catch (err: unknown) {
+      let detail = "Unable to reach the analysis service.";
+      if (err && typeof err === "object" && "response" in err) {
+        const res = (err as { response?: { data?: { error?: string } } }).response;
+        if (res?.data?.error) detail = res.data.error;
+      }
+      setError(detail);
     } finally {
       setLoading(false);
     }
