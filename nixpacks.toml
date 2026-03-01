@@ -1,0 +1,9 @@
+# Tells Railway/Nixpacks to build the FastAPI backend from the monorepo root.
+# Without this, Railway would find the root requirements.txt (research engine
+# dependencies) and never discover the backend's fastapi/uvicorn packages.
+
+[phases.install]
+cmds = ["pip install -r autoimmune_intelligence/backend/requirements.txt"]
+
+[start]
+cmd = "cd autoimmune_intelligence/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
