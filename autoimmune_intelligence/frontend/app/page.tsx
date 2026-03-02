@@ -87,7 +87,7 @@ export default function HomePage() {
             </div>
             <div>
               <h1 className="text-sm font-semibold text-gray-100 tracking-tight">
-                Asclepian Research Labs
+                Asclepius Research Labs
               </h1>
               <p className="text-xs text-muted">
                 Immune reasoning copilot
@@ -115,7 +115,7 @@ export default function HomePage() {
               </svg>
             </div>
             <h2 className="text-2xl font-semibold tracking-tight text-gray-100 sm:text-3xl">
-              Asclepian Research Labs
+              Asclepius Research Labs
             </h2>
             <p className="mt-2 text-center text-sm text-muted max-w-md">
               Structured immune reasoning for hypothesis generation.
