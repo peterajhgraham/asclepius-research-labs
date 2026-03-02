@@ -1,6 +1,6 @@
-# Autoimmune Intelligence
+# Asclepian Research Labs — Web Application
 
-A production-ready full-stack AI web app for autoimmune disease research.
+Production full-stack AI web app for autoimmune disease research.
 
 ## Stack
 
@@ -113,7 +113,7 @@ The UI will be available at `http://localhost:3000`.
 
 ### `GET /health`
 
-Returns `{ "status": "healthy", "service": "Autoimmune Intelligence" }`.
+Returns `{ "status": "healthy", "service": "Asclepian Research Labs" }`.
 
 ---
 
@@ -123,7 +123,7 @@ Returns `{ "status": "healthy", "service": "Autoimmune Intelligence" }`.
 
 | Variable        | Default                   | Description                     |
 |-----------------|---------------------------|---------------------------------|
-| `APP_NAME`      | `Autoimmune Intelligence` | Service display name            |
+| `APP_NAME`      | `Asclepian Research Labs` | Service display name            |
 | `OPENAI_API_KEY`| *(empty)*                 | OpenAI API key (when wired up)  |
 | `LLM_MODEL`     | `gpt-4o`                  | Model identifier                |
 | `CORS_ORIGINS`  | `["*"]`                   | Allowed CORS origins            |

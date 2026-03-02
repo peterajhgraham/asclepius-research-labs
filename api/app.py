@@ -274,7 +274,7 @@ def health():
     -------
     JSON status message.
     """
-    return jsonify({"status": "healthy", "service": "immunograph"})
+    return jsonify({"status": "healthy", "service": "asclepian-research-labs"})
 
 
 if __name__ == "__main__":
