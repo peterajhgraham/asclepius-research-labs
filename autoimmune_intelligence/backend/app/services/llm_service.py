@@ -1,23 +1,27 @@
 """LLM service that answers autoimmune-disease questions.
 
-Uses the local knowledge base for retrieval.  When an OpenAI API key is
-configured, the matched KB context is sent to the LLM for a synthesised
-answer.  Without an API key the service falls back to returning the
-best-matching KB entry directly — no external dependency required.
+Searches across ALL data sources (knowledge base, cytokine network,
+immune pathways, disease-gene associations, therapeutics) and composes
+a rich, structured answer.
+
+When an OpenAI API key is configured the matched context is sent to the
+LLM for synthesis.  Without a key the service returns a locally composed
+answer — no external dependency required.
 """
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from app.core.config import settings
 from app.models.schema import QueryResponse
-from app.services.query_engine import search
+from app.services.query_engine import search_all, SearchResult
 
 logger = logging.getLogger(__name__)
 
-# Optional OpenAI integration — only imported when an API key is present.
+# Optional OpenAI integration
 _openai_client: Optional[object] = None
 
 if settings.openai_api_key:
@@ -29,7 +33,7 @@ if settings.openai_api_key:
     except ImportError:
         logger.warning("openai package not installed — falling back to knowledge-base mode")
     except Exception:
-        logger.warning("Failed to initialise OpenAI client — falling back to knowledge-base mode", exc_info=True)
+        logger.warning("Failed to initialise OpenAI client — falling back", exc_info=True)
 
 
 class LLMService:
@@ -38,64 +42,217 @@ class LLMService:
     def query(self, question: str) -> QueryResponse:
         logger.info("LLMService.query called with question=%r", question)
 
-        # 1. Retrieve relevant KB entries
-        results = search(question, top_k=3)
+        results = search_all(question)
 
-        if not results:
+        if not results.has_results:
             return QueryResponse(
                 answer=(
-                    "I could not find a strong match for your query in the "
-                    "current knowledge base. Try rephrasing your question or "
-                    "asking about a specific autoimmune disease, cytokine "
-                    "pathway, or therapeutic target."
+                    "I could not find a match for your query in the current "
+                    "datasets. Try asking about a specific autoimmune disease "
+                    "(e.g., rheumatoid arthritis, lupus, multiple sclerosis), "
+                    "a cytokine pathway (e.g., JAK-STAT, NF-κB, IL-17), or "
+                    "a therapeutic (e.g., adalimumab, tofacitinib)."
                 ),
                 sources=[],
             )
 
-        # 2. If OpenAI is available, synthesise an answer using KB context
         if _openai_client is not None:
             return self._llm_answer(question, results)
 
-        # 3. Fallback: return the best KB match directly
-        return self._kb_answer(question, results)
+        return self._local_answer(question, results)
 
     # ------------------------------------------------------------------
-    # Knowledge-base-only answer (no external API needed)
+    # Local answer — no external API required
     # ------------------------------------------------------------------
     @staticmethod
-    def _kb_answer(question: str, results: list) -> QueryResponse:
-        """Compose an answer from the top KB hits."""
-        primary = results[0].entry
+    def _local_answer(question: str, sr: SearchResult) -> QueryResponse:
+        """Compose a structured answer from all matched data sources."""
+        sections: list[str] = []
+        sources: list[str] = []
 
-        parts = [primary.answer]
+        # 1. Primary KB narrative
+        if sr.kb_hits:
+            primary = sr.kb_hits[0].entry
+            sections.append(primary.answer)
+            for hit in sr.kb_hits:
+                sources.extend(hit.entry.sources)
+            for hit in sr.kb_hits[1:]:
+                if hit.score > 0.1:
+                    sections.append(
+                        f"\n**Related — {hit.entry.topic}:**\n{hit.entry.answer}"
+                    )
 
-        # Append supplementary context from lower-ranked hits
-        for r in results[1:]:
-            if r.score > 0.1:
+        # 2. Disease context
+        if sr.disease_hits:
+            dis = sr.disease_hits[0]
+            parts = [f"\n**Disease context — {dis['disease_name']}:**"]
+            parts.append(dis["description"])
+            if dis.get("prevalence"):
+                parts.append(f"Prevalence: {dis['prevalence']}.")
+            if dis.get("pathogenic_mechanisms"):
                 parts.append(
-                    f"\n\nRelated — {r.entry.topic}:\n{r.entry.answer}"
+                    "Key pathogenic mechanisms: "
+                    + ", ".join(dis["pathogenic_mechanisms"]) + "."
                 )
+            if dis.get("key_cell_types"):
+                parts.append(
+                    "Key cell types involved: "
+                    + ", ".join(dis["key_cell_types"]) + "."
+                )
+            if dis.get("hla_associations"):
+                parts.append(
+                    "HLA associations: "
+                    + ", ".join(dis["hla_associations"]) + "."
+                )
+            if dis.get("autoantibodies"):
+                parts.append(
+                    "Diagnostic autoantibodies: "
+                    + ", ".join(dis["autoantibodies"]) + "."
+                )
+            genes = dis.get("associated_genes", [])
+            if genes:
+                gene_strs = []
+                for g in genes[:8]:
+                    gene_strs.append(
+                        f"{g['gene']} ({g.get('association_type', 'associated')}, "
+                        f"score: {g.get('score', 'N/A')})"
+                    )
+                parts.append("Top associated genes: " + "; ".join(gene_strs) + ".")
+            sections.append("\n".join(parts))
+            for ref in dis.get("references", []):
+                sources.append(ref)
 
-        all_sources: list[str] = []
-        for r in results:
-            all_sources.extend(r.entry.sources)
+        # 3. Pathway context
+        if sr.pathway_hits:
+            pw = sr.pathway_hits[0]
+            parts = [f"\n**Pathway — {pw['pathway_name']}** ({pw['pathway_id']}):"]
+            parts.append(pw["description"])
+            nodes = pw.get("key_nodes", [])
+            if nodes:
+                node_strs = [f"{n['gene']} ({n.get('role', '')})" for n in nodes[:6]]
+                parts.append("Key components: " + ", ".join(node_strs) + ".")
+            parts.append(f"Total pathway interactions: {pw.get('edges_count', '?')}.")
+            targets = pw.get("therapeutic_targets", [])
+            if targets:
+                tgt_strs = [
+                    f"{t['drug']} → {t['target']} ({t.get('mechanism', '')})"
+                    for t in targets[:4]
+                ]
+                parts.append("Therapeutic targets: " + "; ".join(tgt_strs) + ".")
+            sections.append("\n".join(parts))
+            for ref in pw.get("references", []):
+                sources.append(ref)
 
-        return QueryResponse(answer="\n".join(parts), sources=all_sources)
+        # 4. Cytokine network interactions
+        if sr.cytokine_hits:
+            parts = ["\n**Relevant cytokine interactions:**"]
+            for edge in sr.cytokine_hits[:6]:
+                parts.append(
+                    f"• {edge['source']} → {edge['target']} "
+                    f"({edge['edge_type']}) — {edge['description']}"
+                )
+                if edge.get("pmid"):
+                    sources.append(f"PMID:{edge['pmid']}")
+            sections.append("\n".join(parts))
+
+        # 5. Therapeutics
+        if sr.therapeutic_hits:
+            parts = ["\n**Relevant therapeutics:**"]
+            for rx in sr.therapeutic_hits[:4]:
+                indications = [
+                    ind["disease"] for ind in rx.get("approved_indications", [])
+                ]
+                parts.append(
+                    f"• **{rx['drug_name']}** ({rx['brand_name']}) — "
+                    f"{rx['drug_class']}. Target: {rx['target']}. "
+                    f"{rx['mechanism']}. "
+                    f"Approved for: {', '.join(indications[:5])}."
+                )
+                for trial in rx.get("pivotal_trials", [])[:1]:
+                    parts.append(
+                        f"  Pivotal trial: {trial.get('trial_name', '')} — "
+                        f"{trial.get('result', '')} "
+                        f"(PMID:{trial.get('pmid', 'N/A')})"
+                    )
+                    if trial.get("pmid"):
+                        sources.append(f"PMID:{trial['pmid']}")
+            sections.append("\n".join(parts))
+
+        # Deduplicate sources
+        seen: set[str] = set()
+        unique_sources: list[str] = []
+        for s in sources:
+            if s not in seen:
+                seen.add(s)
+                unique_sources.append(s)
+
+        return QueryResponse(
+            answer="\n".join(sections),
+            sources=unique_sources,
+        )
 
     # ------------------------------------------------------------------
     # LLM-augmented answer (OpenAI)
     # ------------------------------------------------------------------
     @staticmethod
-    def _llm_answer(question: str, results: list) -> QueryResponse:
-        """Send KB context + question to OpenAI for a synthesised answer."""
-        context_blocks = []
-        all_sources: list[str] = []
-        for r in results:
+    def _llm_answer(question: str, sr: SearchResult) -> QueryResponse:
+        """Send full dataset context to OpenAI for synthesis."""
+        context_blocks: list[str] = []
+        sources: list[str] = []
+
+        # KB context
+        for hit in sr.kb_hits:
             context_blocks.append(
-                f"### {r.entry.topic}\n{r.entry.answer}\n"
-                f"Sources: {'; '.join(r.entry.sources)}"
+                f"### {hit.entry.topic}\n{hit.entry.answer}\n"
+                f"Sources: {'; '.join(hit.entry.sources)}"
             )
-            all_sources.extend(r.entry.sources)
+            sources.extend(hit.entry.sources)
+
+        # Disease context
+        for dis in sr.disease_hits[:2]:
+            context_blocks.append(
+                f"### Disease: {dis['disease_name']}\n{dis['description']}\n"
+                f"Mechanisms: {', '.join(dis.get('pathogenic_mechanisms', []))}\n"
+                f"Cell types: {', '.join(dis.get('key_cell_types', []))}\n"
+                f"Genes: {json.dumps(dis.get('associated_genes', [])[:8])}"
+            )
+            sources.extend(dis.get("references", []))
+
+        # Pathway context
+        for pw in sr.pathway_hits[:2]:
+            context_blocks.append(
+                f"### Pathway: {pw['pathway_name']} ({pw['pathway_id']})\n"
+                f"{pw['description']}\n"
+                f"Key nodes: {json.dumps(pw.get('key_nodes', [])[:8])}\n"
+                f"Therapeutic targets: {json.dumps(pw.get('therapeutic_targets', []))}"
+            )
+            sources.extend(pw.get("references", []))
+
+        # Cytokine context
+        if sr.cytokine_hits:
+            edges_str = "\n".join(
+                f"- {e['source']} → {e['target']} ({e['edge_type']}): {e['description']}"
+                for e in sr.cytokine_hits[:8]
+            )
+            context_blocks.append(f"### Cytokine Network\n{edges_str}")
+            for e in sr.cytokine_hits[:8]:
+                if e.get("pmid"):
+                    sources.append(f"PMID:{e['pmid']}")
+
+        # Therapeutics context
+        if sr.therapeutic_hits:
+            rx_strs = []
+            for rx in sr.therapeutic_hits[:4]:
+                indications = [i["disease"] for i in rx.get("approved_indications", [])]
+                rx_strs.append(
+                    f"- {rx['drug_name']} ({rx['brand_name']}): {rx['drug_class']}, "
+                    f"target={rx['target']}, {rx['mechanism']}. "
+                    f"Indications: {', '.join(indications[:5])}"
+                )
+                for trial in rx.get("pivotal_trials", [])[:1]:
+                    if trial.get("pmid"):
+                        sources.append(f"PMID:{trial['pmid']}")
+            context_blocks.append("### Therapeutics\n" + "\n".join(rx_strs))
 
         context = "\n\n".join(context_blocks)
 
@@ -107,10 +264,10 @@ class LLMService:
                         "role": "system",
                         "content": (
                             "You are Autoimmune Intelligence, a research assistant "
-                            "that synthesises immunological evidence. Answer the "
-                            "user's question using ONLY the provided context. "
-                            "Cite sources by author and journal. Be precise and "
-                            "evidence-based. If the context is insufficient, say so."
+                            "that synthesises immunological evidence from curated "
+                            "datasets. Answer using ONLY the provided context. "
+                            "Structure your answer with clear sections. Cite sources "
+                            "by PMID or author/journal. Be precise and evidence-based."
                         ),
                     },
                     {
@@ -118,16 +275,25 @@ class LLMService:
                         "content": (
                             f"Context:\n{context}\n\n"
                             f"Question: {question}\n\n"
-                            "Provide a detailed, structured answer."
+                            "Provide a detailed, structured answer covering disease "
+                            "mechanisms, relevant pathways, cytokine interactions, "
+                            "and available therapeutics where applicable."
                         ),
                     },
                 ],
                 temperature=0.3,
-                max_tokens=1024,
+                max_tokens=1500,
             )
-            answer = response.choices[0].message.content or results[0].entry.answer
+            answer = response.choices[0].message.content or ""
         except Exception:
-            logger.warning("OpenAI call failed — falling back to KB", exc_info=True)
-            return LLMService._kb_answer(question, results)
+            logger.warning("OpenAI call failed — falling back to local", exc_info=True)
+            return LLMService._local_answer(question, sr)
 
-        return QueryResponse(answer=answer, sources=all_sources)
+        if not answer:
+            return LLMService._local_answer(question, sr)
+
+        # Deduplicate sources
+        seen: set[str] = set()
+        unique_sources = [s for s in sources if s not in seen and not seen.add(s)]  # type: ignore[func-returns-value]
+
+        return QueryResponse(answer=answer, sources=unique_sources)

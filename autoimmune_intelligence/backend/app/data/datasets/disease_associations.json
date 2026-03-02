@@ -1,0 +1,690 @@
+{
+  "metadata": {
+    "name": "Autoimmune Disease-Gene Associations",
+    "description": "Curated disease-gene associations for major autoimmune diseases, including pathogenic mechanisms, key cell types, HLA associations, autoantibodies, and approved therapies. Gene associations include GWAS hits, functional variants, and expression studies.",
+    "sources": ["GWAS Catalog", "DisGeNET", "OMIM", "ClinVar", "PubMed", "ImmunoBase"],
+    "version": "1.0.0",
+    "record_count": 12
+  },
+  "diseases": [
+    {
+      "disease_id": "DOID:7148",
+      "disease_name": "Rheumatoid arthritis",
+      "description": "Chronic systemic autoimmune disease characterized by persistent synovitis, cartilage destruction, and bone erosion. Driven by aberrant T cell and B cell activation, pro-inflammatory cytokine networks (TNF, IL-6, IL-1), and autoantibody production (RF, ACPA). Affects approximately 0.5-1% of the global population with a female predominance.",
+      "prevalence": "0.5-1% globally, female:male ratio 3:1",
+      "pathogenic_mechanisms": [
+        "Synovial inflammation and pannus formation",
+        "TNF/IL-6/IL-1 cytokine cascade",
+        "Citrullination and ACPA-mediated immune complex formation",
+        "Th1/Th17 polarization in the synovium",
+        "Osteoclast activation via RANKL",
+        "Fibroblast-like synoviocyte (FLS) invasive phenotype",
+        "NF-κB and JAK-STAT dysregulation"
+      ],
+      "key_cell_types": [
+        "CD4+ Th1 and Th17 cells",
+        "B cells and plasma cells",
+        "Macrophages (M1 polarized)",
+        "Fibroblast-like synoviocytes",
+        "Osteoclasts",
+        "Dendritic cells",
+        "Neutrophils"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.98, "description": "Shared epitope alleles confer strongest genetic risk for seropositive RA"},
+        {"gene": "PTPN22", "locus": "1p13.2", "association_type": "GWAS", "score": 0.95, "description": "R620W variant alters T cell receptor signaling threshold and B cell autoreactivity"},
+        {"gene": "STAT4", "locus": "2q32.2", "association_type": "GWAS", "score": 0.88, "description": "Risk alleles enhance IFN-gamma and IL-12 signaling in T cells"},
+        {"gene": "CTLA4", "locus": "2q33.2", "association_type": "GWAS", "score": 0.85, "description": "Polymorphisms reduce co-inhibitory signaling, promoting T cell activation"},
+        {"gene": "TRAF1-C5", "locus": "9q33.2", "association_type": "GWAS", "score": 0.82, "description": "Modulates TNF receptor signaling and complement activation"},
+        {"gene": "CCR6", "locus": "6q27", "association_type": "GWAS", "score": 0.78, "description": "Chemokine receptor involved in Th17 cell migration to inflamed synovium"},
+        {"gene": "IL6ST", "locus": "5q11.2", "association_type": "GWAS", "score": 0.76, "description": "Encodes gp130 subunit of IL-6 receptor complex; critical for IL-6 trans-signaling"},
+        {"gene": "CD40", "locus": "20q13.12", "association_type": "GWAS", "score": 0.74, "description": "Co-stimulatory molecule essential for B cell activation and germinal center formation"},
+        {"gene": "PADI4", "locus": "1p36.13", "association_type": "GWAS", "score": 0.80, "description": "Peptidylarginine deiminase 4 catalyzes citrullination of proteins, generating ACPA targets"},
+        {"gene": "IL2RA", "locus": "10p15.1", "association_type": "GWAS", "score": 0.72, "description": "CD25 variant affects regulatory T cell homeostasis"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*04:01",
+        "HLA-DRB1*04:04",
+        "HLA-DRB1*01:01",
+        "HLA-DRB1*10:01"
+      ],
+      "autoantibodies": [
+        "Rheumatoid Factor (RF, anti-IgG Fc)",
+        "Anti-citrullinated protein antibodies (ACPA/anti-CCP)",
+        "Anti-carbamylated protein antibodies (anti-CarP)"
+      ],
+      "approved_therapies": [
+        {"drug": "Methotrexate", "class": "csDMARD"},
+        {"drug": "Adalimumab", "class": "Anti-TNF biologic"},
+        {"drug": "Tocilizumab", "class": "Anti-IL-6R biologic"},
+        {"drug": "Abatacept", "class": "CTLA4-Ig co-stimulation blocker"},
+        {"drug": "Tofacitinib", "class": "JAK inhibitor"},
+        {"drug": "Rituximab", "class": "Anti-CD20 biologic"},
+        {"drug": "Baricitinib", "class": "JAK inhibitor"}
+      ],
+      "key_references": [
+        "PMID:21480190",
+        "PMID:20453842",
+        "PMID:29417936",
+        "PMID:27974040"
+      ]
+    },
+    {
+      "disease_id": "DOID:9074",
+      "disease_name": "Systemic lupus erythematosus",
+      "description": "Multi-organ autoimmune disease characterized by loss of self-tolerance, autoantibody production (anti-dsDNA, anti-Smith), immune complex deposition, and type I interferon dysregulation. Affects skin, joints, kidneys, CNS, and blood. Predominantly affects women of childbearing age with strong genetic and environmental contributions.",
+      "prevalence": "20-150 per 100,000; female:male ratio 9:1",
+      "pathogenic_mechanisms": [
+        "Type I interferon overproduction and ISG signature",
+        "Defective clearance of apoptotic debris",
+        "Immune complex deposition in kidneys and vasculature",
+        "TLR7/TLR9 activation by self-nucleic acids",
+        "Loss of B cell tolerance and plasmablast expansion",
+        "Complement consumption (C3, C4)",
+        "NETosis and neutrophil extracellular trap pathology"
+      ],
+      "key_cell_types": [
+        "Plasmacytoid dendritic cells (IFN-alpha source)",
+        "Autoreactive B cells and plasma cells",
+        "CD4+ T follicular helper cells",
+        "Low-density granulocytes (NETosis)",
+        "Monocytes (inflammatory)",
+        "CD8+ cytotoxic T cells"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.95, "description": "Multiple alleles confer risk for lupus, especially DRB1*03:01 and DRB1*15:01"},
+        {"gene": "IRF5", "locus": "7q32.1", "association_type": "GWAS", "score": 0.93, "description": "Transcription factor critical for type I IFN production; risk haplotype increases expression"},
+        {"gene": "STAT4", "locus": "2q32.2", "association_type": "GWAS", "score": 0.90, "description": "Mediates IL-12 and IFN-alpha signaling; risk allele enhances Th1 responses"},
+        {"gene": "ITGAM", "locus": "16p11.2", "association_type": "GWAS", "score": 0.88, "description": "Encodes CD11b (complement receptor 3); variants impair immune complex clearance"},
+        {"gene": "TNFAIP3", "locus": "6q23.3", "association_type": "GWAS", "score": 0.87, "description": "Encodes A20 ubiquitin-editing enzyme; loss of function amplifies NF-κB signaling"},
+        {"gene": "BLK", "locus": "8p23.1", "association_type": "GWAS", "score": 0.82, "description": "B lymphocyte kinase involved in B cell receptor signaling"},
+        {"gene": "TNFSF4", "locus": "1q25.1", "association_type": "GWAS", "score": 0.79, "description": "OX40L co-stimulatory molecule promotes T cell-B cell interactions"},
+        {"gene": "PTPN22", "locus": "1p13.2", "association_type": "GWAS", "score": 0.85, "description": "R620W variant affects lymphocyte signaling threshold"},
+        {"gene": "C1Q", "locus": "1p36.12", "association_type": "Mendelian", "score": 0.99, "description": "Homozygous C1q deficiency causes lupus in >90% of cases; impairs apoptotic cell clearance"},
+        {"gene": "TREX1", "locus": "3p21.31", "association_type": "Rare variant", "score": 0.91, "description": "Exonuclease mutations cause Aicardi-Goutières and lupus-like syndromes via cytosolic DNA accumulation"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*03:01",
+        "HLA-DRB1*15:01",
+        "HLA-DRB1*08:01"
+      ],
+      "autoantibodies": [
+        "Anti-dsDNA antibodies",
+        "Anti-Smith (Sm) antibodies",
+        "Anti-Ro/SSA and anti-La/SSB",
+        "Anti-U1 RNP",
+        "Anti-ribosomal P",
+        "Antiphospholipid antibodies"
+      ],
+      "approved_therapies": [
+        {"drug": "Hydroxychloroquine", "class": "Antimalarial"},
+        {"drug": "Belimumab", "class": "Anti-BLyS/BAFF biologic"},
+        {"drug": "Anifrolumab", "class": "Anti-IFNAR1 biologic"},
+        {"drug": "Voclosporin", "class": "Calcineurin inhibitor"},
+        {"drug": "Mycophenolate mofetil", "class": "Antimetabolite immunosuppressant"},
+        {"drug": "Cyclophosphamide", "class": "Alkylating immunosuppressant"}
+      ],
+      "key_references": [
+        "PMID:31273436",
+        "PMID:28983090",
+        "PMID:25124676",
+        "PMID:33411321"
+      ]
+    },
+    {
+      "disease_id": "DOID:2377",
+      "disease_name": "Multiple sclerosis",
+      "description": "Chronic inflammatory demyelinating disease of the central nervous system. Autoreactive T cells cross the blood-brain barrier and attack myelin sheaths, leading to axonal damage and neurodegeneration. Characterized by relapsing-remitting or progressive courses with focal white matter lesions on MRI.",
+      "prevalence": "30-100 per 100,000; female:male ratio 2.5:1",
+      "pathogenic_mechanisms": [
+        "Blood-brain barrier breakdown and immune cell infiltration",
+        "Th1 and Th17 cell-mediated myelin destruction",
+        "Microglial activation and oxidative stress",
+        "Oligodendrocyte damage and demyelination",
+        "B cell-derived meningeal ectopic lymphoid tissue",
+        "Complement-mediated demyelination",
+        "Axonal degeneration and neurofilament release"
+      ],
+      "key_cell_types": [
+        "CD4+ Th1 and Th17 cells",
+        "CD8+ cytotoxic T cells",
+        "B cells (meningeal follicles)",
+        "Microglia (CNS-resident macrophages)",
+        "Oligodendrocytes (target)",
+        "Astrocytes (scar formation)",
+        "Plasma cells (intrathecal IgG)"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.97, "description": "DRB1*15:01 is the strongest genetic risk factor for MS, presenting myelin peptides to CD4+ T cells"},
+        {"gene": "IL2RA", "locus": "10p15.1", "association_type": "GWAS", "score": 0.85, "description": "CD25 variant affects Treg function and IL-2 signaling"},
+        {"gene": "IL7RA", "locus": "5p13.2", "association_type": "GWAS", "score": 0.84, "description": "Encodes IL-7 receptor alpha; variant alters T cell homeostasis and survival"},
+        {"gene": "CD58", "locus": "1p13.1", "association_type": "GWAS", "score": 0.80, "description": "LFA-3 ligand for CD2; modulates T cell activation and NK cell function"},
+        {"gene": "CLEC16A", "locus": "16p13.13", "association_type": "GWAS", "score": 0.78, "description": "Involved in autophagy and thymic selection; risk variant may impair central tolerance"},
+        {"gene": "EVI5", "locus": "1p22.1", "association_type": "GWAS", "score": 0.76, "description": "Cell cycle regulator; risk variant linked to T cell proliferation dysregulation"},
+        {"gene": "TYK2", "locus": "19p13.2", "association_type": "GWAS", "score": 0.75, "description": "JAK family kinase mediating IFN and IL-12 signaling; protective variants reduce kinase activity"},
+        {"gene": "CD40", "locus": "20q13.12", "association_type": "GWAS", "score": 0.73, "description": "Risk variant increases CD40 expression on antigen-presenting cells"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*15:01",
+        "HLA-DRB1*03:01",
+        "HLA-A*02:01 (protective)"
+      ],
+      "autoantibodies": [
+        "Oligoclonal bands (intrathecal IgG)",
+        "Anti-MOG antibodies (subset)",
+        "Anti-AQP4 antibodies (NMOSD differential)"
+      ],
+      "approved_therapies": [
+        {"drug": "Ocrelizumab", "class": "Anti-CD20 biologic"},
+        {"drug": "Natalizumab", "class": "Anti-α4-integrin biologic"},
+        {"drug": "Fingolimod", "class": "S1P receptor modulator"},
+        {"drug": "Dimethyl fumarate", "class": "Nrf2 activator"},
+        {"drug": "Interferon beta-1a", "class": "Type I interferon"},
+        {"drug": "Glatiramer acetate", "class": "MBP-mimicking copolymer"},
+        {"drug": "Ofatumumab", "class": "Anti-CD20 biologic"},
+        {"drug": "Cladribine", "class": "Purine nucleoside analog"}
+      ],
+      "key_references": [
+        "PMID:29275977",
+        "PMID:21833088",
+        "PMID:28182659",
+        "PMID:31675176"
+      ]
+    },
+    {
+      "disease_id": "DOID:9744",
+      "disease_name": "Type 1 diabetes",
+      "description": "Organ-specific autoimmune disease resulting from T cell-mediated destruction of insulin-producing pancreatic beta cells. Characterized by progressive loss of beta cell mass leading to absolute insulin deficiency. Involves genetic susceptibility (HLA-DR/DQ), environmental triggers, and islet autoantibodies that predict disease onset.",
+      "prevalence": "15-30 per 100,000 per year (incidence); varies by geography",
+      "pathogenic_mechanisms": [
+        "CD8+ T cell-mediated beta cell killing",
+        "Insulitis (islet immune infiltration)",
+        "Th1 cytokine-driven inflammation (IFN-gamma, TNF, IL-1beta)",
+        "Loss of peripheral and central tolerance to islet autoantigens",
+        "Beta cell ER stress and unfolded protein response",
+        "Defective Treg function in pancreatic lymph nodes"
+      ],
+      "key_cell_types": [
+        "CD8+ cytotoxic T cells (islet-specific)",
+        "CD4+ Th1 cells",
+        "Regulatory T cells (defective)",
+        "Macrophages (insulitis)",
+        "B cells (autoantibody production)",
+        "Pancreatic beta cells (target)"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DQB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.98, "description": "DQB1*03:02 and DQB1*02:01 confer highest risk; DQB1*06:02 is strongly protective"},
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.97, "description": "DR3-DQ2 and DR4-DQ8 haplotypes account for ~50% of genetic risk"},
+        {"gene": "INS", "locus": "11p15.5", "association_type": "GWAS", "score": 0.92, "description": "Variable number tandem repeat (VNTR) in insulin gene promoter affects thymic insulin expression and central tolerance"},
+        {"gene": "PTPN22", "locus": "1p13.2", "association_type": "GWAS", "score": 0.90, "description": "R620W variant affects T cell receptor signaling and negative selection"},
+        {"gene": "CTLA4", "locus": "2q33.2", "association_type": "GWAS", "score": 0.85, "description": "Reduced inhibitory co-stimulation promotes autoreactive T cell activation"},
+        {"gene": "IL2RA", "locus": "10p15.1", "association_type": "GWAS", "score": 0.83, "description": "CD25 variants impair Treg development and IL-2 signaling"},
+        {"gene": "ERBB3", "locus": "12q13.2", "association_type": "GWAS", "score": 0.75, "description": "Receptor tyrosine kinase involved in beta cell regeneration"},
+        {"gene": "SH2B3", "locus": "12q24.12", "association_type": "GWAS", "score": 0.77, "description": "LNK adaptor protein negatively regulates cytokine signaling; risk variant increases inflammatory responses"}
+      ],
+      "hla_associations": [
+        "HLA-DR3-DQ2 (DRB1*03:01-DQB1*02:01)",
+        "HLA-DR4-DQ8 (DRB1*04:01-DQB1*03:02)",
+        "HLA-DQB1*06:02 (protective)"
+      ],
+      "autoantibodies": [
+        "Insulin autoantibodies (IAA)",
+        "GAD65 antibodies (GADA)",
+        "IA-2 antibodies (IA-2A)",
+        "ZnT8 antibodies (ZnT8A)",
+        "Islet cell antibodies (ICA)"
+      ],
+      "approved_therapies": [
+        {"drug": "Insulin (multiple formulations)", "class": "Hormone replacement"},
+        {"drug": "Teplizumab", "class": "Anti-CD3 biologic (delays onset)"}
+      ],
+      "key_references": [
+        "PMID:31649364",
+        "PMID:29422235",
+        "PMID:21508263",
+        "PMID:36599415"
+      ]
+    },
+    {
+      "disease_id": "DOID:0050589",
+      "disease_name": "Inflammatory bowel disease",
+      "description": "Chronic inflammatory conditions of the gastrointestinal tract encompassing Crohn's disease and ulcerative colitis. Driven by dysregulated mucosal immune responses to gut microbiota in genetically susceptible individuals. Involves barrier dysfunction, innate and adaptive immune activation, and tissue remodeling.",
+      "prevalence": "0.3-0.5% in Western countries; rising incidence globally",
+      "pathogenic_mechanisms": [
+        "Intestinal barrier dysfunction and increased permeability",
+        "Dysbiosis and aberrant immune response to commensal bacteria",
+        "Th1/Th17 polarization (Crohn's) and Th2/NKT activation (UC)",
+        "TNF and IL-23/IL-17 axis-driven mucosal inflammation",
+        "Defective autophagy and intracellular bacterial handling",
+        "Innate immune defects (NOD2, defensin production)",
+        "Fibrosis and stricture formation (Crohn's)"
+      ],
+      "key_cell_types": [
+        "Intestinal epithelial cells (barrier)",
+        "Lamina propria macrophages",
+        "Th1 and Th17 cells",
+        "ILC3 (innate lymphoid cells)",
+        "Neutrophils (crypt abscesses)",
+        "Paneth cells (defensin production)",
+        "Goblet cells (mucus barrier)"
+      ],
+      "associated_genes": [
+        {"gene": "NOD2", "locus": "16q12.1", "association_type": "GWAS", "score": 0.96, "description": "Intracellular pattern recognition receptor for muramyl dipeptide; three coding variants (R702W, G908R, L1007fs) confer risk for Crohn's disease"},
+        {"gene": "ATG16L1", "locus": "2q37.1", "association_type": "GWAS", "score": 0.90, "description": "Autophagy gene; T300A variant impairs xenophagy and Paneth cell function"},
+        {"gene": "IL23R", "locus": "1p31.3", "association_type": "GWAS", "score": 0.88, "description": "IL-23 receptor variant modulates Th17 responses; protective R381Q variant"},
+        {"gene": "IRGM", "locus": "5q33.1", "association_type": "GWAS", "score": 0.82, "description": "Immunity-related GTPase involved in autophagy of intracellular bacteria"},
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.80, "description": "Multiple HLA alleles contribute to UC and CD susceptibility"},
+        {"gene": "IL10", "locus": "1q32.1", "association_type": "GWAS", "score": 0.78, "description": "Anti-inflammatory cytokine; rare mutations cause very early-onset IBD"},
+        {"gene": "LRRK2", "locus": "12q12", "association_type": "GWAS", "score": 0.75, "description": "Leucine-rich repeat kinase shared risk locus with Parkinson's disease; involved in autophagy and inflammation"},
+        {"gene": "CARD9", "locus": "9q34.3", "association_type": "GWAS", "score": 0.77, "description": "NF-κB activator downstream of innate immune receptors; variant affects antifungal immunity"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*01:03 (UC)",
+        "HLA-DRB1*07:01 (CD protection)"
+      ],
+      "autoantibodies": [
+        "pANCA (perinuclear anti-neutrophil cytoplasmic antibodies, UC)",
+        "ASCA (anti-Saccharomyces cerevisiae antibodies, CD)"
+      ],
+      "approved_therapies": [
+        {"drug": "Infliximab", "class": "Anti-TNF biologic"},
+        {"drug": "Vedolizumab", "class": "Anti-α4β7 integrin biologic"},
+        {"drug": "Ustekinumab", "class": "Anti-IL-12/23 p40 biologic"},
+        {"drug": "Risankizumab", "class": "Anti-IL-23 p19 biologic"},
+        {"drug": "Tofacitinib", "class": "JAK inhibitor (UC)"},
+        {"drug": "Ozanimod", "class": "S1P receptor modulator"},
+        {"drug": "Mesalamine", "class": "5-ASA (UC)"}
+      ],
+      "key_references": [
+        "PMID:28073791",
+        "PMID:26490195",
+        "PMID:29445417",
+        "PMID:31562015"
+      ]
+    },
+    {
+      "disease_id": "DOID:8893",
+      "disease_name": "Psoriasis",
+      "description": "Chronic immune-mediated skin disease driven by the IL-23/IL-17 axis, resulting in keratinocyte hyperproliferation, epidermal thickening, and characteristic scaly plaques. Associated with psoriatic arthritis, cardiovascular disease, and metabolic syndrome. Involves complex interactions between dendritic cells, T cells, and keratinocytes.",
+      "prevalence": "2-3% globally",
+      "pathogenic_mechanisms": [
+        "IL-23/IL-17 axis driving keratinocyte hyperproliferation",
+        "Dendritic cell activation and TNF/IL-23 production",
+        "Th17 and Tc17 cell accumulation in skin",
+        "Keratinocyte antimicrobial peptide (LL37) as autoantigen",
+        "Neutrophil recruitment (Munro microabscesses)",
+        "Angiogenesis and vascular remodeling",
+        "TNF amplification loop"
+      ],
+      "key_cell_types": [
+        "Th17 and Tc17 cells",
+        "Dendritic cells (myeloid and plasmacytoid)",
+        "Keratinocytes",
+        "Neutrophils",
+        "Gamma-delta T cells (IL-17 source)",
+        "ILC3 (innate lymphoid cells)",
+        "Mast cells"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-C", "locus": "6p21.33", "association_type": "GWAS", "score": 0.97, "description": "HLA-C*06:02 (PSORS1) is the strongest genetic determinant, presenting LL37 peptides to CD8+ T cells"},
+        {"gene": "IL12B", "locus": "5q33.3", "association_type": "GWAS", "score": 0.88, "description": "Encodes p40 subunit shared by IL-12 and IL-23; risk variant increases IL-23 production"},
+        {"gene": "IL23R", "locus": "1p31.3", "association_type": "GWAS", "score": 0.87, "description": "IL-23 receptor variant enhances Th17 differentiation and IL-17 production"},
+        {"gene": "TNFAIP3", "locus": "6q23.3", "association_type": "GWAS", "score": 0.84, "description": "A20 deubiquitinase; loss-of-function variants enhance NF-κB activity"},
+        {"gene": "TNIP1", "locus": "5q33.1", "association_type": "GWAS", "score": 0.80, "description": "A20-binding inhibitor of NF-κB; variant reduces inhibitory function"},
+        {"gene": "IL23A", "locus": "12q13.3", "association_type": "GWAS", "score": 0.82, "description": "Encodes p19 subunit of IL-23"},
+        {"gene": "TRAF3IP2", "locus": "6q21", "association_type": "GWAS", "score": 0.83, "description": "ACT1 adaptor protein mediating IL-17 receptor signaling; D10N variant alters NF-κB activation"},
+        {"gene": "NOS2", "locus": "17q11.2", "association_type": "GWAS", "score": 0.72, "description": "Inducible nitric oxide synthase; involved in keratinocyte inflammatory response"}
+      ],
+      "hla_associations": [
+        "HLA-C*06:02 (PSORS1)",
+        "HLA-B*27 (psoriatic arthritis)",
+        "HLA-B*57:01"
+      ],
+      "autoantibodies": [
+        "Anti-LL37 (cathelicidin) T cell responses",
+        "Anti-ADAMTSL5 T cell responses"
+      ],
+      "approved_therapies": [
+        {"drug": "Secukinumab", "class": "Anti-IL-17A biologic"},
+        {"drug": "Ixekizumab", "class": "Anti-IL-17A biologic"},
+        {"drug": "Guselkumab", "class": "Anti-IL-23 p19 biologic"},
+        {"drug": "Risankizumab", "class": "Anti-IL-23 p19 biologic"},
+        {"drug": "Adalimumab", "class": "Anti-TNF biologic"},
+        {"drug": "Apremilast", "class": "PDE4 inhibitor"},
+        {"drug": "Deucravacitinib", "class": "TYK2 inhibitor"}
+      ],
+      "key_references": [
+        "PMID:26551266",
+        "PMID:30451170",
+        "PMID:31158826",
+        "PMID:32437500"
+      ]
+    },
+    {
+      "disease_id": "DOID:7147",
+      "disease_name": "Ankylosing spondylitis",
+      "description": "Chronic inflammatory disease primarily affecting the axial skeleton and sacroiliac joints, characterized by enthesitis, new bone formation, and progressive spinal fusion (bamboo spine). Part of the spondyloarthritis spectrum. Unique pathology involves IL-17/IL-23 axis, mechanical stress responses, and aberrant osteoblast activation at entheseal sites.",
+      "prevalence": "0.1-0.5%; male:female ratio 2-3:1",
+      "pathogenic_mechanisms": [
+        "HLA-B27 misfolding and unfolded protein response",
+        "IL-23/IL-17 axis at entheseal sites",
+        "Enthesitis and mechanical stress-driven inflammation",
+        "Aberrant bone formation via Wnt signaling",
+        "Gut-joint axis (subclinical ileitis)",
+        "Innate immune activation (ILC3, gamma-delta T cells)",
+        "TNF-driven sacroiliitis"
+      ],
+      "key_cell_types": [
+        "Entheseal resident T cells",
+        "ILC3 (IL-17/IL-22 source)",
+        "Gamma-delta T cells",
+        "Th17 cells",
+        "Macrophages (entheseal)",
+        "Osteoblasts (new bone formation)",
+        "Mast cells"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-B", "locus": "6p21.33", "association_type": "GWAS", "score": 0.99, "description": "HLA-B*27 present in >90% of patients; misfolding triggers UPR and IL-23 production"},
+        {"gene": "IL23R", "locus": "1p31.3", "association_type": "GWAS", "score": 0.88, "description": "IL-23 receptor; protective R381Q variant reduces Th17 differentiation"},
+        {"gene": "ERAP1", "locus": "5q15", "association_type": "GWAS", "score": 0.87, "description": "Aminopeptidase that trims peptides for HLA-B27 loading; epistatic interaction with HLA-B27"},
+        {"gene": "IL1R2", "locus": "2q11.2", "association_type": "GWAS", "score": 0.78, "description": "Decoy receptor for IL-1; variant affects IL-1 signaling intensity"},
+        {"gene": "RUNX3", "locus": "1p36.11", "association_type": "GWAS", "score": 0.76, "description": "Transcription factor involved in CD8+ T cell and ILC3 development"},
+        {"gene": "TYK2", "locus": "19p13.2", "association_type": "GWAS", "score": 0.74, "description": "JAK family kinase downstream of IL-23R; protective variants reduce kinase activity"},
+        {"gene": "LTBR", "locus": "12p13.31", "association_type": "GWAS", "score": 0.72, "description": "Lymphotoxin beta receptor involved in lymphoid tissue organogenesis"}
+      ],
+      "hla_associations": [
+        "HLA-B*27:05",
+        "HLA-B*27:02",
+        "HLA-B*27:04"
+      ],
+      "autoantibodies": [],
+      "approved_therapies": [
+        {"drug": "Secukinumab", "class": "Anti-IL-17A biologic"},
+        {"drug": "Ixekizumab", "class": "Anti-IL-17A biologic"},
+        {"drug": "Adalimumab", "class": "Anti-TNF biologic"},
+        {"drug": "Certolizumab pegol", "class": "Anti-TNF biologic"},
+        {"drug": "Tofacitinib", "class": "JAK inhibitor"},
+        {"drug": "Upadacitinib", "class": "JAK inhibitor"}
+      ],
+      "key_references": [
+        "PMID:28153718",
+        "PMID:26077840",
+        "PMID:21743469",
+        "PMID:30360964"
+      ]
+    },
+    {
+      "disease_id": "DOID:12549",
+      "disease_name": "Sjögren's syndrome",
+      "description": "Chronic autoimmune disease targeting exocrine glands (salivary and lacrimal), causing sicca symptoms (dry eyes and mouth). Characterized by lymphocytic infiltration of glands, B cell hyperactivity, and risk of B cell lymphoma. Can occur as primary disease or secondary to other autoimmune conditions.",
+      "prevalence": "0.5-1 per 1,000; female:male ratio 9:1",
+      "pathogenic_mechanisms": [
+        "Lymphocytic infiltration of exocrine glands",
+        "Ectopic germinal center formation in salivary glands",
+        "Type I interferon signature",
+        "B cell hyperactivity and hypergammaglobulinemia",
+        "BAFF/BLyS overexpression promoting B cell survival",
+        "Epithelial cell apoptosis via Fas/FasL",
+        "Aquaporin-5 dysfunction reducing secretion"
+      ],
+      "key_cell_types": [
+        "CD4+ T cells (glandular infiltrate)",
+        "B cells and plasma cells",
+        "Follicular dendritic cells (ectopic GC)",
+        "Epithelial cells (both target and antigen presenter)",
+        "Plasmacytoid dendritic cells (IFN source)",
+        "NK cells"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.94, "description": "DRB1*03:01 is strongly associated with anti-Ro/SSA positive Sjögren's"},
+        {"gene": "IRF5", "locus": "7q32.1", "association_type": "GWAS", "score": 0.88, "description": "Interferon regulatory factor; risk haplotype enhances type I IFN production"},
+        {"gene": "STAT4", "locus": "2q32.2", "association_type": "GWAS", "score": 0.84, "description": "Mediates IFN-alpha and IL-12 signaling"},
+        {"gene": "BLK", "locus": "8p23.1", "association_type": "GWAS", "score": 0.80, "description": "B lymphocyte kinase; risk variant affects B cell receptor signaling"},
+        {"gene": "TNFAIP3", "locus": "6q23.3", "association_type": "GWAS", "score": 0.79, "description": "A20 ubiquitin editor; variants amplify NF-κB signaling"},
+        {"gene": "CXCR5", "locus": "11q23.3", "association_type": "GWAS", "score": 0.75, "description": "Chemokine receptor for follicular homing; involved in ectopic GC formation"},
+        {"gene": "TNFSF4", "locus": "1q25.1", "association_type": "GWAS", "score": 0.74, "description": "OX40L co-stimulatory molecule promoting T-B cell interaction"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*03:01",
+        "HLA-DQB1*02:01",
+        "HLA-B*08"
+      ],
+      "autoantibodies": [
+        "Anti-Ro/SSA (52 kDa and 60 kDa)",
+        "Anti-La/SSB",
+        "Rheumatoid factor",
+        "Anti-muscarinic M3 receptor antibodies"
+      ],
+      "approved_therapies": [
+        {"drug": "Pilocarpine", "class": "Muscarinic agonist"},
+        {"drug": "Cevimeline", "class": "Muscarinic agonist"},
+        {"drug": "Hydroxychloroquine", "class": "Antimalarial"},
+        {"drug": "Rituximab", "class": "Anti-CD20 biologic (off-label)"}
+      ],
+      "key_references": [
+        "PMID:26688700",
+        "PMID:30655390",
+        "PMID:31036710",
+        "PMID:27137956"
+      ]
+    },
+    {
+      "disease_id": "DOID:418",
+      "disease_name": "Systemic sclerosis",
+      "description": "Complex autoimmune disease characterized by vasculopathy, immune activation, and progressive fibrosis of skin and internal organs. Early vascular injury triggers immune activation and fibroblast differentiation to myofibroblasts, leading to excessive extracellular matrix deposition. Classified as limited cutaneous (lcSSc) or diffuse cutaneous (dcSSc) subtypes.",
+      "prevalence": "10-30 per 100,000; female:male ratio 4:1",
+      "pathogenic_mechanisms": [
+        "Endothelial cell injury and vasculopathy",
+        "Myofibroblast activation and ECM deposition",
+        "TGF-β and PDGF-driven fibrosis",
+        "IL-4/IL-13 Th2 polarization promoting fibrosis",
+        "Complement and immune complex-mediated vascular damage",
+        "Raynaud phenomenon and digital ischemia",
+        "Anti-endothelial cell antibody-mediated injury"
+      ],
+      "key_cell_types": [
+        "Myofibroblasts (fibrosis effectors)",
+        "Endothelial cells (vascular target)",
+        "CD4+ Th2 cells",
+        "Macrophages (M2 profibrotic)",
+        "B cells and plasma cells",
+        "Pericytes",
+        "Mast cells"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.90, "description": "DRB1*11:04 associated with anti-topoisomerase I (dcSSc); DRB1*01:04 with anti-centromere (lcSSc)"},
+        {"gene": "IRF5", "locus": "7q32.1", "association_type": "GWAS", "score": 0.85, "description": "Interferon regulatory factor; risk variant enhances type I IFN and inflammatory cytokine production"},
+        {"gene": "STAT4", "locus": "2q32.2", "association_type": "GWAS", "score": 0.82, "description": "Transcription factor mediating IFN and IL-12 signaling"},
+        {"gene": "BANK1", "locus": "4q24", "association_type": "GWAS", "score": 0.78, "description": "B cell scaffold protein; risk variant affects B cell receptor signaling"},
+        {"gene": "TNFSF4", "locus": "1q25.1", "association_type": "GWAS", "score": 0.76, "description": "OX40L co-stimulatory molecule"},
+        {"gene": "CD247", "locus": "1q24.2", "association_type": "GWAS", "score": 0.74, "description": "CD3 zeta chain of TCR complex; variant affects T cell activation"},
+        {"gene": "CTGF", "locus": "6q23.2", "association_type": "Expression", "score": 0.88, "description": "Connective tissue growth factor; overexpressed in SSc fibroblasts, mediates TGF-β profibrotic effects"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*11:04 (anti-Scl-70/dcSSc)",
+        "HLA-DRB1*01:04 (anti-centromere/lcSSc)",
+        "HLA-DPB1*13:01 (anti-RNA polymerase III)"
+      ],
+      "autoantibodies": [
+        "Anti-centromere antibodies (ACA, lcSSc)",
+        "Anti-topoisomerase I (Scl-70, dcSSc)",
+        "Anti-RNA polymerase III",
+        "Anti-U3 RNP (fibrillarin)",
+        "Anti-Th/To"
+      ],
+      "approved_therapies": [
+        {"drug": "Nintedanib", "class": "Tyrosine kinase inhibitor (SSc-ILD)"},
+        {"drug": "Tocilizumab", "class": "Anti-IL-6R biologic (SSc-ILD)"},
+        {"drug": "Mycophenolate mofetil", "class": "Antimetabolite (skin/lung)"},
+        {"drug": "Rituximab", "class": "Anti-CD20 biologic (off-label)"}
+      ],
+      "key_references": [
+        "PMID:28413064",
+        "PMID:25936566",
+        "PMID:30061363",
+        "PMID:31537253"
+      ]
+    },
+    {
+      "disease_id": "DOID:437",
+      "disease_name": "Myasthenia gravis",
+      "description": "Antibody-mediated autoimmune disease of the neuromuscular junction. Autoantibodies against acetylcholine receptors (AChR), muscle-specific kinase (MuSK), or LRP4 impair neuromuscular transmission, causing fluctuating skeletal muscle weakness and fatigability. Thymic abnormalities (thymoma, thymic hyperplasia) are common.",
+      "prevalence": "15-25 per 100,000",
+      "pathogenic_mechanisms": [
+        "Anti-AChR antibody-mediated complement activation at NMJ",
+        "Accelerated AChR endocytosis (antigenic modulation)",
+        "Blockade of AChR ligand binding site",
+        "Anti-MuSK antibody disruption of AChR clustering",
+        "Complement-mediated destruction of postsynaptic membrane",
+        "Thymic B cell activation and ectopic germinal centers",
+        "Treg dysfunction in thymus"
+      ],
+      "key_cell_types": [
+        "B cells and plasma cells (autoantibody source)",
+        "CD4+ T follicular helper cells",
+        "Thymic epithelial cells",
+        "Regulatory T cells (defective)",
+        "Complement (C3, MAC)",
+        "Skeletal muscle cells (target)"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DRB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.88, "description": "DRB1*03:01 associated with early-onset AChR+ MG; DRB1*14 with MuSK+ MG"},
+        {"gene": "CHRNA1", "locus": "2q31.1", "association_type": "Target", "score": 0.99, "description": "Encodes AChR alpha subunit; primary autoantigen in ~85% of patients"},
+        {"gene": "MUSK", "locus": "9q31.3", "association_type": "Target", "score": 0.95, "description": "Muscle-specific kinase; autoantigen in ~5-10% of MG patients (AChR-negative)"},
+        {"gene": "CTLA4", "locus": "2q33.2", "association_type": "GWAS", "score": 0.80, "description": "T cell co-inhibitory receptor; variant affects peripheral tolerance"},
+        {"gene": "PTPN22", "locus": "1p13.2", "association_type": "GWAS", "score": 0.77, "description": "Lymphocyte phosphatase affecting signaling threshold"},
+        {"gene": "TNFRSF11A", "locus": "18q21.33", "association_type": "GWAS", "score": 0.73, "description": "RANK receptor; variant may influence thymic development"}
+      ],
+      "hla_associations": [
+        "HLA-DRB1*03:01 (early-onset, AChR+)",
+        "HLA-B*08 (early-onset)",
+        "HLA-DRB1*14 (MuSK+ MG)"
+      ],
+      "autoantibodies": [
+        "Anti-AChR antibodies (~85%)",
+        "Anti-MuSK antibodies (~5-10%)",
+        "Anti-LRP4 antibodies (~2-5%)",
+        "Anti-titin antibodies (thymoma-associated)",
+        "Anti-ryanodine receptor antibodies"
+      ],
+      "approved_therapies": [
+        {"drug": "Pyridostigmine", "class": "Acetylcholinesterase inhibitor"},
+        {"drug": "Eculizumab", "class": "Anti-C5 complement inhibitor"},
+        {"drug": "Ravulizumab", "class": "Anti-C5 complement inhibitor"},
+        {"drug": "Efgartigimod", "class": "FcRn antagonist (IgG reduction)"},
+        {"drug": "Rozanolixizumab", "class": "FcRn antagonist"},
+        {"drug": "Rituximab", "class": "Anti-CD20 biologic (MuSK+)"}
+      ],
+      "key_references": [
+        "PMID:27086501",
+        "PMID:31373627",
+        "PMID:34546060",
+        "PMID:28007879"
+      ]
+    },
+    {
+      "disease_id": "DOID:12143",
+      "disease_name": "ANCA-associated vasculitis",
+      "description": "Group of necrotizing small-vessel vasculitides including granulomatosis with polyangiitis (GPA), microscopic polyangiitis (MPA), and eosinophilic granulomatosis with polyangiitis (EGPA). ANCA autoantibodies (PR3-ANCA or MPO-ANCA) activate neutrophils, causing endothelial damage and organ involvement (kidneys, lungs, ENT).",
+      "prevalence": "2-25 per 100,000; varies by subtype",
+      "pathogenic_mechanisms": [
+        "ANCA-mediated neutrophil activation and degranulation",
+        "Neutrophil extracellular trap (NET) formation",
+        "Endothelial injury and necrotizing vasculitis",
+        "Complement alternative pathway activation (C5a-C5aR axis)",
+        "Granuloma formation (GPA)",
+        "Th17 and Th1 immune responses",
+        "Monocyte and macrophage activation"
+      ],
+      "key_cell_types": [
+        "Neutrophils (ANCA-activated)",
+        "Monocytes and macrophages",
+        "CD4+ T cells (Th1 and Th17)",
+        "B cells and plasma cells (ANCA source)",
+        "Endothelial cells (target)",
+        "Dendritic cells",
+        "Eosinophils (EGPA)"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DPB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.95, "description": "DPB1*04:01 strongly associated with PR3-ANCA/GPA"},
+        {"gene": "SERPINA1", "locus": "14q32.13", "association_type": "GWAS", "score": 0.87, "description": "Encodes alpha-1 antitrypsin (PR3 inhibitor); Z allele increases GPA risk by impairing PR3 neutralization"},
+        {"gene": "PRTN3", "locus": "19p13.3", "association_type": "GWAS", "score": 0.85, "description": "Encodes proteinase 3 (PR3); expression level on neutrophils correlates with disease activity"},
+        {"gene": "HLA-DQB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.83, "description": "Associations with MPO-ANCA subtype"},
+        {"gene": "CTLA4", "locus": "2q33.2", "association_type": "GWAS", "score": 0.75, "description": "T cell co-inhibitory receptor variant"},
+        {"gene": "PTPN22", "locus": "1p13.2", "association_type": "GWAS", "score": 0.73, "description": "R620W variant affects lymphocyte signaling; associated with GPA"}
+      ],
+      "hla_associations": [
+        "HLA-DPB1*04:01 (GPA/PR3-ANCA)",
+        "HLA-DQB1 (MPA/MPO-ANCA)"
+      ],
+      "autoantibodies": [
+        "PR3-ANCA (c-ANCA, GPA)",
+        "MPO-ANCA (p-ANCA, MPA)",
+        "Anti-LAMP2 antibodies"
+      ],
+      "approved_therapies": [
+        {"drug": "Rituximab", "class": "Anti-CD20 biologic"},
+        {"drug": "Avacopan", "class": "C5a receptor antagonist"},
+        {"drug": "Cyclophosphamide", "class": "Alkylating immunosuppressant"},
+        {"drug": "Mepolizumab", "class": "Anti-IL-5 biologic (EGPA)"}
+      ],
+      "key_references": [
+        "PMID:29409564",
+        "PMID:22808956",
+        "PMID:33596357",
+        "PMID:28157464"
+      ]
+    },
+    {
+      "disease_id": "DOID:7188",
+      "disease_name": "Celiac disease",
+      "description": "Immune-mediated enteropathy triggered by dietary gluten in genetically susceptible individuals (HLA-DQ2/DQ8). Tissue transglutaminase (tTG) deamidates gliadin peptides, creating high-affinity HLA-DQ2/DQ8 ligands that activate CD4+ T cells, driving villous atrophy, crypt hyperplasia, and intraepithelial lymphocytosis.",
+      "prevalence": "~1% globally (many undiagnosed)",
+      "pathogenic_mechanisms": [
+        "Gliadin peptide deamidation by tissue transglutaminase",
+        "HLA-DQ2/DQ8-restricted CD4+ T cell activation",
+        "IL-15-driven intraepithelial cytotoxic T cell expansion",
+        "NKG2D-mediated epithelial cell killing",
+        "Anti-tTG antibody-mediated tissue damage",
+        "Intestinal barrier dysfunction",
+        "Villous atrophy and crypt hyperplasia"
+      ],
+      "key_cell_types": [
+        "CD4+ gluten-reactive T cells (lamina propria)",
+        "Intraepithelial CD8+ T cells (NKG2D+)",
+        "B cells and plasma cells (anti-tTG source)",
+        "Dendritic cells (antigen presentation)",
+        "Intestinal epithelial cells (target)",
+        "Goblet cells"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-DQA1/DQB1", "locus": "6p21.32", "association_type": "GWAS", "score": 0.99, "description": "HLA-DQ2.5 (DQA1*05:01/DQB1*02:01) present in ~90% of patients; HLA-DQ8 in most remaining cases"},
+        {"gene": "IL2/IL21", "locus": "4q27", "association_type": "GWAS", "score": 0.85, "description": "Shared locus affecting T cell proliferation and differentiation"},
+        {"gene": "SH2B3", "locus": "12q24.12", "association_type": "GWAS", "score": 0.80, "description": "LNK adaptor protein; risk variant increases T cell activation"},
+        {"gene": "CCR3", "locus": "3p21.31", "association_type": "GWAS", "score": 0.76, "description": "Chemokine receptor involved in immune cell recruitment to gut"},
+        {"gene": "IL18RAP", "locus": "2q12.1", "association_type": "GWAS", "score": 0.78, "description": "IL-18 receptor accessory protein; IL-18 drives IFN-gamma production by intraepithelial lymphocytes"},
+        {"gene": "RGS1", "locus": "1q31.2", "association_type": "GWAS", "score": 0.74, "description": "Regulator of G-protein signaling; affects T cell homing to gut"},
+        {"gene": "TGM2", "locus": "20q11.23", "association_type": "Target", "score": 0.99, "description": "Tissue transglutaminase 2; deamidates gliadin peptides and is the primary autoantigen"}
+      ],
+      "hla_associations": [
+        "HLA-DQ2.5 (DQA1*05:01/DQB1*02:01)",
+        "HLA-DQ8 (DQA1*03/DQB1*03:02)",
+        "HLA-DQ2.2 (DQA1*02:01/DQB1*02:02)"
+      ],
+      "autoantibodies": [
+        "Anti-tissue transglutaminase IgA (tTG-IgA)",
+        "Anti-endomysial antibodies (EMA)",
+        "Anti-deamidated gliadin peptide antibodies (DGP)"
+      ],
+      "approved_therapies": [
+        {"drug": "Gluten-free diet", "class": "Dietary intervention (primary treatment)"}
+      ],
+      "key_references": [
+        "PMID:29551598",
+        "PMID:25044680",
+        "PMID:28244676",
+        "PMID:31431149"
+      ]
+    }
+  ]
+}
