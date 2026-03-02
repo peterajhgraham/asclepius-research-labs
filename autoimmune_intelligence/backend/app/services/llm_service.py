@@ -16,7 +16,7 @@ import logging
 from typing import Any, Optional
 
 from app.core.config import settings
-from app.models.schema import QueryResponse
+from app.models.schema import QueryResponse, StructuredReasoning
 from app.services.query_engine import search_all, SearchResult
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,117 @@ class LLMService:
         return self._local_answer(question, results)
 
     # ------------------------------------------------------------------
+    # Structured reasoning extraction from search results
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _extract_reasoning(sr: SearchResult) -> StructuredReasoning:
+        """Extract structured immune reasoning from aggregated search hits."""
+        cells: list[str] = []
+        cytokines: list[str] = []
+        pathways: list[str] = []
+        targets: list[str] = []
+        genes: list[str] = []
+        open_qs: list[str] = []
+        summary_parts: list[str] = []
+        disease_ctx = ""
+
+        # From disease hits
+        if sr.disease_hits:
+            dis = sr.disease_hits[0]
+            disease_ctx = dis["description"]
+            if dis.get("prevalence"):
+                disease_ctx += f" Prevalence: {dis['prevalence']}."
+            cells.extend(dis.get("key_cell_types", []))
+            for mech in dis.get("pathogenic_mechanisms", []):
+                summary_parts.append(mech)
+            for g in dis.get("associated_genes", [])[:8]:
+                label = g["gene"]
+                if g.get("description"):
+                    label += f" — {g['description']}"
+                genes.append(label)
+            for rx in dis.get("approved_therapies", []):
+                targets.append(f"{rx['drug']} ({rx['class']})")
+
+        # From pathway hits
+        for pw in sr.pathway_hits[:3]:
+            pathways.append(f"{pw['pathway_name']} — {pw['description'][:120]}")
+            for tgt in pw.get("therapeutic_targets", [])[:3]:
+                entry = f"{tgt.get('drug', '?')} targeting {tgt.get('target', '?')}"
+                if tgt.get("mechanism"):
+                    entry += f" ({tgt['mechanism']})"
+                if entry not in targets:
+                    targets.append(entry)
+
+        # From cytokine hits
+        seen_cytokines: set[str] = set()
+        for edge in sr.cytokine_hits[:10]:
+            src, tgt = edge["source"], edge["target"]
+            desc = edge["description"]
+            if src not in seen_cytokines:
+                seen_cytokines.add(src)
+                cytokines.append(f"{src} — {desc[:100]}")
+            if tgt not in seen_cytokines and len(cytokines) < 10:
+                seen_cytokines.add(tgt)
+
+        # From therapeutic hits
+        for rx in sr.therapeutic_hits[:5]:
+            indications = [i["disease"] for i in rx.get("approved_indications", [])[:3]]
+            entry = (
+                f"{rx['drug_name']} ({rx['brand_name']}) — {rx['drug_class']}, "
+                f"targets {rx['target']}. {rx['mechanism'][:120]}. "
+                f"Approved for: {', '.join(indications)}"
+            )
+            if entry not in targets:
+                targets.append(entry)
+
+        # From KB hits — build summary
+        if sr.kb_hits:
+            summary_parts.insert(0, sr.kb_hits[0].entry.answer)
+
+        # Generate open questions / hypotheses
+        if sr.disease_hits:
+            dis = sr.disease_hits[0]
+            name = dis["disease_name"]
+            open_qs.append(
+                f"What environmental triggers initiate tolerance breakdown in {name}?"
+            )
+            if dis.get("associated_genes"):
+                top_gene = dis["associated_genes"][0]["gene"]
+                open_qs.append(
+                    f"How do {top_gene} risk variants interact with epigenetic "
+                    f"modifications to drive disease onset?"
+                )
+            if dis.get("key_cell_types"):
+                open_qs.append(
+                    f"Can Treg-based cell therapy restore immune tolerance in {name}?"
+                )
+        if sr.pathway_hits:
+            pw = sr.pathway_hits[0]
+            open_qs.append(
+                f"Are there undiscovered feedback loops in {pw['pathway_name']} "
+                f"that could be therapeutically exploited?"
+            )
+        if sr.therapeutic_hits:
+            rx = sr.therapeutic_hits[0]
+            open_qs.append(
+                f"Could combination therapy with {rx['drug_name']} and a "
+                f"pathway-specific agent improve treatment response?"
+            )
+
+        summary = "\n\n".join(summary_parts) if summary_parts else ""
+
+        return StructuredReasoning(
+            summary=summary,
+            key_cells=cells,
+            key_cytokines=cytokines,
+            pathways=pathways,
+            therapeutic_targets=targets,
+            open_questions=open_qs,
+            genes=genes,
+            disease_context=disease_ctx,
+        )
+
+    # ------------------------------------------------------------------
     # Local answer — no external API required
     # ------------------------------------------------------------------
     @staticmethod
@@ -89,35 +200,6 @@ class LLMService:
             parts.append(dis["description"])
             if dis.get("prevalence"):
                 parts.append(f"Prevalence: {dis['prevalence']}.")
-            if dis.get("pathogenic_mechanisms"):
-                parts.append(
-                    "Key pathogenic mechanisms: "
-                    + ", ".join(dis["pathogenic_mechanisms"]) + "."
-                )
-            if dis.get("key_cell_types"):
-                parts.append(
-                    "Key cell types involved: "
-                    + ", ".join(dis["key_cell_types"]) + "."
-                )
-            if dis.get("hla_associations"):
-                parts.append(
-                    "HLA associations: "
-                    + ", ".join(dis["hla_associations"]) + "."
-                )
-            if dis.get("autoantibodies"):
-                parts.append(
-                    "Diagnostic autoantibodies: "
-                    + ", ".join(dis["autoantibodies"]) + "."
-                )
-            genes = dis.get("associated_genes", [])
-            if genes:
-                gene_strs = []
-                for g in genes[:8]:
-                    gene_strs.append(
-                        f"{g['gene']} ({g.get('association_type', 'associated')}, "
-                        f"score: {g.get('score', 'N/A')})"
-                    )
-                parts.append("Top associated genes: " + "; ".join(gene_strs) + ".")
             sections.append("\n".join(parts))
             for ref in dis.get("references", []):
                 sources.append(ref)
@@ -127,18 +209,6 @@ class LLMService:
             pw = sr.pathway_hits[0]
             parts = [f"\n**Pathway — {pw['pathway_name']}** ({pw['pathway_id']}):"]
             parts.append(pw["description"])
-            nodes = pw.get("key_nodes", [])
-            if nodes:
-                node_strs = [f"{n['gene']} ({n.get('role', '')})" for n in nodes[:6]]
-                parts.append("Key components: " + ", ".join(node_strs) + ".")
-            parts.append(f"Total pathway interactions: {pw.get('edges_count', '?')}.")
-            targets = pw.get("therapeutic_targets", [])
-            if targets:
-                tgt_strs = [
-                    f"{t['drug']} → {t['target']} ({t.get('mechanism', '')})"
-                    for t in targets[:4]
-                ]
-                parts.append("Therapeutic targets: " + "; ".join(tgt_strs) + ".")
             sections.append("\n".join(parts))
             for ref in pw.get("references", []):
                 sources.append(ref)
@@ -148,7 +218,7 @@ class LLMService:
             parts = ["\n**Relevant cytokine interactions:**"]
             for edge in sr.cytokine_hits[:6]:
                 parts.append(
-                    f"• {edge['source']} → {edge['target']} "
+                    f"{edge['source']} -> {edge['target']} "
                     f"({edge['edge_type']}) — {edge['description']}"
                 )
                 if edge.get("pmid"):
@@ -163,17 +233,11 @@ class LLMService:
                     ind["disease"] for ind in rx.get("approved_indications", [])
                 ]
                 parts.append(
-                    f"• **{rx['drug_name']}** ({rx['brand_name']}) — "
+                    f"{rx['drug_name']} ({rx['brand_name']}) — "
                     f"{rx['drug_class']}. Target: {rx['target']}. "
-                    f"{rx['mechanism']}. "
                     f"Approved for: {', '.join(indications[:5])}."
                 )
                 for trial in rx.get("pivotal_trials", [])[:1]:
-                    parts.append(
-                        f"  Pivotal trial: {trial.get('trial_name', '')} — "
-                        f"{trial.get('result', '')} "
-                        f"(PMID:{trial.get('pmid', 'N/A')})"
-                    )
                     if trial.get("pmid"):
                         sources.append(f"PMID:{trial['pmid']}")
             sections.append("\n".join(parts))
@@ -186,9 +250,12 @@ class LLMService:
                 seen.add(s)
                 unique_sources.append(s)
 
+        reasoning = LLMService._extract_reasoning(sr)
+
         return QueryResponse(
             answer="\n".join(sections),
             sources=unique_sources,
+            reasoning=reasoning,
         )
 
     # ------------------------------------------------------------------
@@ -231,7 +298,7 @@ class LLMService:
         # Cytokine context
         if sr.cytokine_hits:
             edges_str = "\n".join(
-                f"- {e['source']} → {e['target']} ({e['edge_type']}): {e['description']}"
+                f"- {e['source']} -> {e['target']} ({e['edge_type']}): {e['description']}"
                 for e in sr.cytokine_hits[:8]
             )
             context_blocks.append(f"### Cytokine Network\n{edges_str}")
@@ -296,4 +363,6 @@ class LLMService:
         seen: set[str] = set()
         unique_sources = [s for s in sources if s not in seen and not seen.add(s)]  # type: ignore[func-returns-value]
 
-        return QueryResponse(answer=answer, sources=unique_sources)
+        reasoning = LLMService._extract_reasoning(sr)
+
+        return QueryResponse(answer=answer, sources=unique_sources, reasoning=reasoning)

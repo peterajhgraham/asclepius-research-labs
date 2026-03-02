@@ -1,202 +1,221 @@
 "use client";
 
 import { useState, useRef, useEffect, type FormEvent } from "react";
-import { submitQuery } from "@/lib/api";
+import { submitQuery, type QueryResponse } from "@/lib/api";
+import ResponseCard from "@/components/ResponseCard";
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  sources?: string[];
+interface ConversationEntry {
+  question: string;
+  response: QueryResponse | null;
+  loading: boolean;
+  error: string | null;
 }
 
 const EXAMPLE_PROMPTS = [
   "Rheumatoid arthritis cytokine pathways",
-  "Lupus interferon signaling",
+  "JAK-STAT dysregulation in lupus",
   "T cell exhaustion in autoimmunity",
+  "IL-23/IL-17 axis in psoriasis",
+  "TNF signaling and therapeutic targets",
+  "Multiple sclerosis pathogenesis",
 ];
 
 export default function HomePage() {
-  const [question, setQuestion] = useState<string>("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [question, setQuestion] = useState("");
+  const [entries, setEntries] = useState<ConversationEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entries]);
 
   async function handleSubmit(e?: FormEvent<HTMLFormElement>) {
     if (e) e.preventDefault();
     const trimmed = question.trim();
-    if (!trimmed) return;
+    if (!trimmed || loading) return;
 
-    const userMessage: ChatMessage = { role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMessage]);
+    const idx = entries.length;
+    const entry: ConversationEntry = {
+      question: trimmed,
+      response: null,
+      loading: true,
+      error: null,
+    };
+
+    setEntries((prev) => [...prev, entry]);
     setQuestion("");
     setLoading(true);
-    setError(null);
 
     try {
       const result = await submitQuery({ question: trimmed });
-      const aiMessage: ChatMessage = {
-        role: "assistant",
-        content: result.answer,
-        sources: result.sources,
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+      setEntries((prev) =>
+        prev.map((e, i) =>
+          i === idx ? { ...e, response: result, loading: false } : e
+        )
+      );
     } catch (err: unknown) {
       let detail = "Unable to reach the analysis service.";
       if (err && typeof err === "object" && "response" in err) {
         const res = (err as { response?: { data?: { error?: string } } }).response;
         if (res?.data?.error) detail = res.data.error;
       }
-      setError(detail);
+      setEntries((prev) =>
+        prev.map((e, i) =>
+          i === idx ? { ...e, error: detail, loading: false } : e
+        )
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  function handleExampleClick(example: string) {
-    setQuestion(example);
-  }
-
-  function formatPubMedLink(source: string): { text: string; href: string | null } {
-    const pmidMatch = source.match(/PMID:\s*(\d+)/i);
-    if (pmidMatch) {
-      return {
-        text: source,
-        href: `https://pubmed.ncbi.nlm.nih.gov/${pmidMatch[1]}/`,
-      };
-    }
-    return { text: source, href: null };
-  }
+  const isEmpty = entries.length === 0;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pt-24 pb-16">
-      {/* Header */}
-      <div className="mb-8 text-center">
-        <span className="inline-block rounded-full bg-brand-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-700">
-          Research Platform
-        </span>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          Autoimmune Intelligence
-        </h1>
-        <p className="mt-4 max-w-xl text-base text-gray-500">
-          Submit a clinical or mechanistic question. Our AI synthesises
-          immunological evidence and surfaces structured insights with
-          literature references.
-        </p>
-      </div>
-
-      {/* Example Prompts */}
-      {messages.length === 0 && (
-        <div className="mb-6 flex flex-wrap justify-center gap-2">
-          {EXAMPLE_PROMPTS.map((example) => (
-            <button
-              key={example}
-              onClick={() => handleExampleClick(example)}
-              className="rounded-full bg-gray-100 px-4 py-1.5 text-sm text-gray-700 transition hover:bg-gray-200"
-            >
-              {example}
-            </button>
-          ))}
+    <main className="flex min-h-screen flex-col bg-surface-0">
+      {/* Top bar */}
+      <header className="sticky top-0 z-40 border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-600/20 text-accent-400">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold text-gray-100 tracking-tight">
+                Autoimmune Intelligence
+              </h1>
+              <p className="text-xs text-muted">
+                Immune reasoning copilot
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="hidden sm:inline-block rounded-full border border-surface-4 px-3 py-1 text-xs text-muted">
+              {entries.length} {entries.length === 1 ? "query" : "queries"}
+            </span>
+          </div>
         </div>
-      )}
+      </header>
 
-      {/* Chat Messages */}
-      <div className="w-full max-w-2xl flex-1 space-y-4">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`rounded-xl p-4 ${
-              msg.role === "user"
-                ? "ml-auto max-w-[80%] bg-brand-100 text-right text-gray-900"
-                : "mr-auto max-w-[90%] border border-gray-200 bg-white shadow-sm"
-            }`}
-          >
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">
-              {msg.content}
+      {/* Content area */}
+      <div className="flex-1">
+        {/* Empty state */}
+        {isEmpty && (
+          <div className="mx-auto flex max-w-3xl flex-col items-center px-6 pt-24 pb-8">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-gray-100 sm:text-3xl">
+              Autoimmune Intelligence
+            </h2>
+            <p className="mt-2 text-center text-sm text-muted max-w-md">
+              Structured immune reasoning for hypothesis generation.
+              Ask about disease mechanisms, cytokine networks, pathways, or therapeutics.
             </p>
 
-            {msg.sources && msg.sources.length > 0 && (
-              <div className="mt-3 border-t border-gray-100 pt-2">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-brand-600">
-                  Sources
-                </p>
-                <ul className="space-y-0.5">
-                  {msg.sources.map((src, i) => {
-                    const { text, href } = formatPubMedLink(src);
-                    return (
-                      <li key={i} className="text-xs text-gray-500">
-                        {href ? (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline hover:text-brand-700"
-                          >
-                            {text}
-                          </a>
-                        ) : (
-                          text
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+            <div className="mt-10 w-full max-w-lg">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-dim">
+                Try a query
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {EXAMPLE_PROMPTS.map((example) => (
+                  <button
+                    key={example}
+                    onClick={() => setQuestion(example)}
+                    className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-left text-sm text-gray-300 transition hover:border-surface-4 hover:bg-surface-2 hover:text-gray-100"
+                  >
+                    {example}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        ))}
-
-        {/* Loading Animation */}
-        {loading && (
-          <div className="mr-auto flex max-w-[90%] items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
-            <span className="animate-pulse text-sm text-brand-600">
-              Analyzing...
-            </span>
+            </div>
           </div>
         )}
 
-        <div ref={messagesEndRef} />
+        {/* Results */}
+        {!isEmpty && (
+          <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
+            {entries.map((entry, idx) => (
+              <div key={idx}>
+                {/* User query */}
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-xs font-semibold text-accent-400">
+                    Q
+                  </div>
+                  <p className="pt-0.5 text-sm font-medium text-gray-100">
+                    {entry.question}
+                  </p>
+                </div>
+
+                {/* Loading state */}
+                {entry.loading && (
+                  <div className="ml-10 flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
+                    <span className="animate-pulse text-sm text-muted-light">
+                      Reasoning across datasets...
+                    </span>
+                  </div>
+                )}
+
+                {/* Error state */}
+                {entry.error && (
+                  <div className="ml-10 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                    {entry.error}
+                  </div>
+                )}
+
+                {/* Response */}
+                {entry.response && (
+                  <div className="ml-10">
+                    <ResponseCard data={entry.response} />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div ref={bottomRef} />
+          </div>
+        )}
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div className="mt-4 w-full max-w-2xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Query form */}
-      <form
-        onSubmit={handleSubmit}
-        className="mt-6 w-full max-w-2xl"
-      >
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g. What drives JAK-STAT dysregulation in lupus?"
-            disabled={loading}
-            className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={loading || !question.trim()}
-            className="rounded-xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="animate-pulse">Analysing...</span>
-            ) : (
-              "Query"
-            )}
-          </button>
-        </div>
-      </form>
+      {/* Input area — sticky bottom */}
+      <div className="sticky bottom-0 border-t border-surface-3 bg-surface-0/90 backdrop-blur-md">
+        <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-6 py-4">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask about a disease mechanism, pathway, or therapeutic target..."
+              disabled={loading}
+              className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={loading || !question.trim()}
+              className="rounded-lg bg-accent-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Reasoning
+                </span>
+              ) : (
+                "Analyze"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }
