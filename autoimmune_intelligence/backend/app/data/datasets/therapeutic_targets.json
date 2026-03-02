@@ -1,0 +1,1160 @@
+{
+  "metadata": {
+    "name": "Autoimmune Therapeutics and Clinical Evidence",
+    "description": "FDA/EMA-approved biologics and small molecules for autoimmune diseases with mechanism of action and pivotal trial data",
+    "sources": ["FDA", "EMA", "ClinicalTrials.gov", "PubMed"],
+    "version": "1.0.0",
+    "record_count": 32
+  },
+  "therapeutics": [
+    {
+      "drug_name": "Adalimumab",
+      "brand_name": "Humira",
+      "drug_class": "Anti-TNF monoclonal antibody",
+      "target": "TNF-alpha",
+      "target_type": "Cytokine",
+      "mechanism": "Binds soluble and transmembrane TNF-alpha, blocking interaction with p55 (TNFR1) and p75 (TNFR2) cell-surface receptors, thereby neutralizing TNF-mediated inflammatory signaling",
+      "molecular_type": "Fully human IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2002, "regulatory": "FDA"},
+        {"disease": "Juvenile idiopathic arthritis", "year": 2008, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2005, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2006, "regulatory": "FDA"},
+        {"disease": "Crohn's disease", "year": 2007, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2012, "regulatory": "FDA"},
+        {"disease": "Plaque psoriasis", "year": 2008, "regulatory": "FDA"},
+        {"disease": "Hidradenitis suppurativa", "year": 2015, "regulatory": "FDA"},
+        {"disease": "Uveitis", "year": 2016, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "ARMADA",
+          "nct_id": "NCT00195702",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at week 24",
+          "result": "67% vs 15% placebo at week 24",
+          "pmid": "12794661"
+        },
+        {
+          "trial_name": "CLASSIC I",
+          "nct_id": "NCT00055523",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical remission at week 4 in Crohn's disease",
+          "result": "36% vs 12% placebo achieved remission at week 4",
+          "pmid": "16339095"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Tuberculosis reactivation", "Lymphoma risk", "Hepatitis B reactivation", "Demyelinating disease", "Heart failure exacerbation"],
+      "biosimilars": ["Amjevita (adalimumab-atto)", "Hadlima (adalimumab-bwwd)", "Hyrimoz (adalimumab-adaz)", "Cyltezo (adalimumab-adbm)", "Yusimry (adalimumab-aqvh)"]
+    },
+    {
+      "drug_name": "Infliximab",
+      "brand_name": "Remicade",
+      "drug_class": "Anti-TNF monoclonal antibody",
+      "target": "TNF-alpha",
+      "target_type": "Cytokine",
+      "mechanism": "Chimeric monoclonal antibody that binds soluble and transmembrane TNF-alpha with high affinity, preventing TNF-alpha from binding to its receptors and inducing complement-mediated lysis of TNF-expressing cells",
+      "molecular_type": "Chimeric (mouse/human) IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Crohn's disease", "year": 1998, "regulatory": "FDA"},
+        {"disease": "Rheumatoid arthritis", "year": 1999, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2005, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2004, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2005, "regulatory": "FDA"},
+        {"disease": "Plaque psoriasis", "year": 2006, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "ATTRACT",
+          "nct_id": "NCT00269867",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at week 30",
+          "result": "50-58% vs 20% placebo achieved ACR20 at week 30",
+          "pmid": "10817012"
+        },
+        {
+          "trial_name": "ACT 1",
+          "nct_id": "NCT00036439",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical response at week 8 in ulcerative colitis",
+          "result": "69% vs 37% placebo achieved clinical response at week 8",
+          "pmid": "16339095"
+        }
+      ],
+      "safety_signals": ["Infusion reactions", "Serious infections", "Tuberculosis reactivation", "Hepatotoxicity", "Lymphoma risk", "Anti-drug antibodies"],
+      "biosimilars": ["Inflectra (infliximab-dyyb)", "Renflexis (infliximab-abda)", "Avsola (infliximab-axxq)", "Ixifi (infliximab-qbtx)"]
+    },
+    {
+      "drug_name": "Etanercept",
+      "brand_name": "Enbrel",
+      "drug_class": "Anti-TNF fusion protein",
+      "target": "TNF-alpha and TNF-beta (lymphotoxin-alpha)",
+      "target_type": "Cytokine",
+      "mechanism": "Dimeric fusion protein consisting of the extracellular ligand-binding domain of TNFR2 (p75) fused to the Fc portion of human IgG1; acts as a decoy receptor that competitively binds TNF-alpha and lymphotoxin-alpha, preventing their interaction with cell-surface TNF receptors",
+      "molecular_type": "TNFR2-Fc fusion protein",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 1998, "regulatory": "FDA"},
+        {"disease": "Juvenile idiopathic arthritis", "year": 1999, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2002, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2003, "regulatory": "FDA"},
+        {"disease": "Plaque psoriasis", "year": 2004, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "Moreland et al. Phase III",
+          "nct_id": "NCT00000771",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at month 6",
+          "result": "59% vs 11% placebo achieved ACR20 at 6 months",
+          "pmid": "9920956"
+        },
+        {
+          "trial_name": "TEMPO",
+          "nct_id": "NCT00393471",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR-N AUC over 24 weeks in RA (combination with methotrexate)",
+          "result": "Etanercept + MTX superior to either monotherapy; ACR20 85% combination vs 76% etanercept alone",
+          "pmid": "15457449"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Tuberculosis (lower risk than anti-TNF mAbs)", "Injection site reactions", "Demyelinating disorders", "Heart failure"],
+      "biosimilars": ["Erelzi (etanercept-szzs)", "Eticovo (etanercept-ykro)"]
+    },
+    {
+      "drug_name": "Certolizumab pegol",
+      "brand_name": "Cimzia",
+      "drug_class": "Anti-TNF PEGylated Fab' fragment",
+      "target": "TNF-alpha",
+      "target_type": "Cytokine",
+      "mechanism": "PEGylated humanized Fab' antibody fragment that binds and neutralizes soluble and membrane-bound TNF-alpha; lacks an Fc region so does not fix complement or cause antibody-dependent cell-mediated cytotoxicity; PEGylation extends half-life",
+      "molecular_type": "PEGylated humanized Fab' antibody fragment",
+      "approved_indications": [
+        {"disease": "Crohn's disease", "year": 2008, "regulatory": "FDA"},
+        {"disease": "Rheumatoid arthritis", "year": 2009, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2013, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2013, "regulatory": "FDA"},
+        {"disease": "Plaque psoriasis", "year": 2018, "regulatory": "FDA"},
+        {"disease": "Non-radiographic axial spondyloarthritis", "year": 2019, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "RAPID 1",
+          "nct_id": "NCT00152386",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at week 24",
+          "result": "58.8% (200 mg) and 60.8% (400 mg) vs 13.6% placebo at week 24",
+          "pmid": "18821657"
+        },
+        {
+          "trial_name": "PRECiSE 1",
+          "nct_id": "NCT00152425",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical response at week 6 and week 26 in Crohn's disease",
+          "result": "35% vs 27% placebo achieved response at both week 6 and 26",
+          "pmid": "17628557"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Tuberculosis reactivation", "Lymphoma risk", "Heart failure", "Injection site reactions"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Golimumab",
+      "brand_name": "Simponi",
+      "drug_class": "Anti-TNF monoclonal antibody",
+      "target": "TNF-alpha",
+      "target_type": "Cytokine",
+      "mechanism": "Fully human IgG1 kappa monoclonal antibody that binds both soluble and transmembrane bioactive forms of TNF-alpha, preventing binding to TNF receptors and neutralizing TNF-alpha biological activity",
+      "molecular_type": "Fully human IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2009, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2009, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2009, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2013, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "GO-FORWARD",
+          "nct_id": "NCT00264550",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at week 14 in RA",
+          "result": "55.1% (golimumab 100 mg + MTX) vs 33.1% (placebo + MTX) at week 14",
+          "pmid": "19333944"
+        },
+        {
+          "trial_name": "PURSUIT-SC",
+          "nct_id": "NCT00487539",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical response at week 6 in ulcerative colitis",
+          "result": "51% (200/100 mg) vs 30% placebo achieved clinical response at week 6",
+          "pmid": "24269012"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Tuberculosis reactivation", "Invasive fungal infections", "Lymphoma risk", "Injection site reactions", "Hepatitis B reactivation"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Tocilizumab",
+      "brand_name": "Actemra",
+      "drug_class": "Anti-IL-6 receptor monoclonal antibody",
+      "target": "IL-6 receptor (IL-6R alpha / CD126)",
+      "target_type": "Cytokine receptor",
+      "mechanism": "Humanized monoclonal antibody that binds both soluble and membrane-bound IL-6 receptors, inhibiting IL-6-mediated signaling via both classical (membrane-bound) and trans-signaling (soluble IL-6R) pathways, thereby reducing inflammatory cascades including CRP production, SAA, and hepcidin",
+      "molecular_type": "Humanized IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2010, "regulatory": "FDA"},
+        {"disease": "Systemic juvenile idiopathic arthritis", "year": 2011, "regulatory": "FDA"},
+        {"disease": "Polyarticular juvenile idiopathic arthritis", "year": 2013, "regulatory": "FDA"},
+        {"disease": "Giant cell arteritis", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Cytokine release syndrome", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Systemic sclerosis-associated interstitial lung disease", "year": 2021, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "OPTION",
+          "nct_id": "NCT00106548",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at week 24",
+          "result": "59% (8 mg/kg) vs 26% placebo at week 24",
+          "pmid": "18383379"
+        },
+        {
+          "trial_name": "GiACTA",
+          "nct_id": "NCT01791153",
+          "phase": "Phase III",
+          "primary_endpoint": "Sustained glucocorticoid-free remission at week 52 in GCA",
+          "result": "56% (weekly TCZ) vs 14% (placebo + 26-week taper) achieved sustained remission",
+          "pmid": "28296613"
+        }
+      ],
+      "safety_signals": ["Serious infections", "GI perforation", "Hepatotoxicity (transaminase elevation)", "Neutropenia", "Hyperlipidemia", "Hypersensitivity reactions"],
+      "biosimilars": ["Tyenne (tocilizumab-aazg)"]
+    },
+    {
+      "drug_name": "Sarilumab",
+      "brand_name": "Kevzara",
+      "drug_class": "Anti-IL-6 receptor monoclonal antibody",
+      "target": "IL-6 receptor alpha (IL-6Ralpha)",
+      "target_type": "Cytokine receptor",
+      "mechanism": "Fully human IgG1 monoclonal antibody that binds membrane-bound and soluble forms of IL-6 receptor alpha with high affinity, blocking IL-6 from binding and inhibiting IL-6-mediated inflammatory signaling through JAK/STAT pathway",
+      "molecular_type": "Fully human IgG1 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2017, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "MOBILITY",
+          "nct_id": "NCT01061736",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 at week 24, HAQ-DI change at week 16, modified Sharp score at week 52",
+          "result": "66.4% (200 mg) vs 33.4% placebo achieved ACR20 at week 24; significant radiographic inhibition",
+          "pmid": "27002012"
+        },
+        {
+          "trial_name": "TARGET",
+          "nct_id": "NCT01709578",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 at week 24 in TNF-IR patients",
+          "result": "60.9% (200 mg) vs 33.7% placebo achieved ACR20 at week 24",
+          "pmid": "27819790"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Neutropenia", "Hepatotoxicity", "GI perforation", "Hyperlipidemia", "Injection site reactions"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Rituximab",
+      "brand_name": "Rituxan",
+      "drug_class": "Anti-CD20 monoclonal antibody",
+      "target": "CD20",
+      "target_type": "B cell surface antigen",
+      "mechanism": "Chimeric monoclonal antibody targeting CD20 on pre-B and mature B lymphocytes, inducing B cell depletion through complement-dependent cytotoxicity (CDC), antibody-dependent cellular cytotoxicity (ADCC), and direct apoptosis induction",
+      "molecular_type": "Chimeric (mouse/human) IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis (with methotrexate, TNF-IR)", "year": 2006, "regulatory": "FDA"},
+        {"disease": "Granulomatosis with polyangiitis (GPA)", "year": 2011, "regulatory": "FDA"},
+        {"disease": "Microscopic polyangiitis (MPA)", "year": 2011, "regulatory": "FDA"},
+        {"disease": "Pemphigus vulgaris", "year": 2018, "regulatory": "FDA"},
+        {"disease": "Non-Hodgkin lymphoma", "year": 1997, "regulatory": "FDA"},
+        {"disease": "Chronic lymphocytic leukemia", "year": 2010, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "REFLEX",
+          "nct_id": "NCT00468546",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at week 24 in RA",
+          "result": "51% vs 18% placebo achieved ACR20 at week 24",
+          "pmid": "16871531"
+        },
+        {
+          "trial_name": "RAVE",
+          "nct_id": "NCT00104299",
+          "phase": "Phase III",
+          "primary_endpoint": "Complete remission at 6 months in ANCA-associated vasculitis",
+          "result": "64% rituximab vs 53% cyclophosphamide achieved complete remission; rituximab non-inferior",
+          "pmid": "20647199"
+        },
+        {
+          "trial_name": "RITUX 3",
+          "nct_id": "NCT00564512",
+          "phase": "Phase III",
+          "primary_endpoint": "Complete remission at month 24 in pemphigus",
+          "result": "89% rituximab vs 34% prednisone achieved complete remission off therapy",
+          "pmid": "28160488"
+        }
+      ],
+      "safety_signals": ["Infusion reactions", "Progressive multifocal leukoencephalopathy (PML)", "Serious infections", "Hepatitis B reactivation", "Tumor lysis syndrome (oncology)", "Late-onset neutropenia"],
+      "biosimilars": ["Truxima (rituximab-abbs)", "Ruxience (rituximab-pvvr)", "Riabni (rituximab-arrx)"]
+    },
+    {
+      "drug_name": "Ocrelizumab",
+      "brand_name": "Ocrevus",
+      "drug_class": "Anti-CD20 monoclonal antibody",
+      "target": "CD20",
+      "target_type": "B cell surface antigen",
+      "mechanism": "Humanized monoclonal antibody that selectively targets CD20-positive B cells, inducing B cell depletion primarily via antibody-dependent cellular cytotoxicity (ADCC) and to a lesser extent complement-dependent cytotoxicity (CDC) and apoptosis",
+      "molecular_type": "Humanized IgG1 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Relapsing forms of multiple sclerosis", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Primary progressive multiple sclerosis", "year": 2017, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "OPERA I",
+          "nct_id": "NCT01247324",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate in relapsing MS",
+          "result": "ARR 0.16 vs 0.29 (interferon beta-1a), 46% relative reduction",
+          "pmid": "28002688"
+        },
+        {
+          "trial_name": "OPERA II",
+          "nct_id": "NCT01412333",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate in relapsing MS",
+          "result": "ARR 0.16 vs 0.29 (interferon beta-1a), 47% relative reduction",
+          "pmid": "28002688"
+        },
+        {
+          "trial_name": "ORATORIO",
+          "nct_id": "NCT01194570",
+          "phase": "Phase III",
+          "primary_endpoint": "Confirmed disability progression at 12 weeks in PPMS",
+          "result": "32.9% vs 39.3% placebo had confirmed disability progression; 24% relative risk reduction",
+          "pmid": "28002688"
+        }
+      ],
+      "safety_signals": ["Infusion reactions", "Serious infections", "Progressive multifocal leukoencephalopathy (PML) risk", "Hepatitis B reactivation", "Malignancy signal (breast cancer numerically higher in trials)"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Ofatumumab",
+      "brand_name": "Kesimpta",
+      "drug_class": "Anti-CD20 monoclonal antibody",
+      "target": "CD20",
+      "target_type": "B cell surface antigen",
+      "mechanism": "Fully human monoclonal antibody targeting a distinct epitope on the CD20 molecule (small and large extracellular loops), inducing potent complement-dependent cytotoxicity (CDC) and antibody-dependent cellular cytotoxicity (ADCC) against B cells; administered subcutaneously for MS",
+      "molecular_type": "Fully human IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Relapsing forms of multiple sclerosis", "year": 2020, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "ASCLEPIOS I",
+          "nct_id": "NCT02792218",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate in relapsing MS",
+          "result": "ARR 0.11 vs 0.22 (teriflunomide), 50.5% relative reduction",
+          "pmid": "32757523"
+        },
+        {
+          "trial_name": "ASCLEPIOS II",
+          "nct_id": "NCT02792231",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate in relapsing MS",
+          "result": "ARR 0.10 vs 0.25 (teriflunomide), 58.5% relative reduction",
+          "pmid": "32757523"
+        }
+      ],
+      "safety_signals": ["Injection site reactions", "Upper respiratory tract infections", "Urinary tract infections", "Hepatitis B reactivation", "Progressive multifocal leukoencephalopathy (PML) risk"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Belimumab",
+      "brand_name": "Benlysta",
+      "drug_class": "Anti-BLyS monoclonal antibody",
+      "target": "BLyS (B-lymphocyte stimulator) / BAFF",
+      "target_type": "Cytokine (TNF superfamily member)",
+      "mechanism": "Fully human IgG1 lambda monoclonal antibody that binds soluble B-lymphocyte stimulator (BLyS/BAFF), preventing its binding to receptors (BCMA, TACI, BR3/BAFF-R) on B cells, thereby reducing B cell survival, differentiation, and immunoglobulin production",
+      "molecular_type": "Fully human IgG1 lambda monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Systemic lupus erythematosus", "year": 2011, "regulatory": "FDA"},
+        {"disease": "Lupus nephritis", "year": 2020, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "BLISS-52",
+          "nct_id": "NCT00424476",
+          "phase": "Phase III",
+          "primary_endpoint": "SRI response rate at week 52",
+          "result": "57.6% (10 mg/kg) vs 43.6% placebo achieved SRI at week 52",
+          "pmid": "21296403"
+        },
+        {
+          "trial_name": "BLISS-76",
+          "nct_id": "NCT00410384",
+          "phase": "Phase III",
+          "primary_endpoint": "SRI response rate at week 52",
+          "result": "43.2% (10 mg/kg) vs 33.5% placebo achieved SRI at week 52",
+          "pmid": "21296403"
+        },
+        {
+          "trial_name": "BLISS-LN",
+          "nct_id": "NCT01639339",
+          "phase": "Phase III",
+          "primary_endpoint": "Primary efficacy renal response at week 104 in lupus nephritis",
+          "result": "43% vs 32% placebo achieved primary efficacy renal response",
+          "pmid": "33053153"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Depression and suicidality", "Hypersensitivity reactions", "Infusion/injection site reactions", "Mortality signal in early trials (not confirmed)"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Abatacept",
+      "brand_name": "Orencia",
+      "drug_class": "T cell co-stimulation modulator",
+      "target": "CD80 (B7-1) and CD86 (B7-2)",
+      "target_type": "Co-stimulatory ligands",
+      "mechanism": "Soluble fusion protein of the extracellular domain of CTLA-4 linked to the Fc portion of human IgG1; selectively binds CD80 and CD86, blocking the CD28 co-stimulatory signal required for full T cell activation, thereby modulating T cell-dependent immune responses",
+      "molecular_type": "CTLA-4-Ig fusion protein",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2005, "regulatory": "FDA"},
+        {"disease": "Juvenile idiopathic arthritis", "year": 2008, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Prevention of acute kidney transplant rejection", "year": 2021, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "AIM",
+          "nct_id": "NCT00048568",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at 6 months in RA (MTX-IR)",
+          "result": "67.9% vs 39.7% placebo achieved ACR20 at 6 months",
+          "pmid": "16200601"
+        },
+        {
+          "trial_name": "ATTAIN",
+          "nct_id": "NCT00048581",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 response at 6 months in RA (anti-TNF-IR)",
+          "result": "50.4% vs 19.5% placebo achieved ACR20 at 6 months",
+          "pmid": "16142760"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Malignancy risk", "COPD exacerbation", "Infusion reactions (IV formulation)", "Injection site reactions (SC formulation)"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Secukinumab",
+      "brand_name": "Cosentyx",
+      "drug_class": "Anti-IL-17A monoclonal antibody",
+      "target": "IL-17A",
+      "target_type": "Cytokine",
+      "mechanism": "Fully human IgG1 kappa monoclonal antibody that selectively binds IL-17A and neutralizes its bioactivity, preventing IL-17A from binding to IL-17 receptors on keratinocytes, fibroblasts, and immune cells, thereby inhibiting the release of pro-inflammatory cytokines, chemokines, and mediators of tissue damage",
+      "molecular_type": "Fully human IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2015, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2016, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2016, "regulatory": "FDA"},
+        {"disease": "Non-radiographic axial spondyloarthritis", "year": 2020, "regulatory": "FDA"},
+        {"disease": "Enthesitis-related arthritis (JIA)", "year": 2023, "regulatory": "FDA"},
+        {"disease": "Hidradenitis suppurativa", "year": 2023, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "ERASURE",
+          "nct_id": "NCT01365455",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 response at week 12",
+          "result": "81.6% (300 mg) vs 4.5% placebo achieved PASI 75 at week 12",
+          "pmid": "25007392"
+        },
+        {
+          "trial_name": "FIXTURE",
+          "nct_id": "NCT01358578",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 response at week 12",
+          "result": "77.1% (300 mg) vs 44.0% etanercept vs 4.9% placebo at week 12",
+          "pmid": "25007392"
+        },
+        {
+          "trial_name": "MEASURE 1",
+          "nct_id": "NCT01358175",
+          "phase": "Phase III",
+          "primary_endpoint": "ASAS20 response at week 16 in ankylosing spondylitis",
+          "result": "61% (150 mg) vs 29% placebo achieved ASAS20 at week 16",
+          "pmid": "26458737"
+        }
+      ],
+      "safety_signals": ["Nasopharyngitis", "Upper respiratory infections", "Candida infections (mucocutaneous)", "IBD exacerbation or new-onset", "Neutropenia"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Ixekizumab",
+      "brand_name": "Taltz",
+      "drug_class": "Anti-IL-17A monoclonal antibody",
+      "target": "IL-17A",
+      "target_type": "Cytokine",
+      "mechanism": "Humanized IgG4 monoclonal antibody that selectively binds IL-17A (including IL-17A/F heterodimer), neutralizing its biological activity and preventing interaction with the IL-17 receptor, thereby inhibiting downstream inflammatory and tissue-destructive pathways",
+      "molecular_type": "Humanized IgG4 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2016, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2019, "regulatory": "FDA"},
+        {"disease": "Non-radiographic axial spondyloarthritis", "year": 2020, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "UNCOVER-2",
+          "nct_id": "NCT01597245",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and sPGA 0/1 at week 12",
+          "result": "89.7% (80 mg Q2W) vs 41.6% etanercept vs 2.4% placebo achieved PASI 75 at week 12",
+          "pmid": "27299809"
+        },
+        {
+          "trial_name": "UNCOVER-3",
+          "nct_id": "NCT01646177",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and sPGA 0/1 at week 12",
+          "result": "87.3% (80 mg Q2W) vs 53.4% etanercept vs 7.3% placebo achieved PASI 75 at week 12",
+          "pmid": "27299809"
+        }
+      ],
+      "safety_signals": ["Nasopharyngitis", "Upper respiratory infections", "Injection site reactions", "Candida infections", "IBD exacerbation or new-onset", "Neutropenia"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Brodalumab",
+      "brand_name": "Siliq",
+      "drug_class": "Anti-IL-17 receptor A monoclonal antibody",
+      "target": "IL-17RA (IL-17 receptor A)",
+      "target_type": "Cytokine receptor",
+      "mechanism": "Fully human IgG2 monoclonal antibody that binds IL-17 receptor A, blocking signaling from IL-17A, IL-17F, IL-17A/F heterodimer, IL-17C, and IL-17E (IL-25), providing broader IL-17 pathway inhibition than anti-IL-17A antibodies alone",
+      "molecular_type": "Fully human IgG2 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2017, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "AMAGINE-2",
+          "nct_id": "NCT01708603",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and sPGA 0/1 at week 12",
+          "result": "86% (210 mg) vs 70% ustekinumab vs 8% placebo achieved PASI 75 at week 12",
+          "pmid": "27299808"
+        },
+        {
+          "trial_name": "AMAGINE-3",
+          "nct_id": "NCT01708629",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and sPGA 0/1 at week 12",
+          "result": "85% (210 mg) vs 69% ustekinumab vs 6% placebo achieved PASI 75 at week 12",
+          "pmid": "27299808"
+        }
+      ],
+      "safety_signals": ["Suicidal ideation and behavior (REMS program required)", "Nasopharyngitis", "Candida infections", "Neutropenia", "Crohn's disease exacerbation", "Injection site reactions"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Bimekizumab",
+      "brand_name": "Bimzelx",
+      "drug_class": "Dual IL-17A/IL-17F monoclonal antibody",
+      "target": "IL-17A and IL-17F",
+      "target_type": "Cytokines",
+      "mechanism": "Humanized IgG1 monoclonal antibody that selectively neutralizes both IL-17A and IL-17F with high potency, blocking their interaction with the IL-17RA/IL-17RC receptor complex; dual neutralization provides more comprehensive IL-17 pathway inhibition than targeting IL-17A alone",
+      "molecular_type": "Humanized IgG1 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2023, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2024, "regulatory": "FDA"},
+        {"disease": "Plaque psoriasis", "year": 2021, "regulatory": "EMA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "BE VIVID",
+          "nct_id": "NCT03370133",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 90 at week 16",
+          "result": "85% (320 mg) vs 50% ustekinumab vs 5% placebo achieved PASI 90 at week 16",
+          "pmid": "33417816"
+        },
+        {
+          "trial_name": "BE READY",
+          "nct_id": "NCT03410992",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 90 and IGA 0/1 at week 16",
+          "result": "91% achieved PASI 90 vs 1% placebo at week 16",
+          "pmid": "33417818"
+        }
+      ],
+      "safety_signals": ["Oral candidiasis", "Nasopharyngitis", "Upper respiratory infections", "IBD risk (Crohn's disease)", "Hepatic enzyme elevations"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Ustekinumab",
+      "brand_name": "Stelara",
+      "drug_class": "Anti-IL-12/IL-23 monoclonal antibody",
+      "target": "IL-12 and IL-23 (shared p40 subunit)",
+      "target_type": "Cytokines",
+      "mechanism": "Fully human IgG1 kappa monoclonal antibody that binds the p40 protein subunit shared by IL-12 and IL-23, preventing these cytokines from binding to IL-12Rbeta1 on T cells, NK cells, and antigen-presenting cells, thereby inhibiting Th1 (via IL-12) and Th17 (via IL-23) differentiation and downstream inflammatory signaling",
+      "molecular_type": "Fully human IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2009, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2013, "regulatory": "FDA"},
+        {"disease": "Crohn's disease", "year": 2016, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2019, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "PHOENIX 1",
+          "nct_id": "NCT00267969",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 response at week 12",
+          "result": "67.1% (45 mg) and 66.4% (90 mg) vs 3.1% placebo at week 12",
+          "pmid": "18486740"
+        },
+        {
+          "trial_name": "UNITI-1",
+          "nct_id": "NCT01369329",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical response at week 6 in Crohn's disease (anti-TNF failures)",
+          "result": "33.7% (6 mg/kg) vs 21.5% placebo achieved clinical response at week 6",
+          "pmid": "27592154"
+        },
+        {
+          "trial_name": "UNIFI",
+          "nct_id": "NCT02407236",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical remission at week 8 in ulcerative colitis",
+          "result": "15.6% (130 mg) vs 5.3% placebo achieved clinical remission at week 8",
+          "pmid": "31553834"
+        }
+      ],
+      "safety_signals": ["Nasopharyngitis", "Upper respiratory infections", "Headache", "Serious infections (rare)", "Reversible posterior leukoencephalopathy syndrome (rare)", "Malignancy (long-term surveillance)"],
+      "biosimilars": ["Wezlana (ustekinumab-auub)"]
+    },
+    {
+      "drug_name": "Guselkumab",
+      "brand_name": "Tremfya",
+      "drug_class": "Anti-IL-23 monoclonal antibody",
+      "target": "IL-23 (p19 subunit)",
+      "target_type": "Cytokine",
+      "mechanism": "Fully human IgG1 lambda monoclonal antibody that selectively binds the p19 subunit of IL-23, preventing IL-23 from binding to its receptor and inhibiting Th17 cell differentiation and maintenance without affecting IL-12/Th1 pathway",
+      "molecular_type": "Fully human IgG1 lambda monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2020, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2025, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "VOYAGE 1",
+          "nct_id": "NCT02207231",
+          "phase": "Phase III",
+          "primary_endpoint": "IGA 0/1 and PASI 90 at week 16",
+          "result": "85.1% achieved PASI 90 vs 66.2% adalimumab vs 6.9% placebo at week 16",
+          "pmid": "28366054"
+        },
+        {
+          "trial_name": "DISCOVER-2",
+          "nct_id": "NCT03158285",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 at week 24 in psoriatic arthritis",
+          "result": "64% (Q4W) vs 33% placebo achieved ACR20 at week 24",
+          "pmid": "31943437"
+        }
+      ],
+      "safety_signals": ["Upper respiratory infections", "Nasopharyngitis", "Injection site reactions", "Tinea infections", "Herpes simplex infections"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Risankizumab",
+      "brand_name": "Skyrizi",
+      "drug_class": "Anti-IL-23 monoclonal antibody",
+      "target": "IL-23 (p19 subunit)",
+      "target_type": "Cytokine",
+      "mechanism": "Humanized IgG1 monoclonal antibody that specifically binds the p19 subunit of IL-23 with high affinity, blocking IL-23-dependent cell signaling through the IL-23 receptor, inhibiting release of pro-inflammatory effector cytokines IL-17A, IL-17F, and IL-22 from Th17 cells",
+      "molecular_type": "Humanized IgG1 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2019, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2022, "regulatory": "FDA"},
+        {"disease": "Crohn's disease", "year": 2022, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2024, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "UltIMMa-1",
+          "nct_id": "NCT02684370",
+          "phase": "Phase III",
+          "primary_endpoint": "sPGA 0/1 and PASI 90 at week 16",
+          "result": "75.3% achieved PASI 90 vs 42% ustekinumab vs 4.9% placebo at week 16",
+          "pmid": "30660614"
+        },
+        {
+          "trial_name": "ADVANCE",
+          "nct_id": "NCT03105128",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical remission (CDAI < 150) at week 12 in Crohn's disease",
+          "result": "45% (600 mg IV) vs 25% placebo achieved clinical remission at week 12",
+          "pmid": "35239261"
+        }
+      ],
+      "safety_signals": ["Upper respiratory infections", "Headache", "Fatigue", "Injection site reactions", "Tinea infections"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Tildrakizumab",
+      "brand_name": "Ilumya",
+      "drug_class": "Anti-IL-23 monoclonal antibody",
+      "target": "IL-23 (p19 subunit)",
+      "target_type": "Cytokine",
+      "mechanism": "Humanized IgG1 kappa monoclonal antibody that specifically binds the p19 subunit of IL-23, preventing IL-23 from interacting with its receptor complex and inhibiting IL-23-dependent signaling pathways involved in Th17 cell maintenance and inflammatory cytokine production",
+      "molecular_type": "Humanized IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2018, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "reSURFACE 1",
+          "nct_id": "NCT01722331",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and PGA response at week 12",
+          "result": "64% (100 mg) vs 6% placebo achieved PASI 75 at week 12",
+          "pmid": "28586744"
+        },
+        {
+          "trial_name": "reSURFACE 2",
+          "nct_id": "NCT01729754",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and PGA response at week 12",
+          "result": "61% (100 mg) vs 48% etanercept vs 6% placebo achieved PASI 75 at week 12",
+          "pmid": "28586744"
+        }
+      ],
+      "safety_signals": ["Upper respiratory infections", "Injection site reactions", "Diarrhea", "Serious infections (rare)"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Tofacitinib",
+      "brand_name": "Xeljanz",
+      "drug_class": "JAK inhibitor",
+      "target": "JAK1 and JAK3 (preferential)",
+      "target_type": "Intracellular kinase",
+      "mechanism": "Oral small molecule inhibitor that preferentially inhibits JAK1 and JAK3 (with functional selectivity over JAK2), blocking signaling through the JAK-STAT pathway downstream of multiple cytokine receptors including those for IL-2, IL-4, IL-6, IL-7, IL-9, IL-15, IL-21, and interferons, thereby modulating lymphocyte activation, proliferation, and function",
+      "molecular_type": "Small molecule (pyrrolo[2,3-d]pyrimidine derivative)",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2012, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2018, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2021, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "ORAL Standard",
+          "nct_id": "NCT00853385",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 at month 6 and HAQ-DI change at month 3 in RA",
+          "result": "52% (5 mg BID) vs 25% placebo achieved ACR20 at month 6; non-inferior to adalimumab",
+          "pmid": "22328740"
+        },
+        {
+          "trial_name": "OCTAVE Induction 1",
+          "nct_id": "NCT01465763",
+          "phase": "Phase III",
+          "primary_endpoint": "Remission at week 8 in ulcerative colitis",
+          "result": "18.5% (10 mg BID) vs 8.2% placebo achieved remission at week 8",
+          "pmid": "28514649"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Herpes zoster", "Malignancy (including lymphoma)", "Major adverse cardiovascular events (MACE)", "Venous thromboembolism (PE and DVT)", "Elevated lipids", "GI perforation", "FDA boxed warning for cardiovascular and malignancy risk (ORAL Surveillance)"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Baricitinib",
+      "brand_name": "Olumiant",
+      "drug_class": "JAK inhibitor",
+      "target": "JAK1 and JAK2 (selective)",
+      "target_type": "Intracellular kinase",
+      "mechanism": "Oral selective inhibitor of JAK1 and JAK2 that reversibly blocks ATP-binding site, modulating signaling of multiple cytokines including IL-6, IL-12, IL-23, IFN-gamma, EPO, and GM-CSF through the JAK-STAT pathway, reducing inflammatory gene expression and immune cell activation",
+      "molecular_type": "Small molecule (azetidine sulfonamide)",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2018, "regulatory": "FDA"},
+        {"disease": "Alopecia areata", "year": 2022, "regulatory": "FDA"},
+        {"disease": "Rheumatoid arthritis", "year": 2017, "regulatory": "EMA"},
+        {"disease": "Atopic dermatitis", "year": 2020, "regulatory": "EMA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "RA-BEAM",
+          "nct_id": "NCT01710358",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 at week 12 in RA",
+          "result": "70% (4 mg) vs 61% adalimumab vs 40% placebo at week 12; baricitinib statistically superior to adalimumab",
+          "pmid": "28109981"
+        },
+        {
+          "trial_name": "BRAVE-AA1",
+          "nct_id": "NCT03570749",
+          "phase": "Phase III",
+          "primary_endpoint": "SALT score ≤20 at week 36 in alopecia areata",
+          "result": "38.8% (4 mg) vs 22.8% (2 mg) vs 6.2% placebo achieved SALT ≤20 at week 36",
+          "pmid": "35334197"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Herpes zoster/simplex", "Venous thromboembolism", "Major adverse cardiovascular events", "Malignancy", "Elevated lipids", "Cytopenias", "Elevated creatine kinase"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Upadacitinib",
+      "brand_name": "Rinvoq",
+      "drug_class": "JAK inhibitor",
+      "target": "JAK1 (selective)",
+      "target_type": "Intracellular kinase",
+      "mechanism": "Oral selective and reversible JAK1 inhibitor with greater selectivity for JAK1 over JAK2, JAK3, and TYK2; blocks JAK1-mediated signaling from cytokine receptors for IL-6, IFN-gamma, IL-7, IL-15, and IL-2 (gamma chain), thereby reducing inflammatory signaling and immune cell activation while potentially minimizing JAK2-related hematologic effects",
+      "molecular_type": "Small molecule (tricyclic imidazo[1,2-b]pyridazine)",
+      "approved_indications": [
+        {"disease": "Rheumatoid arthritis", "year": 2019, "regulatory": "FDA"},
+        {"disease": "Psoriatic arthritis", "year": 2021, "regulatory": "FDA"},
+        {"disease": "Atopic dermatitis", "year": 2022, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2022, "regulatory": "FDA"},
+        {"disease": "Ankylosing spondylitis", "year": 2022, "regulatory": "FDA"},
+        {"disease": "Crohn's disease", "year": 2023, "regulatory": "FDA"},
+        {"disease": "Giant cell arteritis", "year": 2024, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "SELECT-COMPARE",
+          "nct_id": "NCT02629159",
+          "phase": "Phase III",
+          "primary_endpoint": "ACR20 at week 12 and DAS28-CRP < 2.6 at week 12 in RA",
+          "result": "71% (15 mg) vs 63% adalimumab vs 36% placebo achieved ACR20 at week 12; upadacitinib superior to adalimumab",
+          "pmid": "31535505"
+        },
+        {
+          "trial_name": "U-ACHIEVE Induction",
+          "nct_id": "NCT02819635",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical remission at week 8 in ulcerative colitis",
+          "result": "26% (45 mg) vs 5% placebo achieved clinical remission at week 8",
+          "pmid": "36026479"
+        }
+      ],
+      "safety_signals": ["Serious infections", "Herpes zoster", "Venous thromboembolism", "Major adverse cardiovascular events", "Malignancy", "GI perforation", "Elevated hepatic transaminases", "Neutropenia", "Elevated CPK", "Elevated lipids"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Deucravacitinib",
+      "brand_name": "Sotyktu",
+      "drug_class": "TYK2 inhibitor",
+      "target": "TYK2 (tyrosine kinase 2)",
+      "target_type": "Intracellular kinase",
+      "mechanism": "Oral allosteric inhibitor that selectively targets the regulatory (pseudokinase/JH2) domain of TYK2 rather than the catalytic domain, providing high selectivity for TYK2 over JAK1, JAK2, and JAK3; inhibits signaling through IL-23, IL-12, and Type I interferon receptor pathways without significantly affecting JAK1/2/3-mediated pathways (erythropoietin, thrombopoietin)",
+      "molecular_type": "Small molecule (allosteric TYK2 pseudokinase domain inhibitor)",
+      "approved_indications": [
+        {"disease": "Plaque psoriasis", "year": 2022, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "POETYK PSO-1",
+          "nct_id": "NCT03624127",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and sPGA 0/1 at week 16",
+          "result": "58.4% (6 mg QD) vs 35.1% apremilast vs 12.7% placebo achieved PASI 75 at week 16",
+          "pmid": "36070766"
+        },
+        {
+          "trial_name": "POETYK PSO-2",
+          "nct_id": "NCT03611751",
+          "phase": "Phase III",
+          "primary_endpoint": "PASI 75 and sPGA 0/1 at week 16",
+          "result": "53.0% (6 mg QD) vs 40.2% apremilast vs 9.4% placebo achieved PASI 75 at week 16",
+          "pmid": "36070766"
+        }
+      ],
+      "safety_signals": ["Nasopharyngitis", "Upper respiratory infections", "Headache", "Acne", "Herpes simplex", "Elevated CPK", "Folliculitis"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Vedolizumab",
+      "brand_name": "Entyvio",
+      "drug_class": "Anti-integrin monoclonal antibody",
+      "target": "Alpha-4-beta-7 integrin",
+      "target_type": "Adhesion molecule",
+      "mechanism": "Humanized IgG1 monoclonal antibody that specifically binds alpha-4-beta-7 integrin on gut-homing lymphocytes, blocking interaction with mucosal addressin cell adhesion molecule-1 (MAdCAM-1) expressed on gut endothelium, thereby selectively preventing lymphocyte trafficking to the gastrointestinal tract without affecting systemic immunity",
+      "molecular_type": "Humanized IgG1 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Ulcerative colitis", "year": 2014, "regulatory": "FDA"},
+        {"disease": "Crohn's disease", "year": 2014, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "GEMINI 1",
+          "nct_id": "NCT00783718",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical response at week 6 and remission at week 52 in UC",
+          "result": "47.1% vs 25.5% placebo achieved clinical response at week 6; 41.8% vs 15.9% in clinical remission at week 52",
+          "pmid": "23964932"
+        },
+        {
+          "trial_name": "GEMINI 2",
+          "nct_id": "NCT00783692",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical remission at week 6 and week 52 in Crohn's disease",
+          "result": "14.5% vs 6.8% placebo achieved remission at week 6; 39% vs 21.6% at week 52",
+          "pmid": "23964933"
+        }
+      ],
+      "safety_signals": ["Nasopharyngitis", "Headache", "Arthralgia", "Infusion-related reactions", "Serious infections (low rate)", "PML (theoretical risk, no confirmed cases to date)"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Natalizumab",
+      "brand_name": "Tysabri",
+      "drug_class": "Anti-integrin monoclonal antibody",
+      "target": "Alpha-4 integrin",
+      "target_type": "Adhesion molecule",
+      "mechanism": "Humanized IgG4 monoclonal antibody that binds the alpha-4 subunit of alpha-4-beta-1 (VLA-4) and alpha-4-beta-7 integrins, blocking interactions with VCAM-1 and MAdCAM-1 respectively, preventing adhesion and transmigration of leukocytes across the blood-brain barrier and gut endothelium",
+      "molecular_type": "Humanized IgG4 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Relapsing forms of multiple sclerosis", "year": 2004, "regulatory": "FDA"},
+        {"disease": "Crohn's disease", "year": 2008, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "AFFIRM",
+          "nct_id": "NCT00027300",
+          "phase": "Phase III",
+          "primary_endpoint": "Relapse rate at 1 year and disability progression at 2 years in MS",
+          "result": "68% relative reduction in annualized relapse rate vs placebo; 42% reduction in sustained disability progression at 2 years",
+          "pmid": "16510744"
+        },
+        {
+          "trial_name": "SENTINEL",
+          "nct_id": "NCT00030966",
+          "phase": "Phase III",
+          "primary_endpoint": "Relapse rate at 1 year vs interferon beta-1a alone in MS",
+          "result": "54% reduction in annualized relapse rate vs IFN beta-1a alone; 24% reduction in disability progression",
+          "pmid": "16510745"
+        }
+      ],
+      "safety_signals": ["Progressive multifocal leukoencephalopathy (PML) - significant risk, JCV antibody testing required", "Hepatotoxicity", "Hypersensitivity reactions", "Immunosuppression", "Anti-drug antibodies", "REMS program (TOUCH prescribing program)"],
+      "biosimilars": ["Tyruko (natalizumab-sztn)"]
+    },
+    {
+      "drug_name": "Anifrolumab",
+      "brand_name": "Saphnelo",
+      "drug_class": "Anti-type I interferon receptor monoclonal antibody",
+      "target": "IFNAR1 (type I interferon receptor subunit 1)",
+      "target_type": "Cytokine receptor",
+      "mechanism": "Fully human IgG1 kappa monoclonal antibody that binds subunit 1 of the type I interferon receptor (IFNAR1), blocking signaling of all type I interferons (IFN-alpha subtypes, IFN-beta, IFN-epsilon, IFN-kappa, IFN-omega) and suppressing the interferon gene signature that is upregulated in the majority of SLE patients",
+      "molecular_type": "Fully human IgG1 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Systemic lupus erythematosus", "year": 2021, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "TULIP-1",
+          "nct_id": "NCT02446899",
+          "phase": "Phase III",
+          "primary_endpoint": "SRI(4) response at week 52",
+          "result": "Did not meet primary endpoint SRI(4); however, BICLA response significantly higher: 36% vs 26% placebo",
+          "pmid": "31851795"
+        },
+        {
+          "trial_name": "TULIP-2",
+          "nct_id": "NCT02446912",
+          "phase": "Phase III",
+          "primary_endpoint": "BICLA response at week 52",
+          "result": "47.8% vs 31.5% placebo achieved BICLA response at week 52",
+          "pmid": "31851795"
+        }
+      ],
+      "safety_signals": ["Nasopharyngitis", "Upper respiratory infections", "Herpes zoster", "Bronchitis", "Infusion-related reactions", "Hypersensitivity"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Eculizumab",
+      "brand_name": "Soliris",
+      "drug_class": "Anti-complement C5 monoclonal antibody",
+      "target": "Complement component C5",
+      "target_type": "Complement protein",
+      "mechanism": "Humanized IgG2/4 monoclonal antibody that binds complement protein C5 with high affinity, preventing its cleavage by C5 convertase into C5a (a potent anaphylatoxin) and C5b, thereby blocking formation of the terminal complement complex C5b-9 (membrane attack complex, MAC) while preserving proximal complement activation and C3b opsonization",
+      "molecular_type": "Humanized IgG2/4 kappa monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Paroxysmal nocturnal hemoglobinuria", "year": 2007, "regulatory": "FDA"},
+        {"disease": "Atypical hemolytic uremic syndrome", "year": 2011, "regulatory": "FDA"},
+        {"disease": "Generalized myasthenia gravis (anti-AChR antibody positive)", "year": 2017, "regulatory": "FDA"},
+        {"disease": "Neuromyelitis optica spectrum disorder (anti-AQP4 antibody positive)", "year": 2019, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "REGAIN",
+          "nct_id": "NCT01997229",
+          "phase": "Phase III",
+          "primary_endpoint": "Change in MG-ADL total score at week 26 in generalized MG",
+          "result": "Statistically significant improvement in MG-ADL score vs placebo (worst-rank ANCOVA prespecified analysis); -4.2 vs -2.3 at week 26",
+          "pmid": "28605400"
+        },
+        {
+          "trial_name": "PREVENT",
+          "nct_id": "NCT01892345",
+          "phase": "Phase III",
+          "primary_endpoint": "Time to first adjudicated relapse in NMOSD",
+          "result": "3% eculizumab vs 43% placebo relapsed; 94% relative risk reduction in relapse",
+          "pmid": "31050279"
+        }
+      ],
+      "safety_signals": ["Meningococcal infection (vaccination required, REMS program)", "Serious infections", "Infusion reactions", "Headache", "Hemolysis after discontinuation in PNH"],
+      "biosimilars": ["Epysqli (eculizumab-aagh)"]
+    },
+    {
+      "drug_name": "Efgartigimod alfa",
+      "brand_name": "Vyvgart",
+      "drug_class": "Neonatal Fc receptor (FcRn) blocker",
+      "target": "FcRn (neonatal Fc receptor)",
+      "target_type": "Fc receptor",
+      "mechanism": "Human IgG1-derived Fc fragment that binds FcRn with high affinity, competitively blocking the recycling of IgG antibodies by FcRn; this leads to lysosomal degradation of endogenous IgG including pathogenic autoantibodies, resulting in rapid and sustained reduction of total IgG and disease-specific autoantibody levels",
+      "molecular_type": "Human IgG1 Fc fragment",
+      "approved_indications": [
+        {"disease": "Generalized myasthenia gravis (anti-AChR antibody positive)", "year": 2021, "regulatory": "FDA"},
+        {"disease": "Chronic inflammatory demyelinating polyneuropathy", "year": 2024, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "ADAPT",
+          "nct_id": "NCT03669588",
+          "phase": "Phase III",
+          "primary_endpoint": "Percentage of AChR-Ab+ patients with clinically meaningful MG-ADL improvement during first treatment cycle",
+          "result": "67.7% vs 29.7% placebo achieved MG-ADL responder status in first cycle",
+          "pmid": "34469772"
+        },
+        {
+          "trial_name": "ADHERE",
+          "nct_id": "NCT04281472",
+          "phase": "Phase III",
+          "primary_endpoint": "Adjusted mean change in I-RODS score at week 24 in CIDP",
+          "result": "Significant improvement in I-RODS score and reduced CIDP relapse rate vs placebo",
+          "pmid": "38349793"
+        }
+      ],
+      "safety_signals": ["Upper respiratory infections", "Urinary tract infections", "Headache", "Reduced IgG levels and potential infection risk", "Hypersensitivity reactions"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Teplizumab",
+      "brand_name": "Tzield",
+      "drug_class": "Anti-CD3 monoclonal antibody",
+      "target": "CD3 epsilon chain (CD3e)",
+      "target_type": "T cell surface antigen",
+      "mechanism": "Humanized anti-CD3 monoclonal antibody (Fc-modified, non-mitogenic) that binds the CD3 epsilon subunit of the TCR complex on T cells; modulates T cell function by inducing partial TCR signaling without full activation, promoting T cell exhaustion, anergy, and expansion of regulatory T cells, thereby modifying the autoimmune attack on pancreatic beta cells",
+      "molecular_type": "Humanized (Fc-modified) IgG1 monoclonal antibody",
+      "approved_indications": [
+        {"disease": "Delay of stage 3 type 1 diabetes in at-risk individuals (stage 2 T1D)", "year": 2022, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "TN-10 (TrialNet)",
+          "nct_id": "NCT01030861",
+          "phase": "Phase II",
+          "primary_endpoint": "Time to clinical type 1 diabetes diagnosis in at-risk relatives",
+          "result": "Median time to T1D diagnosis: 48.4 months (teplizumab) vs 24.4 months (placebo); 59% risk reduction at 2 years",
+          "pmid": "31180194"
+        },
+        {
+          "trial_name": "PROTECT",
+          "nct_id": "NCT03875729",
+          "phase": "Phase III",
+          "primary_endpoint": "Change in C-peptide AUC at week 78 in recent-onset T1D",
+          "result": "Significant preservation of C-peptide at week 78 in key subgroup; stimulated C-peptide AUC decline -0.55 (teplizumab) vs -0.90 (placebo) pmol/mL in overall population",
+          "pmid": "37632716"
+        }
+      ],
+      "safety_signals": ["Cytokine release syndrome", "Lymphopenia", "Rash", "Headache", "Transient elevation of liver enzymes", "Decreased white blood cell count"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Fingolimod",
+      "brand_name": "Gilenya",
+      "drug_class": "Sphingosine-1-phosphate (S1P) receptor modulator",
+      "target": "S1P receptors (S1P1, S1P3, S1P4, S1P5)",
+      "target_type": "G protein-coupled receptor",
+      "mechanism": "Prodrug phosphorylated in vivo to fingolimod-phosphate, a structural analog of sphingosine-1-phosphate; acts as a functional antagonist at S1P1 receptors on lymphocytes, causing receptor internalization and downregulation, which sequesters lymphocytes in lymph nodes and prevents their egress into peripheral blood and CNS, reducing autoreactive lymphocyte infiltration into the brain",
+      "molecular_type": "Small molecule (synthetic sphingosine analog)",
+      "approved_indications": [
+        {"disease": "Relapsing forms of multiple sclerosis", "year": 2010, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "FREEDOMS",
+          "nct_id": "NCT00289978",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate over 24 months in RRMS",
+          "result": "ARR 0.18 (0.5 mg) vs 0.40 placebo; 54% reduction in annualized relapse rate",
+          "pmid": "20228404"
+        },
+        {
+          "trial_name": "TRANSFORMS",
+          "nct_id": "NCT00340834",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate over 12 months vs IFN beta-1a IM",
+          "result": "ARR 0.16 (0.5 mg) vs 0.33 (IFN beta-1a); 52% relative reduction",
+          "pmid": "20089960"
+        }
+      ],
+      "safety_signals": ["First-dose bradycardia and AV block (first-dose monitoring required)", "Macular edema", "Serious infections (herpes, cryptococcal)", "PML risk", "Hepatotoxicity", "Lymphopenia", "Basal cell carcinoma", "Posterior reversible encephalopathy syndrome"],
+      "biosimilars": []
+    },
+    {
+      "drug_name": "Ozanimod",
+      "brand_name": "Zeposia",
+      "drug_class": "Sphingosine-1-phosphate (S1P) receptor modulator",
+      "target": "S1P1 and S1P5 receptors (selective)",
+      "target_type": "G protein-coupled receptor",
+      "mechanism": "Selective modulator of S1P receptor subtypes 1 and 5 with minimal activity at S1P2, S1P3, and S1P4; binds S1P1 on lymphocytes causing receptor internalization and functional antagonism, blocking lymphocyte egress from lymph nodes; selectivity for S1P1 and S1P5 over S1P3 may provide a more favorable cardiac safety profile compared to non-selective S1P modulators",
+      "molecular_type": "Small molecule (indane-based oxadiazole)",
+      "approved_indications": [
+        {"disease": "Relapsing forms of multiple sclerosis", "year": 2020, "regulatory": "FDA"},
+        {"disease": "Ulcerative colitis", "year": 2023, "regulatory": "FDA"}
+      ],
+      "pivotal_trials": [
+        {
+          "trial_name": "SUNBEAM",
+          "nct_id": "NCT02294058",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate over treatment period in relapsing MS",
+          "result": "ARR 0.18 (1 mg) vs 0.35 (IFN beta-1a IM); 48% relative reduction",
+          "pmid": "30739799"
+        },
+        {
+          "trial_name": "RADIANCE Part B",
+          "nct_id": "NCT02047734",
+          "phase": "Phase III",
+          "primary_endpoint": "Annualized relapse rate over 24 months in relapsing MS",
+          "result": "ARR 0.17 (1 mg) vs 0.28 (IFN beta-1a IM); 38% relative reduction",
+          "pmid": "30739799"
+        },
+        {
+          "trial_name": "TRUE NORTH",
+          "nct_id": "NCT02435992",
+          "phase": "Phase III",
+          "primary_endpoint": "Clinical remission at week 10 in UC",
+          "result": "18.4% vs 6.0% placebo achieved clinical remission at week 10; 37.0% vs 18.5% at week 52",
+          "pmid": "34551228"
+        }
+      ],
+      "safety_signals": ["Bradycardia (first-dose, less pronounced than fingolimod)", "Hepatotoxicity (transaminase elevations)", "Macular edema", "Infections", "Lymphopenia", "Hypertension", "Posterior reversible encephalopathy syndrome"],
+      "biosimilars": []
+    }
+  ]
+}
