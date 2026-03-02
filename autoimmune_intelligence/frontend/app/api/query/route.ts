@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL =
-  process.env.API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000";
+function resolveBackendUrl(): string {
+  const raw =
+    process.env.API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000";
+  // Ensure the URL has a protocol — Railway / Vercel env vars sometimes omit it
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
+  }
+  return `https://${raw}`;
+}
+
+const BACKEND_URL = resolveBackendUrl();
 
 export async function POST(request: NextRequest) {
   try {
