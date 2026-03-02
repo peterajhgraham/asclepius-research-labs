@@ -1,4 +1,4 @@
-# Asclepian Research Labs
+# Asclepius Research Labs
 
 > **AI-powered immune reasoning for autoimmune disease research**
 
