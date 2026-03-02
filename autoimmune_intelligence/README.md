@@ -1,4 +1,4 @@
-# Asclepian Research Labs — Web Application
+# Asclepius Research Labs — Web Application
 
 Production full-stack AI web app for autoimmune disease research.
 
@@ -113,7 +113,7 @@ The UI will be available at `http://localhost:3000`.
 
 ### `GET /health`
 
-Returns `{ "status": "healthy", "service": "Asclepian Research Labs" }`.
+Returns `{ "status": "healthy", "service": "Asclepius Research Labs" }`.
 
 ---
 
@@ -123,7 +123,7 @@ Returns `{ "status": "healthy", "service": "Asclepian Research Labs" }`.
 
 | Variable        | Default                   | Description                     |
 |-----------------|---------------------------|---------------------------------|
-| `APP_NAME`      | `Asclepian Research Labs` | Service display name            |
+| `APP_NAME`      | `Asclepius Research Labs` | Service display name            |
 | `OPENAI_API_KEY`| *(empty)*                 | OpenAI API key (when wired up)  |
 | `LLM_MODEL`     | `gpt-4o`                  | Model identifier                |
 | `CORS_ORIGINS`  | `["*"]`                   | Allowed CORS origins            |

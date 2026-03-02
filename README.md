@@ -2,7 +2,7 @@
 
 > **AI-powered immune reasoning for autoimmune disease research**
 
-Asclepian Research Labs is an intelligent research copilot that helps immunologists, drug discovery teams, and biotech researchers reason about immune signaling networks. Ask questions in natural language about disease mechanisms, cytokine pathways, or therapeutic targets — and get structured, source-backed answers grounded in curated immunological data.
+Asclepius Research Labs is an intelligent research copilot that helps immunologists, drug discovery teams, and biotech researchers reason about immune signaling networks. Ask questions in natural language about disease mechanisms, cytokine pathways, or therapeutic targets — and get structured, source-backed answers grounded in curated immunological data.
 
 ---
 
@@ -191,7 +191,7 @@ suggestions = suggester.suggest_experiments("STAT3", edge_list, budget=3)
 
 | Variable | Default | Description |
 |---|---|---|
-| `APP_NAME` | `Asclepian Research Labs` | Service display name |
+| `APP_NAME` | `Asclepius Research Labs` | Service display name |
 | `OPENAI_API_KEY` | *(empty)* | OpenAI API key for LLM synthesis |
 | `LLM_MODEL` | `gpt-4o` | Model identifier |
 | `CORS_ORIGINS` | `["*"]` | Allowed CORS origins |
