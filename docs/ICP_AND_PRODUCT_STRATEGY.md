@@ -2,26 +2,31 @@
 
 ## Current State Assessment
 
-Asclepius Research Labs is an AI-powered immune reasoning copilot for autoimmune
-disease research. The current product takes natural language questions, performs
-keyword-based search across curated knowledge bases (16 KB entries, 4 JSON
-datasets covering cytokines, pathways, diseases, and therapeutics), optionally
-synthesizes answers via GPT-4o, and returns structured reasoning output.
+Asclepius Research Labs is a structured autoimmune intelligence engine for
+biotech researchers and translational immunologists. The product provides a
+multi-mode research interface (Analyze, Compare, Hypothesize) backed by
+curated knowledge bases, live PubMed integration, a computable knowledge graph
+with causal propagation, and persistent research workspaces.
 
 ### Current Strengths
-- Clean, structured output format (disease context, cells, cytokines, pathways, targets, hypotheses)
-- Curated, expert-authored immunological knowledge base
+- **Structured immune reasoning** enforced on every query (disease context, cells, cytokines, pathways, targets, genes, hypotheses)
+- **Live PubMed integration** via NCBI E-utilities with autoimmune-enriched queries and molecular interaction extraction
+- **Computable knowledge graph** wired into the query pipeline — subgraph extraction, hub analysis, causal propagation, intervention ranking
+- **Comparative disease analysis** — side-by-side comparison across pathways, cytokines, cells, genetics, therapeutics with similarity scoring
+- **Hypothesis generator** — 5 strategies producing testable hypotheses with experimental designs, biomarkers, confounders
+- **Disease dossiers** — research workspaces that accumulate structured insights across queries
+- **Session persistence** — sidebar with localStorage-backed session history
+- Curated, expert-authored immunological knowledge base (16 KB entries, 4 JSON datasets)
 - Functional deployment (Vercel + Railway)
-- Research engine infrastructure already built (graph construction, causal propagation, intervention ranking, active learning) — not yet connected to the web app
+- Research engine infrastructure (graph construction, causal propagation, intervention ranking, active learning)
 
-### Current Weaknesses
-- Core loop is effectively a structured ChatGPT wrapper over static data
-- No live data sources (PubMed, preprints)
-- No user data integration
-- No persistent state (queries are ephemeral)
-- Research engine modules (graph, causal, embeddings, optimizer) are disconnected from the frontend
-- Limited to autoimmune diseases only
-- Keyword-based search with no vector/semantic retrieval
+### Current Weaknesses / Next to Address
+- Keyword-based search (no vector/semantic retrieval yet)
+- No preprint sources (bioRxiv/medRxiv)
+- No user data upload (CSV/TSV gene lists, CRISPR screens)
+- Session persistence is client-side only (localStorage, no cloud accounts)
+- No interactive graph visualization
+- Limited to autoimmune diseases only (oncology expansion planned)
 
 ---
 
@@ -109,27 +114,29 @@ that an LLM cannot do through text generation alone.
 
 ## Product Roadmap
 
-### Phase 1: Connect the Engine (Weeks 1–4)
+### Phase 1: Connect the Engine — COMPLETED
 
 **Goal:** Wire the existing research engine modules into the web application.
 
-- [ ] Expose graph query endpoints through the FastAPI backend
-- [ ] Add interactive knowledge graph visualization (Cytoscape.js or D3-force)
-- [ ] Connect causal propagation to the query flow — show predicted downstream effects for any target mentioned in a query
-- [ ] Add intervention ranking to response cards — "Top targets by predicted impact"
-- [ ] Surface experiment suggestions when relevant
+- [x] Expose graph query endpoints through the FastAPI backend (stats, subgraph, hubs, propagate, interventions)
+- [x] Connect causal propagation to the query flow — downstream impact scores shown in every response
+- [x] Add intervention ranking endpoint — rank upstream targets by predicted impact
+- [x] Add comparative disease analysis mode (disease vs disease across all dimensions)
+- [x] Add hypothesis generator mode (5 strategies with experimental designs)
+- [ ] Add interactive knowledge graph visualization (Cytoscape.js or D3-force) — next priority
 
 **Outcome:** The product does things ChatGPT cannot. Immediate differentiation.
 
-### Phase 2: Live Data & Persistence (Weeks 5–8)
+### Phase 2: Live Data & Persistence — MOSTLY COMPLETED
 
 **Goal:** Make the product current and sticky.
 
-- [ ] Integrate PubMed E-utilities API for real-time literature search
+- [x] Integrate PubMed E-utilities API for real-time literature search
+- [x] Disease dossier system for persistent research workspaces
+- [x] Session sidebar with localStorage-backed history
 - [ ] Add bioRxiv/medRxiv preprint search
-- [ ] Implement user accounts with persistent workspaces
-- [ ] Save queries, answers, and graph states to projects
-- [ ] Add query history and search within past results
+- [ ] Implement user accounts with cloud-persistent workspaces (replace localStorage)
+- [ ] Add search within past results
 - [ ] Implement semantic search using vector embeddings (replace keyword matching)
 
 **Outcome:** Users have a reason to come back (their work is saved) and answers are always current.
@@ -197,12 +204,12 @@ that an LLM cannot do through text generation alone.
 
 ## Summary
 
-The path from "ChatGPT wrapper" to defensible product:
+Progress on the path from "ChatGPT wrapper" to defensible product:
 
-1. **Connect the research engine you already built** to the web app (graph viz, causal propagation, intervention ranking)
-2. **Add live data sources** (PubMed API, preprints) so answers are never stale
-3. **Let users bring their own data** to create switching costs
+1. ~~**Connect the research engine you already built** to the web app~~ — **DONE**: Knowledge graph, causal propagation, intervention ranking all wired into query pipeline. Comparative analysis and hypothesis generation modes added.
+2. ~~**Add live data sources**~~ — **DONE**: PubMed E-utilities integrated with autoimmune query enrichment and molecular interaction extraction. Preprints still to come.
+3. **Let users bring their own data** to create switching costs — **NEXT**: CSV/TSV upload, user data overlay on knowledge graph
 4. **Target translational immunology teams at Series A–C biotechs** who have budget, pain, and fast procurement cycles
 5. **Expand to immuno-oncology** to 3x the market
 
-The infrastructure is already built. The gap is connecting it to users.
+The engine is connected. The next gap is user data integration and cloud persistence.
