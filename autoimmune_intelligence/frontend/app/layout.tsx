@@ -4,7 +4,7 @@ import AuthHeader from "@/components/AuthHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Asclepius Research Labs — Immune Reasoning Copilot",
+  title: "Asclepius Research Labs",
   description: "AI-powered immune reasoning copilot for autoimmune hypothesis generation and therapeutic target discovery.",
 };
 
