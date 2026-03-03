@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0a0a14"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bg)" stroke="#e0e0e0" stroke-width="8"/>
+
+  <!-- Inner subtle ring -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.12"/>
+
+  <!-- Staff -->
+  <line x1="256" y1="80" x2="256" y2="432" stroke="#e8e8e8" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Staff top ornament (sphere) -->
+  <circle cx="256" cy="72" r="16" fill="#e8e8e8"/>
+  <circle cx="256" cy="72" r="8" fill="#1a1a2e"/>
+
+  <!-- Snake body — elegant helix wrapping the staff -->
+  <path
+    d="M256 400
+       C216 396, 196 380, 210 362
+       C224 344, 260 340, 280 328
+       C300 316, 308 300, 296 288
+       C284 276, 252 272, 232 260
+       C212 248, 204 232, 218 218
+       C232 204, 260 200, 280 190
+       C300 180, 308 164, 296 150
+       C284 136, 256 132, 240 124"
+    stroke="#e8e8e8"
+    stroke-width="12"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- Snake head -->
+  <path
+    d="M240 124
+       C232 116, 216 110, 200 114
+       C188 118, 184 130, 192 138
+       C198 144, 210 140, 218 134"
+    stroke="#e8e8e8"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Snake eye -->
+  <circle cx="204" cy="122" r="5" fill="#e8e8e8"/>
+  <circle cx="204" cy="122" r="2" fill="#1a1a2e"/>
+
+  <!-- Snake tongue -->
+  <path d="M194 114 L180 106" stroke="#e8e8e8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M194 114 L182 118" stroke="#e8e8e8" stroke-width="3" stroke-linecap="round"/>
+</svg>

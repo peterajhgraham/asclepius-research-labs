@@ -110,35 +110,42 @@ function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className
     <svg
       width={size}
       height={size}
-      viewBox="0 0 64 64"
+      viewBox="0 0 512 512"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
+      {/* Background circle */}
+      <circle cx="256" cy="256" r="240" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="8" />
+      {/* Inner subtle ring */}
+      <circle cx="256" cy="256" r="220" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.12" />
       {/* Staff */}
-      <line x1="32" y1="8" x2="32" y2="58" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      {/* Staff top knob */}
-      <circle cx="32" cy="7" r="2.5" fill="currentColor" />
-      {/* Snake body — wrapping helix */}
+      <line x1="256" y1="80" x2="256" y2="432" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
+      {/* Staff top ornament */}
+      <circle cx="256" cy="72" r="16" fill="currentColor" />
+      <circle cx="256" cy="72" r="8" fill="currentColor" fillOpacity="0.15" />
+      {/* Snake body — elegant helix */}
       <path
-        d="M32 50 C22 48, 20 44, 24 41 C28 38, 38 38, 40 35 C42 32, 36 29, 32 29 C28 29, 22 29, 22 26 C22 23, 28 21, 32 21 C36 21, 42 21, 42 18 C42 15, 36 13, 32 13"
+        d="M256 400 C216 396, 196 380, 210 362 C224 344, 260 340, 280 328 C300 316, 308 300, 296 288 C284 276, 252 272, 232 260 C212 248, 204 232, 218 218 C232 204, 260 200, 280 190 C300 180, 308 164, 296 150 C284 136, 256 132, 240 124"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="12"
         strokeLinecap="round"
         fill="none"
       />
       {/* Snake head */}
       <path
-        d="M32 13 C30 11, 26 10, 24 11 C22 12, 22 14, 24 15 C25 15.5, 27 15, 28 14"
+        d="M240 124 C232 116, 216 110, 200 114 C188 118, 184 130, 192 138 C198 144, 210 140, 218 134"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="10"
         strokeLinecap="round"
+        strokeLinejoin="round"
         fill="none"
       />
       {/* Snake eye */}
-      <circle cx="25" cy="12.5" r="0.8" fill="currentColor" />
+      <circle cx="204" cy="122" r="5" fill="currentColor" />
       {/* Snake tongue */}
-      <path d="M23.5 11 L21 9.5 M23.5 11 L21.5 12" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M194 114 L180 106" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      <path d="M194 114 L182 118" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
