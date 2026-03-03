@@ -1,4 +1,5 @@
 import type { QueryResponse, StructuredReasoning } from "@/lib/api";
+import PubMedPanel from "./PubMedPanel";
 
 interface ResponseCardProps {
   data: QueryResponse;
@@ -46,6 +47,45 @@ function ReasoningSection({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Causal network section                                              */
+/* ------------------------------------------------------------------ */
+function CausalNetworkSection({ graphContext }: { graphContext: QueryResponse["graph_context"] }) {
+  if (!graphContext?.causal_downstream?.length) return null;
+  return (
+    <div className="rounded-lg border border-accent-500/20 bg-surface-2 p-4">
+      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent-400">
+        <span className="text-base">{"\u26A1"}</span>
+        Causal Network Impact
+      </h3>
+      <div className="space-y-1.5">
+        {graphContext.causal_downstream.slice(0, 8).map((item, i) => {
+          const barWidth = Math.min(Math.abs(item.score) * 100, 100);
+          return (
+            <div key={i} className="flex items-center gap-3">
+              <span className="w-24 text-xs text-gray-300 font-mono truncate">{item.node}</span>
+              <div className="flex-1 h-2 rounded-full bg-surface-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${item.score >= 0 ? "bg-accent-500" : "bg-red-500"}`}
+                  style={{ width: `${barWidth}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted font-mono w-12 text-right">
+                {item.score.toFixed(3)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {graphContext.node_count > 0 && (
+        <p className="mt-2 text-[10px] text-muted">
+          Graph: {graphContext.node_count} nodes, {graphContext.edge_count} edges
+        </p>
+      )}
     </div>
   );
 }
@@ -136,6 +176,14 @@ export default function ResponseCard({ data }: ResponseCardProps) {
             borderClass="border-hypothesis/20"
           />
         </div>
+      )}
+
+      {/* Causal network context */}
+      <CausalNetworkSection graphContext={data.graph_context} />
+
+      {/* PubMed articles */}
+      {data.pubmed_articles && data.pubmed_articles.length > 0 && (
+        <PubMedPanel articles={data.pubmed_articles} />
       )}
 
       {/* Sources */}
