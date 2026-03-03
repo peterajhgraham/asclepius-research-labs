@@ -4,6 +4,11 @@ Searches across ALL data sources (knowledge base, cytokine network,
 immune pathways, disease-gene associations, therapeutics) and composes
 a rich, structured answer.
 
+Now enhanced with:
+- Live PubMed integration for latest literature
+- Knowledge graph context for mechanistic reasoning
+- Causal propagation for intervention insights
+
 When an OpenAI API key is configured the matched context is sent to the
 LLM for synthesis.  Without a key the service returns a locally composed
 answer — no external dependency required.
@@ -16,7 +21,7 @@ import logging
 from typing import Any, Optional
 
 from app.core.config import settings
-from app.models.schema import QueryResponse, StructuredReasoning
+from app.models.schema import QueryResponse, StructuredReasoning, PubMedResult
 from app.services.query_engine import search_all, SearchResult
 
 logger = logging.getLogger(__name__)
@@ -39,27 +44,110 @@ if settings.openai_api_key:
 class LLMService:
     """Handles queries for the Autoimmune Intelligence API."""
 
-    def query(self, question: str) -> QueryResponse:
-        logger.info("LLMService.query called with question=%r", question)
+    def query(
+        self,
+        question: str,
+        include_pubmed: bool = False,
+    ) -> QueryResponse:
+        logger.info("LLMService.query called with question=%r, pubmed=%s", question, include_pubmed)
 
         results = search_all(question)
 
-        if not results.has_results:
+        # Fetch live PubMed articles if requested
+        pubmed_articles: list[PubMedResult] = []
+        if include_pubmed:
+            pubmed_articles = self._fetch_pubmed(question)
+
+        # Get graph context for relevant entities
+        graph_context = self._get_graph_context(results)
+
+        if not results.has_results and not pubmed_articles:
             return QueryResponse(
                 answer=(
                     "I could not find a match for your query in the current "
                     "datasets. Try asking about a specific autoimmune disease "
                     "(e.g., rheumatoid arthritis, lupus, multiple sclerosis), "
-                    "a cytokine pathway (e.g., JAK-STAT, NF-κB, IL-17), or "
+                    "a cytokine pathway (e.g., JAK-STAT, NF-\u03baB, IL-17), or "
                     "a therapeutic (e.g., adalimumab, tofacitinib)."
                 ),
                 sources=[],
             )
 
         if _openai_client is not None:
-            return self._llm_answer(question, results)
+            return self._llm_answer(question, results, pubmed_articles, graph_context)
 
-        return self._local_answer(question, results)
+        return self._local_answer(question, results, pubmed_articles, graph_context)
+
+    # ------------------------------------------------------------------
+    # PubMed integration
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _fetch_pubmed(question: str) -> list[PubMedResult]:
+        """Fetch live PubMed articles for the query."""
+        try:
+            from app.services.pubmed_service import pubmed
+
+            articles = pubmed.search_autoimmune(question, max_results=5)
+            return [
+                PubMedResult(
+                    pmid=a.pmid,
+                    title=a.title,
+                    abstract=a.abstract[:400],
+                    authors=a.authors[:3],
+                    journal=a.journal,
+                    year=a.year,
+                    doi=a.doi,
+                    citation=a.citation,
+                )
+                for a in articles
+            ]
+        except Exception:
+            logger.warning("PubMed fetch failed during query", exc_info=True)
+            return []
+
+    # ------------------------------------------------------------------
+    # Knowledge graph context
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _get_graph_context(sr: SearchResult) -> Optional[dict[str, Any]]:
+        """Extract relevant graph context for the query."""
+        try:
+            from app.services.graph_service import knowledge_graph
+
+            # Collect seed nodes from search results
+            seed_nodes: list[str] = []
+            for edge in sr.cytokine_hits[:5]:
+                if edge["source"] not in seed_nodes:
+                    seed_nodes.append(edge["source"])
+                if edge["target"] not in seed_nodes:
+                    seed_nodes.append(edge["target"])
+            for pw in sr.pathway_hits[:2]:
+                for node in pw.get("key_nodes", [])[:3]:
+                    gene = node.get("gene", "")
+                    if gene and gene not in seed_nodes:
+                        seed_nodes.append(gene)
+
+            if not seed_nodes:
+                return None
+
+            subgraph = knowledge_graph.get_subgraph(seed_nodes[:8], hops=1)
+
+            # Run causal propagation from first seed
+            if seed_nodes:
+                prop_scores = knowledge_graph.propagate_signal(
+                    {seed_nodes[0]: 1.0}, direction="downstream"
+                )
+                top_downstream = sorted(
+                    prop_scores.items(), key=lambda x: abs(x[1]), reverse=True
+                )[:10]
+                subgraph["causal_downstream"] = [
+                    {"node": k, "score": round(v, 4)} for k, v in top_downstream
+                ]
+
+            return subgraph
+        except Exception:
+            logger.debug("Graph context extraction failed", exc_info=True)
+            return None
 
     # ------------------------------------------------------------------
     # Structured reasoning extraction from search results
@@ -88,14 +176,14 @@ class LLMService:
             for g in dis.get("associated_genes", [])[:8]:
                 label = g["gene"]
                 if g.get("description"):
-                    label += f" — {g['description']}"
+                    label += f" \u2014 {g['description']}"
                 genes.append(label)
             for rx in dis.get("approved_therapies", []):
                 targets.append(f"{rx['drug']} ({rx['class']})")
 
         # From pathway hits
         for pw in sr.pathway_hits[:3]:
-            pathways.append(f"{pw['pathway_name']} — {pw['description'][:120]}")
+            pathways.append(f"{pw['pathway_name']} \u2014 {pw['description'][:120]}")
             for tgt in pw.get("therapeutic_targets", [])[:3]:
                 entry = f"{tgt.get('drug', '?')} targeting {tgt.get('target', '?')}"
                 if tgt.get("mechanism"):
@@ -110,7 +198,7 @@ class LLMService:
             desc = edge["description"]
             if src not in seen_cytokines:
                 seen_cytokines.add(src)
-                cytokines.append(f"{src} — {desc[:100]}")
+                cytokines.append(f"{src} \u2014 {desc[:100]}")
             if tgt not in seen_cytokines and len(cytokines) < 10:
                 seen_cytokines.add(tgt)
 
@@ -118,7 +206,7 @@ class LLMService:
         for rx in sr.therapeutic_hits[:5]:
             indications = [i["disease"] for i in rx.get("approved_indications", [])[:3]]
             entry = (
-                f"{rx['drug_name']} ({rx['brand_name']}) — {rx['drug_class']}, "
+                f"{rx['drug_name']} ({rx['brand_name']}) \u2014 {rx['drug_class']}, "
                 f"targets {rx['target']}. {rx['mechanism'][:120]}. "
                 f"Approved for: {', '.join(indications)}"
             )
@@ -176,7 +264,12 @@ class LLMService:
     # Local answer — no external API required
     # ------------------------------------------------------------------
     @staticmethod
-    def _local_answer(question: str, sr: SearchResult) -> QueryResponse:
+    def _local_answer(
+        question: str,
+        sr: SearchResult,
+        pubmed_articles: list[PubMedResult],
+        graph_context: Optional[dict[str, Any]],
+    ) -> QueryResponse:
         """Compose a structured answer from all matched data sources."""
         sections: list[str] = []
         sources: list[str] = []
@@ -190,13 +283,13 @@ class LLMService:
             for hit in sr.kb_hits[1:]:
                 if hit.score > 0.1:
                     sections.append(
-                        f"\n**Related — {hit.entry.topic}:**\n{hit.entry.answer}"
+                        f"\n**Related \u2014 {hit.entry.topic}:**\n{hit.entry.answer}"
                     )
 
         # 2. Disease context
         if sr.disease_hits:
             dis = sr.disease_hits[0]
-            parts = [f"\n**Disease context — {dis['disease_name']}:**"]
+            parts = [f"\n**Disease context \u2014 {dis['disease_name']}:**"]
             parts.append(dis["description"])
             if dis.get("prevalence"):
                 parts.append(f"Prevalence: {dis['prevalence']}.")
@@ -207,7 +300,7 @@ class LLMService:
         # 3. Pathway context
         if sr.pathway_hits:
             pw = sr.pathway_hits[0]
-            parts = [f"\n**Pathway — {pw['pathway_name']}** ({pw['pathway_id']}):"]
+            parts = [f"\n**Pathway \u2014 {pw['pathway_name']}** ({pw['pathway_id']}):"]
             parts.append(pw["description"])
             sections.append("\n".join(parts))
             for ref in pw.get("references", []):
@@ -219,7 +312,7 @@ class LLMService:
             for edge in sr.cytokine_hits[:6]:
                 parts.append(
                     f"{edge['source']} -> {edge['target']} "
-                    f"({edge['edge_type']}) — {edge['description']}"
+                    f"({edge['edge_type']}) \u2014 {edge['description']}"
                 )
                 if edge.get("pmid"):
                     sources.append(f"PMID:{edge['pmid']}")
@@ -233,13 +326,28 @@ class LLMService:
                     ind["disease"] for ind in rx.get("approved_indications", [])
                 ]
                 parts.append(
-                    f"{rx['drug_name']} ({rx['brand_name']}) — "
+                    f"{rx['drug_name']} ({rx['brand_name']}) \u2014 "
                     f"{rx['drug_class']}. Target: {rx['target']}. "
                     f"Approved for: {', '.join(indications[:5])}."
                 )
                 for trial in rx.get("pivotal_trials", [])[:1]:
                     if trial.get("pmid"):
                         sources.append(f"PMID:{trial['pmid']}")
+            sections.append("\n".join(parts))
+
+        # 6. Live PubMed articles
+        if pubmed_articles:
+            parts = ["\n**Latest from PubMed:**"]
+            for article in pubmed_articles[:5]:
+                parts.append(f"- {article.citation}")
+                sources.append(f"PMID:{article.pmid}")
+            sections.append("\n".join(parts))
+
+        # 7. Graph context
+        if graph_context and graph_context.get("causal_downstream"):
+            parts = ["\n**Causal network analysis:**"]
+            for item in graph_context["causal_downstream"][:5]:
+                parts.append(f"- {item['node']}: downstream impact score {item['score']}")
             sections.append("\n".join(parts))
 
         # Deduplicate sources
@@ -256,13 +364,20 @@ class LLMService:
             answer="\n".join(sections),
             sources=unique_sources,
             reasoning=reasoning,
+            pubmed_articles=pubmed_articles,
+            graph_context=graph_context,
         )
 
     # ------------------------------------------------------------------
     # LLM-augmented answer (OpenAI)
     # ------------------------------------------------------------------
     @staticmethod
-    def _llm_answer(question: str, sr: SearchResult) -> QueryResponse:
+    def _llm_answer(
+        question: str,
+        sr: SearchResult,
+        pubmed_articles: list[PubMedResult],
+        graph_context: Optional[dict[str, Any]],
+    ) -> QueryResponse:
         """Send full dataset context to OpenAI for synthesis."""
         context_blocks: list[str] = []
         sources: list[str] = []
@@ -321,6 +436,24 @@ class LLMService:
                         sources.append(f"PMID:{trial['pmid']}")
             context_blocks.append("### Therapeutics\n" + "\n".join(rx_strs))
 
+        # PubMed articles
+        if pubmed_articles:
+            pm_strs = []
+            for a in pubmed_articles[:5]:
+                pm_strs.append(f"- [{a.year}] {a.title} ({a.journal}). {a.abstract[:200]}")
+                sources.append(f"PMID:{a.pmid}")
+            context_blocks.append("### Latest PubMed Literature\n" + "\n".join(pm_strs))
+
+        # Graph context
+        if graph_context and graph_context.get("causal_downstream"):
+            causal_strs = [
+                f"- {item['node']}: impact={item['score']}"
+                for item in graph_context["causal_downstream"][:8]
+            ]
+            context_blocks.append(
+                "### Causal Network Analysis\n" + "\n".join(causal_strs)
+            )
+
         context = "\n\n".join(context_blocks)
 
         try:
@@ -332,9 +465,14 @@ class LLMService:
                         "content": (
                             "You are Autoimmune Intelligence, a research assistant "
                             "that synthesises immunological evidence from curated "
-                            "datasets. Answer using ONLY the provided context. "
-                            "Structure your answer with clear sections. Cite sources "
-                            "by PMID or author/journal. Be precise and evidence-based."
+                            "datasets, live PubMed literature, and a computable "
+                            "immune signaling knowledge graph. Answer using ONLY "
+                            "the provided context. Structure your answer with clear "
+                            "sections covering: (1) Disease Overview, (2) Dysregulated "
+                            "Pathways, (3) Key Immune Cells, (4) Cytokines Involved, "
+                            "(5) Known Therapeutic Targets, (6) Failed Targets, "
+                            "(7) Open Research Gaps. Cite sources by PMID or "
+                            "author/journal. Be precise and evidence-based."
                         ),
                     },
                     {
@@ -344,20 +482,22 @@ class LLMService:
                             f"Question: {question}\n\n"
                             "Provide a detailed, structured answer covering disease "
                             "mechanisms, relevant pathways, cytokine interactions, "
-                            "and available therapeutics where applicable."
+                            "causal network relationships, and available therapeutics "
+                            "where applicable. Include insights from the latest "
+                            "PubMed literature if provided."
                         ),
                     },
                 ],
                 temperature=0.3,
-                max_tokens=1500,
+                max_tokens=2000,
             )
             answer = response.choices[0].message.content or ""
         except Exception:
-            logger.warning("OpenAI call failed — falling back to local", exc_info=True)
-            return LLMService._local_answer(question, sr)
+            logger.warning("OpenAI call failed \u2014 falling back to local", exc_info=True)
+            return LLMService._local_answer(question, sr, pubmed_articles, graph_context)
 
         if not answer:
-            return LLMService._local_answer(question, sr)
+            return LLMService._local_answer(question, sr, pubmed_articles, graph_context)
 
         # Deduplicate sources
         seen: set[str] = set()
@@ -365,4 +505,10 @@ class LLMService:
 
         reasoning = LLMService._extract_reasoning(sr)
 
-        return QueryResponse(answer=answer, sources=unique_sources, reasoning=reasoning)
+        return QueryResponse(
+            answer=answer,
+            sources=unique_sources,
+            reasoning=reasoning,
+            pubmed_articles=pubmed_articles,
+            graph_context=graph_context,
+        )
