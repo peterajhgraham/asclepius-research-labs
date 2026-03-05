@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     app_name: str = "Asclepius Research Labs"
     app_env: str = "development"
     openai_api_key: str = ""
+    ncbi_api_key: str = ""
     llm_model: str = "gpt-4o"
     cors_origins: list[str] = ["*"]
     log_level: str = "INFO"
