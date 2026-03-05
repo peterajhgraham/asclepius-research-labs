@@ -3,6 +3,7 @@ import logging.config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
+from app.dmi.routes import router as dmi_router
 from app.core.config import settings
 
 logging.basicConfig(
@@ -14,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
-    description="AI-powered query interface for autoimmune disease research.",
-    version="1.0.0",
+    description="Disease Mechanism Intelligence — AI system that maps causal disease biology and generates mechanistically grounded target risk assessments from primary literature.",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -26,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(dmi_router)
 
 
 @app.get("/health")

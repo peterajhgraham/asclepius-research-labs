@@ -9,14 +9,23 @@ import {
   type CompareResponse,
   type HypothesisResponse,
 } from "@/lib/api";
+import {
+  generateDiseaseReport,
+  generateTargetRiskReport,
+  type DiseaseReportResponse,
+  type TargetRiskResponse,
+  type Vertical,
+} from "@/lib/dmi-api";
 import ResponseCard from "@/components/ResponseCard";
 import CompareCard from "@/components/CompareCard";
 import HypothesisCard from "@/components/HypothesisCard";
+import DiseaseReportCard from "@/components/DiseaseReportCard";
+import TargetRiskCard from "@/components/TargetRiskCard";
 
 // ------------------------------------------------------------------
 // Types
 // ------------------------------------------------------------------
-type Mode = "standard" | "compare" | "hypothesis";
+type Mode = "disease-report" | "target-risk" | "standard" | "compare" | "hypothesis";
 
 interface ConversationEntry {
   id: string;
@@ -25,6 +34,8 @@ interface ConversationEntry {
   response: QueryResponse | null;
   compareResponse: CompareResponse | null;
   hypothesisResponse: HypothesisResponse | null;
+  diseaseReportResponse: DiseaseReportResponse | null;
+  targetRiskResponse: TargetRiskResponse | null;
   loading: boolean;
   error: string | null;
   timestamp: number;
@@ -44,6 +55,22 @@ interface SavedSession {
 // Constants
 // ------------------------------------------------------------------
 const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
+  "disease-report": [
+    "Rheumatoid arthritis",
+    "Non-small cell lung cancer",
+    "Systemic lupus erythematosus",
+    "Triple-negative breast cancer",
+    "Multiple sclerosis",
+    "Colorectal cancer",
+  ],
+  "target-risk": [
+    "TNF-alpha in Rheumatoid arthritis",
+    "PD-1 in Non-small cell lung cancer",
+    "BAFF in Systemic lupus",
+    "KRAS in Colorectal cancer",
+    "IL-17A in Psoriasis",
+    "EGFR in Glioblastoma",
+  ],
   standard: [
     "Rheumatoid arthritis cytokine pathways",
     "JAK-STAT dysregulation in lupus",
@@ -66,10 +93,12 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string }> = {
-  standard: { label: "Analyze", description: "Structured immune reasoning", icon: "\u26A1" },
-  compare: { label: "Compare", description: "Disease vs disease", icon: "\u2194\uFE0F" },
-  hypothesis: { label: "Hypothesize", description: "Generate testable hypotheses", icon: "\uD83E\uDDEA" },
+const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
+  "disease-report": { label: "Disease Report", description: "Structured mechanism report", icon: "\uD83E\uDDE0", group: "dmi" },
+  "target-risk":    { label: "Target Risk", description: "Risk scoring assessment", icon: "\uD83C\uDFAF", group: "dmi" },
+  standard:         { label: "Analyze", description: "Structured immune reasoning", icon: "\u26A1", group: "legacy" },
+  compare:          { label: "Compare", description: "Disease vs disease", icon: "\u2194\uFE0F", group: "legacy" },
+  hypothesis:       { label: "Hypothesize", description: "Generate testable hypotheses", icon: "\uD83E\uDDEA", group: "legacy" },
 };
 
 const LS_KEY = "asclepius_sessions";
@@ -115,16 +144,11 @@ function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Background circle */}
       <circle cx="256" cy="256" r="240" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="8" />
-      {/* Inner subtle ring */}
       <circle cx="256" cy="256" r="220" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.12" />
-      {/* Staff */}
       <line x1="256" y1="80" x2="256" y2="432" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
-      {/* Staff top ornament */}
       <circle cx="256" cy="72" r="16" fill="currentColor" />
       <circle cx="256" cy="72" r="8" fill="currentColor" fillOpacity="0.15" />
-      {/* Snake body — elegant helix */}
       <path
         d="M256 400 C216 396, 196 380, 210 362 C224 344, 260 340, 280 328 C300 316, 308 300, 296 288 C284 276, 252 272, 232 260 C212 248, 204 232, 218 218 C232 204, 260 200, 280 190 C300 180, 308 164, 296 150 C284 136, 256 132, 240 124"
         stroke="currentColor"
@@ -132,7 +156,6 @@ function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className
         strokeLinecap="round"
         fill="none"
       />
-      {/* Snake head */}
       <path
         d="M240 124 C232 116, 216 110, 200 114 C188 118, 184 130, 192 138 C198 144, 210 140, 218 134"
         stroke="currentColor"
@@ -141,9 +164,7 @@ function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className
         strokeLinejoin="round"
         fill="none"
       />
-      {/* Snake eye */}
       <circle cx="204" cy="122" r="5" fill="currentColor" />
-      {/* Snake tongue */}
       <path d="M194 114 L180 106" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
       <path d="M194 114 L182 118" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
@@ -172,7 +193,6 @@ function Sidebar({
 }) {
   return (
     <>
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={onToggleSidebar} />
       )}
@@ -183,7 +203,6 @@ function Sidebar({
         }`}
       >
         <div className="flex h-full flex-col">
-          {/* Sidebar header */}
           <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
             <button onClick={onNewSession} className="flex items-center gap-2 group">
               <AsclepiusLogo size={22} className="text-accent-400" />
@@ -203,7 +222,6 @@ function Sidebar({
             </button>
           </div>
 
-          {/* Session list */}
           <div className="flex-1 overflow-y-auto py-2">
             {sessions.length === 0 && (
               <p className="px-4 py-8 text-center text-xs text-muted">
@@ -223,7 +241,7 @@ function Sidebar({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{session.title}</p>
                   <p className="text-[10px] text-muted mt-0.5">
-                    {MODE_CONFIG[session.mode].icon} {session.entries.length} {session.entries.length === 1 ? "query" : "queries"}
+                    {MODE_CONFIG[session.mode]?.icon || ""} {session.entries.length} {session.entries.length === 1 ? "query" : "queries"}
                   </p>
                 </div>
                 <button
@@ -240,7 +258,6 @@ function Sidebar({
             ))}
           </div>
 
-          {/* Sidebar footer */}
           <div className="border-t border-surface-3 px-4 py-3">
             <p className="text-[10px] text-muted text-center">
               Sessions stored locally
@@ -258,9 +275,11 @@ function Sidebar({
 export default function HomePage() {
   const [question, setQuestion] = useState("");
   const [diseaseB, setDiseaseB] = useState("");
+  const [targetName, setTargetName] = useState("");
+  const [vertical, setVertical] = useState<Vertical>("immunology");
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<Mode>("standard");
+  const [mode, setMode] = useState<Mode>("disease-report");
   const [includePubmed, setIncludePubmed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -269,17 +288,14 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Load sessions from localStorage on mount
   useEffect(() => {
     setSessions(loadSessions());
   }, []);
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries]);
 
-  // Save active session to localStorage when entries change
   const saveCurrentSession = useCallback(() => {
     if (!entries.length) return;
 
@@ -309,24 +325,23 @@ export default function HomePage() {
     });
   }, [entries, activeSessionId, mode]);
 
-  // Save whenever entries change (debounced via effect)
   useEffect(() => {
     if (entries.length > 0 && entries.some((e) => !e.loading)) {
       saveCurrentSession();
     }
   }, [entries, saveCurrentSession]);
 
-  // Handle "New Session" — reset to home
   function handleNewSession() {
     setEntries([]);
     setActiveSessionId(null);
     setQuestion("");
     setDiseaseB("");
-    setMode("standard");
+    setTargetName("");
+    setMode("disease-report");
+    setVertical("immunology");
     setSidebarOpen(false);
   }
 
-  // Handle selecting a saved session
   function handleSelectSession(sessionId: string) {
     const session = sessions.find((s) => s.id === sessionId);
     if (!session) return;
@@ -336,7 +351,6 @@ export default function HomePage() {
     setSidebarOpen(false);
   }
 
-  // Handle deleting a session
   function handleDeleteSession(sessionId: string) {
     setSessions((prev) => {
       const updated = prev.filter((s) => s.id !== sessionId);
@@ -348,7 +362,6 @@ export default function HomePage() {
     }
   }
 
-  // Handle clicking the logo/title — go home
   function handleGoHome() {
     handleNewSession();
   }
@@ -359,12 +372,16 @@ export default function HomePage() {
     if (!trimmed || loading) return;
 
     const idx = entries.length;
-    const displayQ =
-      mode === "compare" && diseaseB.trim()
-        ? `Compare: ${trimmed} vs ${diseaseB.trim()}`
-        : mode === "hypothesis"
-          ? `Hypotheses: ${trimmed}`
-          : trimmed;
+    let displayQ = trimmed;
+    if (mode === "disease-report") {
+      displayQ = `Disease Report: ${trimmed} [${vertical}]`;
+    } else if (mode === "target-risk") {
+      displayQ = `Target Risk: ${targetName.trim()} in ${trimmed} [${vertical}]`;
+    } else if (mode === "compare" && diseaseB.trim()) {
+      displayQ = `Compare: ${trimmed} vs ${diseaseB.trim()}`;
+    } else if (mode === "hypothesis") {
+      displayQ = `Hypotheses: ${trimmed}`;
+    }
 
     const entry: ConversationEntry = {
       id: genId(),
@@ -373,6 +390,8 @@ export default function HomePage() {
       response: null,
       compareResponse: null,
       hypothesisResponse: null,
+      diseaseReportResponse: null,
+      targetRiskResponse: null,
       loading: true,
       error: null,
       timestamp: Date.now(),
@@ -382,10 +401,32 @@ export default function HomePage() {
     setEntries((prev) => [...prev, entry]);
     setQuestion("");
     setDiseaseB("");
+    setTargetName("");
     setLoading(true);
 
     try {
-      if (mode === "compare") {
+      if (mode === "disease-report") {
+        const result = await generateDiseaseReport({
+          disease_name: trimmed,
+          vertical,
+        });
+        setEntries((prev) =>
+          prev.map((e, i) =>
+            i === idx ? { ...e, diseaseReportResponse: result, loading: false } : e
+          )
+        );
+      } else if (mode === "target-risk") {
+        const result = await generateTargetRiskReport({
+          disease_name: trimmed,
+          target_name: targetName.trim(),
+          vertical,
+        });
+        setEntries((prev) =>
+          prev.map((e, i) =>
+            i === idx ? { ...e, targetRiskResponse: result, loading: false } : e
+          )
+        );
+      } else if (mode === "compare") {
         const result = await compareDiseases({
           disease_a: trimmed,
           disease_b: diseaseB.trim() || trimmed,
@@ -432,16 +473,24 @@ export default function HomePage() {
 
   const isEmpty = entries.length === 0;
   const examples = EXAMPLE_PROMPTS[mode];
+  const isDmiMode = mode === "disease-report" || mode === "target-risk";
 
   function handleExampleClick(example: string) {
     if (mode === "compare") {
       const parts = example.split(" vs ");
       setQuestion(parts[0] || example);
       setDiseaseB(parts[1] || "");
+    } else if (mode === "target-risk") {
+      const parts = example.split(" in ");
+      setTargetName(parts[0] || "");
+      setQuestion(parts[1] || example);
     } else {
       setQuestion(example);
     }
   }
+
+  const dmiModes: Mode[] = ["disease-report", "target-risk"];
+  const legacyModes: Mode[] = ["standard", "compare", "hypothesis"];
 
   return (
     <div className="flex h-screen bg-surface-0 overflow-hidden">
@@ -462,7 +511,6 @@ export default function HomePage() {
         <header className="sticky top-0 z-20 border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
           <div className="flex items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
-              {/* Hamburger for mobile */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-gray-300 transition lg:hidden"
@@ -473,7 +521,6 @@ export default function HomePage() {
                   <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              {/* Logo — click to go home */}
               <button
                 onClick={handleGoHome}
                 className="flex items-center gap-2.5 group"
@@ -487,15 +534,32 @@ export default function HomePage() {
                     Asclepius Research Labs
                   </h1>
                   <p className="text-[10px] text-muted leading-none">
-                    Autoimmune intelligence engine
+                    Disease Mechanism Intelligence
                   </p>
                 </div>
               </button>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Mode switcher */}
+              {/* DMI mode switcher */}
+              <div className="flex rounded-lg border border-accent-500/30 bg-surface-1 p-0.5">
+                {dmiModes.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 ${
+                      mode === m
+                        ? "bg-accent-600/20 text-accent-400"
+                        : "text-muted hover:text-gray-300"
+                    }`}
+                  >
+                    <span className="mr-0.5 sm:mr-1">{MODE_CONFIG[m].icon}</span>
+                    <span className="hidden sm:inline">{MODE_CONFIG[m].label}</span>
+                  </button>
+                ))}
+              </div>
+              {/* Legacy mode switcher */}
               <div className="flex rounded-lg border border-surface-3 bg-surface-1 p-0.5">
-                {(Object.keys(MODE_CONFIG) as Mode[]).map((m) => (
+                {legacyModes.map((m) => (
                   <button
                     key={m}
                     onClick={() => setMode(m)}
@@ -526,11 +590,11 @@ export default function HomePage() {
                 <AsclepiusLogo size={36} />
               </div>
               <h2 className="text-2xl font-semibold tracking-tight text-gray-100 sm:text-3xl">
-                Asclepius Research Labs
+                Disease Mechanism Intelligence
               </h2>
               <p className="mt-2 text-center text-sm text-muted max-w-md">
-                Structure immune complexity into actionable insight.
-                Analyze mechanisms, compare diseases, and generate testable hypotheses.
+                An AI system that maps causal disease biology and generates
+                mechanistically grounded target risk assessments from primary literature.
               </p>
 
               {/* Mode description */}
@@ -539,11 +603,35 @@ export default function HomePage() {
                   {MODE_CONFIG[mode].icon} {MODE_CONFIG[mode].label} Mode
                 </p>
                 <p className="text-xs text-muted mt-1">
+                  {mode === "disease-report" && "Enter a disease name to generate a structured, citation-backed mechanism report"}
+                  {mode === "target-risk" && "Enter a disease and target to generate a risk-scored assessment"}
                   {mode === "standard" && "Ask about disease mechanisms, cytokine networks, pathways, or therapeutics"}
                   {mode === "compare" && "Enter two diseases to see a structured side-by-side comparison"}
                   {mode === "hypothesis" && "Enter a topic to generate testable research hypotheses with experimental designs"}
                 </p>
               </div>
+
+              {/* Vertical selector for DMI modes */}
+              {isDmiMode && (
+                <div className="mt-4 flex items-center gap-3">
+                  <span className="text-xs text-muted-light">Vertical:</span>
+                  <div className="flex rounded-lg border border-surface-3 bg-surface-1 p-0.5">
+                    {(["immunology", "oncology"] as Vertical[]).map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setVertical(v)}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${
+                          vertical === v
+                            ? "bg-accent-600/20 text-accent-400"
+                            : "text-muted hover:text-gray-300"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-8 w-full max-w-lg">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-dim">
@@ -567,12 +655,20 @@ export default function HomePage() {
           {/* Results */}
           {!isEmpty && (
             <div className="mx-auto max-w-5xl px-4 py-8 space-y-8 sm:px-6">
-              {entries.map((entry, idx) => (
+              {entries.map((entry) => (
                 <div key={entry.id}>
                   {/* User query */}
                   <div className="mb-4 flex items-start gap-3">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-xs font-semibold text-accent-400">
-                      {entry.mode === "compare" ? "\u2194" : entry.mode === "hypothesis" ? "H" : "Q"}
+                      {entry.mode === "disease-report"
+                        ? "\uD83E\uDDE0"
+                        : entry.mode === "target-risk"
+                          ? "\uD83C\uDFAF"
+                          : entry.mode === "compare"
+                            ? "\u2194"
+                            : entry.mode === "hypothesis"
+                              ? "H"
+                              : "Q"}
                     </div>
                     <p className="pt-0.5 text-sm font-medium text-gray-100">
                       {entry.question}
@@ -584,11 +680,15 @@ export default function HomePage() {
                     <div className="ml-10 flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
                       <span className="animate-pulse text-sm text-muted-light">
-                        {entry.mode === "compare"
-                          ? "Comparing diseases..."
-                          : entry.mode === "hypothesis"
-                            ? "Generating hypotheses..."
-                            : "Reasoning across datasets..."}
+                        {entry.mode === "disease-report"
+                          ? "Analyzing literature..."
+                          : entry.mode === "target-risk"
+                            ? "Assessing target risk..."
+                            : entry.mode === "compare"
+                              ? "Comparing diseases..."
+                              : entry.mode === "hypothesis"
+                                ? "Generating hypotheses..."
+                                : "Reasoning across datasets..."}
                       </span>
                     </div>
                   )}
@@ -597,6 +697,20 @@ export default function HomePage() {
                   {entry.error && (
                     <div className="ml-10 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                       {entry.error}
+                    </div>
+                  )}
+
+                  {/* Disease Report response */}
+                  {entry.diseaseReportResponse && (
+                    <div className="ml-10">
+                      <DiseaseReportCard data={entry.diseaseReportResponse} />
+                    </div>
+                  )}
+
+                  {/* Target Risk response */}
+                  {entry.targetRiskResponse && (
+                    <div className="ml-10">
+                      <TargetRiskCard data={entry.targetRiskResponse} />
                     </div>
                   )}
 
@@ -631,6 +745,31 @@ export default function HomePage() {
         {/* Input area — sticky bottom */}
         <div className="border-t border-surface-3 bg-surface-0/90 backdrop-blur-md">
           <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
+            {/* Controls row for DMI modes */}
+            {isDmiMode && (
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-light">Vertical:</span>
+                  <div className="flex rounded-md border border-surface-3 bg-surface-1 p-0.5">
+                    {(["immunology", "oncology"] as Vertical[]).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setVertical(v)}
+                        className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${
+                          vertical === v
+                            ? "bg-accent-600/20 text-accent-400"
+                            : "text-muted hover:text-gray-300"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* PubMed toggle (standard mode only) */}
             {mode === "standard" && (
               <div className="flex items-center gap-4 mb-3">
@@ -647,7 +786,26 @@ export default function HomePage() {
             )}
 
             <div className="flex gap-2 sm:gap-3">
-              {mode === "compare" ? (
+              {mode === "target-risk" ? (
+                <>
+                  <input
+                    type="text"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Disease name (e.g., Rheumatoid arthritis)"
+                    disabled={loading}
+                    className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                  />
+                  <input
+                    type="text"
+                    value={targetName}
+                    onChange={(e) => setTargetName(e.target.value)}
+                    placeholder="Target (e.g., TNF-alpha)"
+                    disabled={loading}
+                    className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                  />
+                </>
+              ) : mode === "compare" ? (
                 <>
                   <input
                     type="text"
@@ -673,9 +831,11 @@ export default function HomePage() {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder={
-                    mode === "hypothesis"
-                      ? "Enter a research topic (e.g., IL-17 in psoriasis)..."
-                      : "Ask about a disease mechanism, pathway, or therapeutic target..."
+                    mode === "disease-report"
+                      ? "Enter disease name (e.g., Rheumatoid arthritis, Non-small cell lung cancer)..."
+                      : mode === "hypothesis"
+                        ? "Enter a research topic (e.g., IL-17 in psoriasis)..."
+                        : "Ask about a disease mechanism, pathway, or therapeutic target..."
                   }
                   disabled={loading}
                   className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
@@ -683,7 +843,12 @@ export default function HomePage() {
               )}
               <button
                 type="submit"
-                disabled={loading || !question.trim() || (mode === "compare" && !diseaseB.trim())}
+                disabled={
+                  loading ||
+                  !question.trim() ||
+                  (mode === "compare" && !diseaseB.trim()) ||
+                  (mode === "target-risk" && !targetName.trim())
+                }
                 className="rounded-lg bg-accent-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
               >
                 {loading ? (

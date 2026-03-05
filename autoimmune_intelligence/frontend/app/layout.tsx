@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Asclepius Research Labs",
-  description: "AI-powered immune reasoning copilot for autoimmune hypothesis generation and therapeutic target discovery.",
+  description: "Disease Mechanism Intelligence — An AI system that maps causal disease biology and generates mechanistically grounded target risk assessments from primary literature.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
