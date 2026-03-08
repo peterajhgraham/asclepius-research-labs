@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import AuthHeader from "@/components/AuthHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,7 +24,6 @@ export default function RootLayout({
   const content = (
     <html lang="en">
       <body className="min-h-screen bg-surface-0 text-gray-200 antialiased">
-        {clerkKey && <AuthHeader />}
         {children}
       </body>
     </html>

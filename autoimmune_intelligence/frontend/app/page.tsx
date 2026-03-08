@@ -21,6 +21,7 @@ import CompareCard from "@/components/CompareCard";
 import HypothesisCard from "@/components/HypothesisCard";
 import DiseaseReportCard from "@/components/DiseaseReportCard";
 import TargetRiskCard from "@/components/TargetRiskCard";
+import AuthHeader from "@/components/AuthHeader";
 
 // ------------------------------------------------------------------
 // Types
@@ -93,12 +94,12 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const MODE_CONFIG: Record<Mode, { label: string; description: string; longDescription: string; icon: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Disease Report", description: "Structured mechanism report", longDescription: "Enter a disease name to generate a comprehensive, citation-backed report covering pathways, causal genes, validated targets, and open questions.", icon: "\uD83E\uDDE0", group: "dmi" },
-  "target-risk":    { label: "Target Risk", description: "Risk scoring assessment", longDescription: "Enter a therapeutic target and disease to get a mechanistic risk score covering pathway position, redundancy, biomarker alignment, and historical failures.", icon: "\uD83C\uDFAF", group: "dmi" },
-  standard:         { label: "Analyze", description: "Structured immune reasoning", longDescription: "Ask any question about disease mechanisms, cytokine networks, pathways, or therapeutic targets. Optionally augment with live PubMed results.", icon: "\u26A1", group: "legacy" },
-  compare:          { label: "Compare", description: "Side-by-side disease analysis", longDescription: "Enter two diseases to generate a structured side-by-side comparison covering shared pathways, cytokines, genes, therapeutics, and mechanisms.", icon: "\u2194\uFE0F", group: "legacy" },
-  hypothesis:       { label: "Hypothesize", description: "Generate testable hypotheses", longDescription: "Enter a research topic to generate mechanistically grounded, testable hypotheses with experimental designs, biomarkers, and potential confounders.", icon: "\uD83E\uDDEA", group: "legacy" },
+const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
+  "disease-report": { label: "Disease Report", description: "Structured mechanism report", icon: "\uD83E\uDDE0", group: "dmi" },
+  "target-risk":    { label: "Target Risk",    description: "Risk scoring assessment",     icon: "\uD83C\uDFAF", group: "dmi" },
+  standard:         { label: "Analyze",        description: "Structured immune reasoning", icon: "\u26A1",       group: "legacy" },
+  compare:          { label: "Compare",        description: "Side-by-side comparison",     icon: "\u2194\uFE0F", group: "legacy" },
+  hypothesis:       { label: "Hypothesize",    description: "Testable hypotheses",         icon: "\uD83E\uDDEA", group: "legacy" },
 };
 
 const LS_KEY = "asclepius_sessions";
@@ -539,11 +540,9 @@ export default function HomePage() {
                 </div>
               </button>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Unified mode switcher */}
               <div className="flex rounded-xl border border-surface-3 bg-surface-1 p-1 gap-0.5">
-                {/* DMI group label */}
-                <span className="hidden lg:flex items-center px-2 text-[9px] font-bold uppercase tracking-widest text-muted opacity-60">DMI</span>
                 {dmiModes.map((m) => (
                   <button
                     key={m}
@@ -576,6 +575,8 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
+              <div className="h-5 w-px bg-surface-3" />
+              <AuthHeader />
             </div>
           </div>
         </header>
@@ -584,7 +585,7 @@ export default function HomePage() {
         <div className="flex-1 overflow-y-auto">
           {/* Empty state */}
           {isEmpty && (
-            <div className="mx-auto flex max-w-4xl flex-col items-center px-6 pt-12 pb-8 sm:pt-20">
+            <div className="mx-auto flex max-w-2xl flex-col items-center px-6 pt-16 pb-8 sm:pt-24">
               {/* Hero */}
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400 ring-1 ring-accent-500/20">
                 <AsclepiusLogo size={32} />
@@ -592,63 +593,13 @@ export default function HomePage() {
               <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">
                 Disease Mechanism Intelligence
               </h2>
-              <p className="mt-2 text-center text-sm text-muted max-w-lg leading-relaxed">
+              <p className="mt-2 text-center text-sm text-muted max-w-md leading-relaxed">
                 Map causal disease biology, score therapeutic targets, and generate
                 mechanistically grounded hypotheses from primary literature.
               </p>
 
-              {/* Mode cards */}
-              <div className="mt-8 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(Object.keys(MODE_CONFIG) as Mode[]).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    className={`rounded-xl border p-4 text-left transition-all group ${
-                      mode === m
-                        ? "border-accent-500/40 bg-accent-600/10 ring-1 ring-accent-500/20"
-                        : "border-surface-3 bg-surface-1 hover:border-surface-4 hover:bg-surface-2"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 mb-2">
-                      <span className="text-xl">{MODE_CONFIG[m].icon}</span>
-                      <span className={`text-sm font-semibold ${mode === m ? "text-accent-300" : "text-gray-200"}`}>
-                        {MODE_CONFIG[m].label}
-                      </span>
-                      {m === "disease-report" || m === "target-risk" ? (
-                        <span className="ml-auto rounded-full bg-accent-600/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent-400">DMI</span>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-muted leading-relaxed group-hover:text-muted-light transition">
-                      {MODE_CONFIG[m].longDescription}
-                    </p>
-                  </button>
-                ))}
-              </div>
-
-              {/* Vertical selector for DMI modes */}
-              {isDmiMode && (
-                <div className="mt-5 flex items-center gap-3 p-3 rounded-lg border border-surface-3 bg-surface-1 self-start">
-                  <span className="text-xs text-muted-light font-medium">Research vertical:</span>
-                  <div className="flex rounded-lg border border-surface-3 bg-surface-0 p-0.5">
-                    {(["immunology", "oncology"] as Vertical[]).map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => setVertical(v)}
-                        className={`rounded-md px-4 py-1.5 text-xs font-medium capitalize transition ${
-                          vertical === v
-                            ? "bg-accent-600/20 text-accent-400"
-                            : "text-muted hover:text-gray-300"
-                        }`}
-                      >
-                        {v === "immunology" ? "🧫 Immunology" : "🔬 Oncology"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Example prompts */}
-              <div className="mt-6 w-full">
+              <div className="mt-8 w-full">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-px flex-1 bg-surface-3" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">
