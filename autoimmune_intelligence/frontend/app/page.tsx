@@ -93,12 +93,12 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Disease Report", description: "Structured mechanism report", icon: "\uD83E\uDDE0", group: "dmi" },
-  "target-risk":    { label: "Target Risk", description: "Risk scoring assessment", icon: "\uD83C\uDFAF", group: "dmi" },
-  standard:         { label: "Analyze", description: "Structured immune reasoning", icon: "\u26A1", group: "legacy" },
-  compare:          { label: "Compare", description: "Disease vs disease", icon: "\u2194\uFE0F", group: "legacy" },
-  hypothesis:       { label: "Hypothesize", description: "Generate testable hypotheses", icon: "\uD83E\uDDEA", group: "legacy" },
+const MODE_CONFIG: Record<Mode, { label: string; description: string; longDescription: string; icon: string; group: "dmi" | "legacy" }> = {
+  "disease-report": { label: "Disease Report", description: "Structured mechanism report", longDescription: "Enter a disease name to generate a comprehensive, citation-backed report covering pathways, causal genes, validated targets, and open questions.", icon: "\uD83E\uDDE0", group: "dmi" },
+  "target-risk":    { label: "Target Risk", description: "Risk scoring assessment", longDescription: "Enter a therapeutic target and disease to get a mechanistic risk score covering pathway position, redundancy, biomarker alignment, and historical failures.", icon: "\uD83C\uDFAF", group: "dmi" },
+  standard:         { label: "Analyze", description: "Structured immune reasoning", longDescription: "Ask any question about disease mechanisms, cytokine networks, pathways, or therapeutic targets. Optionally augment with live PubMed results.", icon: "\u26A1", group: "legacy" },
+  compare:          { label: "Compare", description: "Side-by-side disease analysis", longDescription: "Enter two diseases to generate a structured side-by-side comparison covering shared pathways, cytokines, genes, therapeutics, and mechanisms.", icon: "\u2194\uFE0F", group: "legacy" },
+  hypothesis:       { label: "Hypothesize", description: "Generate testable hypotheses", longDescription: "Enter a research topic to generate mechanistically grounded, testable hypotheses with experimental designs, biomarkers, and potential confounders.", icon: "\uD83E\uDDEA", group: "legacy" },
 };
 
 const LS_KEY = "asclepius_sessions";
@@ -539,44 +539,43 @@ export default function HomePage() {
                 </div>
               </button>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* DMI mode switcher */}
-              <div className="flex rounded-lg border border-accent-500/30 bg-surface-1 p-0.5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Unified mode switcher */}
+              <div className="flex rounded-xl border border-surface-3 bg-surface-1 p-1 gap-0.5">
+                {/* DMI group label */}
+                <span className="hidden lg:flex items-center px-2 text-[9px] font-bold uppercase tracking-widest text-muted opacity-60">DMI</span>
                 {dmiModes.map((m) => (
                   <button
                     key={m}
                     onClick={() => setMode(m)}
-                    className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 ${
+                    title={MODE_CONFIG[m].description}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
                       mode === m
-                        ? "bg-accent-600/20 text-accent-400"
-                        : "text-muted hover:text-gray-300"
+                        ? "bg-accent-600/25 text-accent-300 shadow-sm"
+                        : "text-muted hover:text-gray-300 hover:bg-surface-2"
                     }`}
                   >
-                    <span className="mr-0.5 sm:mr-1">{MODE_CONFIG[m].icon}</span>
+                    <span>{MODE_CONFIG[m].icon}</span>
                     <span className="hidden sm:inline">{MODE_CONFIG[m].label}</span>
                   </button>
                 ))}
-              </div>
-              {/* Legacy mode switcher */}
-              <div className="flex rounded-lg border border-surface-3 bg-surface-1 p-0.5">
+                <div className="mx-1 w-px bg-surface-3 self-stretch" />
                 {legacyModes.map((m) => (
                   <button
                     key={m}
                     onClick={() => setMode(m)}
-                    className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 ${
+                    title={MODE_CONFIG[m].description}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
                       mode === m
-                        ? "bg-accent-600/20 text-accent-400"
-                        : "text-muted hover:text-gray-300"
+                        ? "bg-accent-600/25 text-accent-300 shadow-sm"
+                        : "text-muted hover:text-gray-300 hover:bg-surface-2"
                     }`}
                   >
-                    <span className="mr-0.5 sm:mr-1">{MODE_CONFIG[m].icon}</span>
+                    <span>{MODE_CONFIG[m].icon}</span>
                     <span className="hidden sm:inline">{MODE_CONFIG[m].label}</span>
                   </button>
                 ))}
               </div>
-              <span className="hidden md:inline-block rounded-full border border-surface-4 px-3 py-1 text-xs text-muted">
-                {entries.length} {entries.length === 1 ? "query" : "queries"}
-              </span>
             </div>
           </div>
         </header>
@@ -585,65 +584,86 @@ export default function HomePage() {
         <div className="flex-1 overflow-y-auto">
           {/* Empty state */}
           {isEmpty && (
-            <div className="mx-auto flex max-w-3xl flex-col items-center px-6 pt-16 pb-8 sm:pt-24">
-              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400">
-                <AsclepiusLogo size={36} />
+            <div className="mx-auto flex max-w-4xl flex-col items-center px-6 pt-12 pb-8 sm:pt-20">
+              {/* Hero */}
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400 ring-1 ring-accent-500/20">
+                <AsclepiusLogo size={32} />
               </div>
-              <h2 className="text-2xl font-semibold tracking-tight text-gray-100 sm:text-3xl">
+              <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">
                 Disease Mechanism Intelligence
               </h2>
-              <p className="mt-2 text-center text-sm text-muted max-w-md">
-                An AI system that maps causal disease biology and generates
-                mechanistically grounded target risk assessments from primary literature.
+              <p className="mt-2 text-center text-sm text-muted max-w-lg leading-relaxed">
+                Map causal disease biology, score therapeutic targets, and generate
+                mechanistically grounded hypotheses from primary literature.
               </p>
 
-              {/* Mode description */}
-              <div className="mt-6 rounded-lg border border-accent-500/20 bg-accent-600/5 px-4 py-3 text-center">
-                <p className="text-xs text-accent-400 font-semibold">
-                  {MODE_CONFIG[mode].icon} {MODE_CONFIG[mode].label} Mode
-                </p>
-                <p className="text-xs text-muted mt-1">
-                  {mode === "disease-report" && "Enter a disease name to generate a structured, citation-backed mechanism report"}
-                  {mode === "target-risk" && "Enter a disease and target to generate a risk-scored assessment"}
-                  {mode === "standard" && "Ask about disease mechanisms, cytokine networks, pathways, or therapeutics"}
-                  {mode === "compare" && "Enter two diseases to see a structured side-by-side comparison"}
-                  {mode === "hypothesis" && "Enter a topic to generate testable research hypotheses with experimental designs"}
-                </p>
+              {/* Mode cards */}
+              <div className="mt-8 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(Object.keys(MODE_CONFIG) as Mode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`rounded-xl border p-4 text-left transition-all group ${
+                      mode === m
+                        ? "border-accent-500/40 bg-accent-600/10 ring-1 ring-accent-500/20"
+                        : "border-surface-3 bg-surface-1 hover:border-surface-4 hover:bg-surface-2"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <span className="text-xl">{MODE_CONFIG[m].icon}</span>
+                      <span className={`text-sm font-semibold ${mode === m ? "text-accent-300" : "text-gray-200"}`}>
+                        {MODE_CONFIG[m].label}
+                      </span>
+                      {m === "disease-report" || m === "target-risk" ? (
+                        <span className="ml-auto rounded-full bg-accent-600/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent-400">DMI</span>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed group-hover:text-muted-light transition">
+                      {MODE_CONFIG[m].longDescription}
+                    </p>
+                  </button>
+                ))}
               </div>
 
               {/* Vertical selector for DMI modes */}
               {isDmiMode && (
-                <div className="mt-4 flex items-center gap-3">
-                  <span className="text-xs text-muted-light">Vertical:</span>
-                  <div className="flex rounded-lg border border-surface-3 bg-surface-1 p-0.5">
+                <div className="mt-5 flex items-center gap-3 p-3 rounded-lg border border-surface-3 bg-surface-1 self-start">
+                  <span className="text-xs text-muted-light font-medium">Research vertical:</span>
+                  <div className="flex rounded-lg border border-surface-3 bg-surface-0 p-0.5">
                     {(["immunology", "oncology"] as Vertical[]).map((v) => (
                       <button
                         key={v}
                         onClick={() => setVertical(v)}
-                        className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${
+                        className={`rounded-md px-4 py-1.5 text-xs font-medium capitalize transition ${
                           vertical === v
                             ? "bg-accent-600/20 text-accent-400"
                             : "text-muted hover:text-gray-300"
                         }`}
                       >
-                        {v}
+                        {v === "immunology" ? "🧫 Immunology" : "🔬 Oncology"}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="mt-8 w-full max-w-lg">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-dim">
-                  Try a query
-                </p>
-                <div className="grid grid-cols-2 gap-2">
+              {/* Example prompts */}
+              <div className="mt-6 w-full">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-px flex-1 bg-surface-3" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">
+                    Try an example
+                  </p>
+                  <div className="h-px flex-1 bg-surface-3" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {examples.map((example) => (
                     <button
                       key={example}
                       onClick={() => handleExampleClick(example)}
-                      className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-left text-sm text-gray-300 transition hover:border-surface-4 hover:bg-surface-2 hover:text-gray-100"
+                      className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-left text-xs text-gray-400 transition hover:border-accent-500/30 hover:bg-surface-2 hover:text-gray-200 leading-relaxed"
                     >
+                      <span className="mr-1.5 opacity-60">{MODE_CONFIG[mode].icon}</span>
                       {example}
                     </button>
                   ))}
@@ -654,25 +674,22 @@ export default function HomePage() {
 
           {/* Results */}
           {!isEmpty && (
-            <div className="mx-auto max-w-5xl px-4 py-8 space-y-8 sm:px-6">
+            <div className="mx-auto max-w-5xl px-4 py-8 space-y-10 sm:px-6">
               {entries.map((entry) => (
                 <div key={entry.id}>
                   {/* User query */}
-                  <div className="mb-4 flex items-start gap-3">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-xs font-semibold text-accent-400">
-                      {entry.mode === "disease-report"
-                        ? "\uD83E\uDDE0"
-                        : entry.mode === "target-risk"
-                          ? "\uD83C\uDFAF"
-                          : entry.mode === "compare"
-                            ? "\u2194"
-                            : entry.mode === "hypothesis"
-                              ? "H"
-                              : "Q"}
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-sm">
+                      {MODE_CONFIG[entry.mode]?.icon || "Q"}
                     </div>
-                    <p className="pt-0.5 text-sm font-medium text-gray-100">
-                      {entry.question}
-                    </p>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <p className="text-sm font-semibold text-gray-100 leading-relaxed">
+                        {entry.question}
+                      </p>
+                      <p className="text-[10px] text-muted mt-0.5">
+                        {MODE_CONFIG[entry.mode]?.label} · {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Loading state */}
@@ -743,48 +760,52 @@ export default function HomePage() {
         </div>
 
         {/* Input area — sticky bottom */}
-        <div className="border-t border-surface-3 bg-surface-0/90 backdrop-blur-md">
-          <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
-            {/* Controls row for DMI modes */}
-            {isDmiMode && (
-              <div className="flex items-center gap-4 mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-light">Vertical:</span>
-                  <div className="flex rounded-md border border-surface-3 bg-surface-1 p-0.5">
-                    {(["immunology", "oncology"] as Vertical[]).map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setVertical(v)}
-                        className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${
-                          vertical === v
-                            ? "bg-accent-600/20 text-accent-400"
-                            : "text-muted hover:text-gray-300"
-                        }`}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
+        <div className="border-t border-surface-3 bg-surface-0/95 backdrop-blur-md">
+          <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-4 py-3 sm:px-6">
+            {/* Context strip — mode indicator + optional controls */}
+            <div className="flex items-center gap-3 mb-2.5">
+              <span className="flex items-center gap-1.5 rounded-md bg-surface-1 border border-surface-3 px-2.5 py-1 text-[11px] font-medium text-muted-light">
+                <span>{MODE_CONFIG[mode].icon}</span>
+                <span>{MODE_CONFIG[mode].label}</span>
+              </span>
+
+              {/* Vertical toggle (DMI modes) */}
+              {isDmiMode && (
+                <div className="flex rounded-md border border-surface-3 bg-surface-1 p-0.5">
+                  {(["immunology", "oncology"] as Vertical[]).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setVertical(v)}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${
+                        vertical === v
+                          ? "bg-accent-600/20 text-accent-400"
+                          : "text-muted hover:text-gray-300"
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* PubMed toggle (standard mode only) */}
-            {mode === "standard" && (
-              <div className="flex items-center gap-4 mb-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includePubmed}
-                    onChange={(e) => setIncludePubmed(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-surface-4 bg-surface-2 text-accent-500 focus:ring-accent-500/30"
-                  />
-                  <span className="text-xs text-muted-light">Include live PubMed results</span>
+              {/* PubMed toggle (standard mode only) */}
+              {mode === "standard" && (
+                <label className="flex items-center gap-2 cursor-pointer ml-auto">
+                  <div
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includePubmed ? "bg-accent-600" : "bg-surface-3"}`}
+                    onClick={() => setIncludePubmed(!includePubmed)}
+                  >
+                    <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includePubmed ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                  </div>
+                  <span className="text-[11px] text-muted-light select-none">Live PubMed</span>
                 </label>
-              </div>
-            )}
+              )}
 
+              {!isDmiMode && mode !== "standard" && <div className="flex-1" />}
+            </div>
+
+            {/* Input row */}
             <div className="flex gap-2 sm:gap-3">
               {mode === "target-risk" ? (
                 <>
@@ -794,7 +815,7 @@ export default function HomePage() {
                     onChange={(e) => setQuestion(e.target.value)}
                     placeholder="Disease name (e.g., Rheumatoid arthritis)"
                     disabled={loading}
-                    className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
                   />
                   <input
                     type="text"
@@ -802,7 +823,7 @@ export default function HomePage() {
                     onChange={(e) => setTargetName(e.target.value)}
                     placeholder="Target (e.g., TNF-alpha)"
                     disabled={loading}
-                    className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
                   />
                 </>
               ) : mode === "compare" ? (
@@ -813,16 +834,18 @@ export default function HomePage() {
                     onChange={(e) => setQuestion(e.target.value)}
                     placeholder="Disease A (e.g., Rheumatoid arthritis)"
                     disabled={loading}
-                    className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
                   />
-                  <span className="flex items-center text-xs text-muted font-semibold">vs</span>
+                  <div className="flex items-center px-1">
+                    <span className="text-xs font-bold text-muted">vs</span>
+                  </div>
                   <input
                     type="text"
                     value={diseaseB}
                     onChange={(e) => setDiseaseB(e.target.value)}
                     placeholder="Disease B (e.g., Lupus)"
                     disabled={loading}
-                    className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
                   />
                 </>
               ) : (
@@ -832,13 +855,13 @@ export default function HomePage() {
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder={
                     mode === "disease-report"
-                      ? "Enter disease name (e.g., Rheumatoid arthritis, Non-small cell lung cancer)..."
+                      ? "Enter disease name (e.g., Rheumatoid arthritis, Non-small cell lung cancer)…"
                       : mode === "hypothesis"
-                        ? "Enter a research topic (e.g., IL-17 in psoriasis)..."
-                        : "Ask about a disease mechanism, pathway, or therapeutic target..."
+                        ? "Enter a research topic (e.g., IL-17 signaling in psoriasis)…"
+                        : "Ask about a disease mechanism, pathway, or therapeutic target…"
                   }
                   disabled={loading}
-                  className="flex-1 rounded-lg border border-surface-3 bg-surface-1 px-3 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 disabled:opacity-50 sm:px-4"
+                  className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
                 />
               )}
               <button
@@ -849,18 +872,18 @@ export default function HomePage() {
                   (mode === "compare" && !diseaseB.trim()) ||
                   (mode === "target-risk" && !targetName.trim())
                 }
-                className="rounded-lg bg-accent-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
+                className="rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    <span className="hidden sm:inline">Working</span>
+                    <span className="hidden sm:inline">Working…</span>
                   </span>
                 ) : (
-                  <>
-                    {MODE_CONFIG[mode].icon}{" "}
+                  <span className="flex items-center gap-1.5">
+                    <span>{MODE_CONFIG[mode].icon}</span>
                     <span className="hidden sm:inline">{MODE_CONFIG[mode].label}</span>
-                  </>
+                  </span>
                 )}
               </button>
             </div>
