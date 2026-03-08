@@ -1,50 +1,83 @@
-import type { CompareResponse, Overlaps } from "@/lib/api";
+"use client";
+
+import { useState } from "react";
+import type { CompareResponse } from "@/lib/api";
 
 interface CompareCardProps {
   data: CompareResponse;
 }
 
-function OverlapSection({
-  label,
-  shared,
-  uniqueA,
-  uniqueB,
+type OverlapTab = "pathways" | "cytokines" | "cells" | "genes" | "therapeutics" | "mechanisms";
+
+const OVERLAP_TABS: { key: OverlapTab; label: string; icon: string; accentClass: string }[] = [
+  { key: "pathways",     label: "Pathways",      icon: "🧠", accentClass: "text-pathway" },
+  { key: "cytokines",    label: "Cytokines",     icon: "🔥", accentClass: "text-cytokine" },
+  { key: "cells",        label: "Immune Cells",  icon: "🔬", accentClass: "text-cell" },
+  { key: "genes",        label: "Genetic Loci",  icon: "🧬", accentClass: "text-gene" },
+  { key: "therapeutics", label: "Therapeutics",  icon: "💊", accentClass: "text-target" },
+  { key: "mechanisms",   label: "Mechanisms",    icon: "⚙️", accentClass: "text-hypothesis" },
+];
+
+function TagList({ items, colorClass }: { items: string[]; colorClass: string }) {
+  if (!items.length) return <p className="text-xs text-muted italic">None identified</p>;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item, i) => (
+        <span key={i} className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${colorClass}`}>
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function OverlapTabContent({
+  tab,
+  o,
   nameA,
   nameB,
-  accentClass,
 }: {
-  label: string;
-  shared: string[];
-  uniqueA: string[];
-  uniqueB: string[];
+  tab: OverlapTab;
+  o: CompareResponse["overlaps"];
   nameA: string;
   nameB: string;
-  accentClass: string;
 }) {
-  if (!shared.length && !uniqueA.length && !uniqueB.length) return null;
+  const configs = {
+    pathways:     { shared: o.shared_pathways,     a: o.unique_pathways_a,     b: o.unique_pathways_b,     color: "border-pathway/25 bg-pathway/5 text-pathway" },
+    cytokines:    { shared: o.shared_cytokines,    a: o.unique_cytokines_a,    b: o.unique_cytokines_b,    color: "border-cytokine/25 bg-cytokine/5 text-cytokine" },
+    cells:        { shared: o.shared_cell_types,   a: o.unique_cell_types_a,   b: o.unique_cell_types_b,   color: "border-cell/25 bg-cell/5 text-cell" },
+    genes:        { shared: o.shared_genes,        a: o.unique_genes_a,        b: o.unique_genes_b,        color: "border-gene/25 bg-gene/5 text-gene" },
+    therapeutics: { shared: o.shared_therapeutics, a: o.unique_therapeutics_a, b: o.unique_therapeutics_b, color: "border-target/25 bg-target/5 text-target" },
+    mechanisms:   { shared: o.shared_mechanisms,   a: o.unique_mechanisms_a,   b: o.unique_mechanisms_b,   color: "border-hypothesis/25 bg-hypothesis/5 text-hypothesis" },
+  };
+  const cfg = configs[tab];
   return (
-    <div className="rounded-lg border border-surface-4 bg-surface-2 p-4">
-      <h4 className={`mb-3 text-xs font-semibold uppercase tracking-widest ${accentClass}`}>
-        {label}
-      </h4>
-      {shared.length > 0 && (
-        <div className="mb-2">
-          <span className="text-xs text-muted-light font-medium">Shared: </span>
-          <span className="text-sm text-gray-300">{shared.join(", ")}</span>
-        </div>
-      )}
-      {uniqueA.length > 0 && (
-        <div className="mb-1">
-          <span className="text-xs text-blue-400 font-medium">Only {nameA}: </span>
-          <span className="text-sm text-gray-400">{uniqueA.join(", ")}</span>
-        </div>
-      )}
-      {uniqueB.length > 0 && (
+    <div className="space-y-4 pt-4">
+      {cfg.shared.length > 0 && (
         <div>
-          <span className="text-xs text-purple-400 font-medium">Only {nameB}: </span>
-          <span className="text-sm text-gray-400">{uniqueB.join(", ")}</span>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-accent-400" />
+            Shared ({cfg.shared.length})
+          </p>
+          <TagList items={cfg.shared} colorClass={cfg.color} />
         </div>
       )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-400" />
+            Only {nameA} ({cfg.a.length})
+          </p>
+          <TagList items={cfg.a} colorClass="border-blue-500/25 bg-blue-500/5 text-blue-400" />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 mb-2 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-purple-400" />
+            Only {nameB} ({cfg.b.length})
+          </p>
+          <TagList items={cfg.b} colorClass="border-purple-500/25 bg-purple-500/5 text-purple-400" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -52,67 +85,82 @@ function OverlapSection({
 export default function CompareCard({ data }: CompareCardProps) {
   const { disease_a: a, disease_b: b, overlaps: o, similarity_score, summary } = data;
   const pct = Math.round(similarity_score * 100);
+  const [activeTab, setActiveTab] = useState<OverlapTab>("pathways");
 
   return (
     <div className="space-y-4">
-      {/* Header with similarity score */}
-      <div className="rounded-lg border border-accent-500/30 bg-accent-600/10 px-4 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-100">
-            {a.disease_name} vs {b.disease_name}
-          </h3>
-          <span className="rounded-full bg-accent-600/20 px-3 py-1 text-xs font-bold text-accent-400">
-            {pct}% similar
-          </span>
-        </div>
-        {/* Similarity bar */}
-        <div className="h-2 rounded-full bg-surface-3 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-accent-500 transition-all duration-500"
-            style={{ width: `${pct}%` }}
-          />
+      {/* Header — similarity score */}
+      <div className="rounded-xl border border-accent-500/25 overflow-hidden">
+        <div className="px-5 py-4 bg-surface-1">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-bold text-gray-100">
+              <span className="text-blue-400">{a.disease_name}</span>
+              <span className="mx-3 text-muted font-normal">vs</span>
+              <span className="text-purple-400">{b.disease_name}</span>
+            </h3>
+            <div className="text-right">
+              <p className="text-[10px] text-muted uppercase tracking-widest">Similarity</p>
+              <span className="text-2xl font-bold font-mono text-accent-400">{pct}%</span>
+            </div>
+          </div>
+          {/* Similarity bar */}
+          <div className="h-3 rounded-full bg-surface-3 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-accent-700 to-accent-400 transition-all duration-700"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1 text-[9px] text-muted">
+            <span>0% — No overlap</span>
+            <span>100% — Identical</span>
+          </div>
         </div>
       </div>
 
       {/* Summary */}
-      <div className="rounded-lg border border-surface-4 bg-surface-1 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-light mb-2">
-          Comparison Summary
-        </p>
-        <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">
-          {summary}
-        </p>
+      <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Comparison Summary</p>
+        <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{summary}</p>
       </div>
 
       {/* Side-by-side disease profiles */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {[a, b].map((disease, idx) => (
           <div
             key={disease.disease_name}
-            className={`rounded-lg border ${idx === 0 ? "border-blue-500/20" : "border-purple-500/20"} bg-surface-1 p-4`}
+            className={`rounded-xl border p-4 ${idx === 0 ? "border-blue-500/20 bg-blue-500/3" : "border-purple-500/20 bg-purple-500/3"}`}
+            style={{ backgroundColor: idx === 0 ? "rgba(59, 130, 246, 0.03)" : "rgba(168, 85, 247, 0.03)" }}
           >
-            <h4 className={`text-sm font-semibold mb-2 ${idx === 0 ? "text-blue-400" : "text-purple-400"}`}>
-              {disease.disease_name}
-            </h4>
-            <p className="text-xs text-gray-400 mb-3">{disease.description.slice(0, 200)}...</p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`h-2.5 w-2.5 rounded-full ${idx === 0 ? "bg-blue-400" : "bg-purple-400"}`} />
+              <h4 className={`text-sm font-bold ${idx === 0 ? "text-blue-400" : "text-purple-400"}`}>
+                {disease.disease_name}
+              </h4>
+            </div>
+            <p className="text-xs text-gray-400 mb-3 leading-relaxed">{disease.description.slice(0, 180)}…</p>
             {disease.prevalence && (
-              <p className="text-xs text-muted-light mb-2">Prevalence: {disease.prevalence}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] text-muted font-medium uppercase tracking-wider">Prevalence</span>
+                <span className="text-xs text-gray-300">{disease.prevalence}</span>
+              </div>
             )}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 border-t border-surface-3 pt-2.5 mt-2.5">
               {disease.key_cell_types.length > 0 && (
-                <p className="text-xs text-gray-400">
-                  <span className="text-cell font-medium">Cells:</span> {disease.key_cell_types.slice(0, 4).join(", ")}
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  <span className="text-cell font-semibold">Cells: </span>
+                  {disease.key_cell_types.slice(0, 4).join(", ")}
                 </p>
               )}
               {disease.cytokines.length > 0 && (
-                <p className="text-xs text-gray-400">
-                  <span className="text-cytokine font-medium">Cytokines:</span> {disease.cytokines.slice(0, 5).join(", ")}
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  <span className="text-cytokine font-semibold">Cytokines: </span>
+                  {disease.cytokines.slice(0, 5).join(", ")}
                 </p>
               )}
               {disease.associated_genes.length > 0 && (
-                <p className="text-xs text-gray-400">
-                  <span className="text-gene font-medium">Top genes:</span>{" "}
-                  {disease.associated_genes.slice(0, 4).map((g) => g.gene).join(", ")}
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  <span className="text-gene font-semibold">Genes: </span>
+                  {disease.associated_genes.slice(0, 5).map((g) => g.gene).join(", ")}
                 </p>
               )}
             </div>
@@ -120,62 +168,35 @@ export default function CompareCard({ data }: CompareCardProps) {
         ))}
       </div>
 
-      {/* Overlap analysis */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <OverlapSection
-          label="Pathways"
-          shared={o.shared_pathways}
-          uniqueA={o.unique_pathways_a}
-          uniqueB={o.unique_pathways_b}
-          nameA={a.disease_name}
-          nameB={b.disease_name}
-          accentClass="text-pathway"
-        />
-        <OverlapSection
-          label="Cytokines"
-          shared={o.shared_cytokines}
-          uniqueA={o.unique_cytokines_a}
-          uniqueB={o.unique_cytokines_b}
-          nameA={a.disease_name}
-          nameB={b.disease_name}
-          accentClass="text-cytokine"
-        />
-        <OverlapSection
-          label="Immune Cells"
-          shared={o.shared_cell_types}
-          uniqueA={o.unique_cell_types_a}
-          uniqueB={o.unique_cell_types_b}
-          nameA={a.disease_name}
-          nameB={b.disease_name}
-          accentClass="text-cell"
-        />
-        <OverlapSection
-          label="Genetic Risk Loci"
-          shared={o.shared_genes}
-          uniqueA={o.unique_genes_a}
-          uniqueB={o.unique_genes_b}
-          nameA={a.disease_name}
-          nameB={b.disease_name}
-          accentClass="text-gene"
-        />
-        <OverlapSection
-          label="Therapeutics"
-          shared={o.shared_therapeutics}
-          uniqueA={o.unique_therapeutics_a}
-          uniqueB={o.unique_therapeutics_b}
-          nameA={a.disease_name}
-          nameB={b.disease_name}
-          accentClass="text-target"
-        />
-        <OverlapSection
-          label="Mechanisms"
-          shared={o.shared_mechanisms}
-          uniqueA={o.unique_mechanisms_a}
-          uniqueB={o.unique_mechanisms_b}
-          nameA={a.disease_name}
-          nameB={b.disease_name}
-          accentClass="text-hypothesis"
-        />
+      {/* Overlap Analysis — tabbed */}
+      <div className="rounded-xl border border-surface-3 overflow-hidden">
+        <div className="border-b border-surface-3 bg-surface-2 px-3 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Overlap Analysis</p>
+          <div className="flex gap-0.5 overflow-x-auto pb-0.5">
+            {OVERLAP_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all ${
+                  activeTab === tab.key
+                    ? "bg-surface-1 text-gray-200 shadow-sm"
+                    : "text-muted hover:text-gray-300 hover:bg-surface-1/50"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-4 bg-surface-1/30">
+          <OverlapTabContent
+            tab={activeTab}
+            o={o}
+            nameA={a.disease_name.split(" ")[0]}
+            nameB={b.disease_name.split(" ")[0]}
+          />
+        </div>
       </div>
     </div>
   );
