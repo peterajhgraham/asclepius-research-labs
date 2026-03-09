@@ -2,7 +2,11 @@
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 export default function AuthHeader() {
+  if (!clerkKey) return null;
+
   return (
     <div className="flex items-center gap-3">
       <SignedOut>
