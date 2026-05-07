@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import {
-  submitQuery,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import {
   compareDiseases,
   generateHypotheses,
-  type QueryResponse,
+  submitQuery,
   type CompareResponse,
   type HypothesisResponse,
+  type QueryResponse,
 } from "@/lib/api";
 import {
   generateDiseaseReport,
@@ -16,12 +22,19 @@ import {
   type TargetRiskResponse,
   type Vertical,
 } from "@/lib/dmi-api";
-import ResponseCard from "@/components/ResponseCard";
-import CompareCard from "@/components/CompareCard";
-import HypothesisCard from "@/components/HypothesisCard";
-import DiseaseReportCard from "@/components/DiseaseReportCard";
-import TargetRiskCard from "@/components/TargetRiskCard";
+import { useStreamingQuery, type Citation } from "@/hooks/useStreamingQuery";
+
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import AuthHeader from "@/components/AuthHeader";
+import CitationPanel from "@/components/CitationPanel";
+import CompareCard from "@/components/CompareCard";
+import DiseaseReportCard from "@/components/DiseaseReportCard";
+import HypothesisCard from "@/components/HypothesisCard";
+import ResponseCard from "@/components/ResponseCard";
+import StreamingResponse from "@/components/StreamingResponse";
+import TargetRiskCard from "@/components/TargetRiskCard";
 
 // ------------------------------------------------------------------
 // Types
@@ -37,10 +50,15 @@ interface ConversationEntry {
   hypothesisResponse: HypothesisResponse | null;
   diseaseReportResponse: DiseaseReportResponse | null;
   targetRiskResponse: TargetRiskResponse | null;
+  // Streamed standard-mode content (frozen after stream completes)
+  streamedText?: string;
+  streamedCitations?: Citation[];
+  streamedSources?: string[];
+  streamedModel?: string;
+  streamedCost?: number;
   loading: boolean;
   error: string | null;
   timestamp: number;
-  saved: boolean;
 }
 
 interface SavedSession {
@@ -95,14 +113,14 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
 };
 
 const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Disease Report", description: "Structured mechanism report", icon: "\uD83E\uDDE0", group: "dmi" },
-  "target-risk":    { label: "Target Risk",    description: "Risk scoring assessment",     icon: "\uD83C\uDFAF", group: "dmi" },
-  standard:         { label: "Analyze",        description: "Structured immune reasoning", icon: "\u26A1",       group: "legacy" },
-  compare:          { label: "Compare",        description: "Side-by-side comparison",     icon: "\u2194\uFE0F", group: "legacy" },
-  hypothesis:       { label: "Hypothesize",    description: "Testable hypotheses",         icon: "\uD83E\uDDEA", group: "legacy" },
+  "disease-report": { label: "Disease Report", description: "Structured mechanism report", icon: "🧠", group: "dmi" },
+  "target-risk":    { label: "Target Risk",    description: "Risk scoring assessment",     icon: "🎯", group: "dmi" },
+  standard:         { label: "Analyze",        description: "Streaming immune reasoning",  icon: "⚡", group: "legacy" },
+  compare:          { label: "Compare",        description: "Side-by-side comparison",     icon: "↔", group: "legacy" },
+  hypothesis:       { label: "Hypothesize",    description: "Testable hypotheses",         icon: "🧪", group: "legacy" },
 };
 
-const LS_KEY = "asclepius_sessions";
+const LS_KEY = "asclepius_sessions_v2";
 
 // ------------------------------------------------------------------
 // Helpers
@@ -110,64 +128,33 @@ const LS_KEY = "asclepius_sessions";
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
-
 function loadSessions(): SavedSession[] {
   if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
 }
-
 function persistSessions(sessions: SavedSession[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(LS_KEY, JSON.stringify(sessions));
 }
-
 function sessionTitle(entries: ConversationEntry[]): string {
   if (!entries.length) return "New session";
   const first = entries[0].question;
-  return first.length > 40 ? first.slice(0, 40) + "..." : first;
+  return first.length > 40 ? first.slice(0, 40) + "…" : first;
 }
 
 // ------------------------------------------------------------------
-// Rod of Asclepius SVG Logo
+// Asclepius Logo
 // ------------------------------------------------------------------
 function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 512 512"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
       <circle cx="256" cy="256" r="240" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="8" />
       <circle cx="256" cy="256" r="220" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.12" />
       <line x1="256" y1="80" x2="256" y2="432" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
       <circle cx="256" cy="72" r="16" fill="currentColor" />
-      <circle cx="256" cy="72" r="8" fill="currentColor" fillOpacity="0.15" />
-      <path
-        d="M256 400 C216 396, 196 380, 210 362 C224 344, 260 340, 280 328 C300 316, 308 300, 296 288 C284 276, 252 272, 232 260 C212 248, 204 232, 218 218 C232 204, 260 200, 280 190 C300 180, 308 164, 296 150 C284 136, 256 132, 240 124"
-        stroke="currentColor"
-        strokeWidth="12"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M240 124 C232 116, 216 110, 200 114 C188 118, 184 130, 192 138 C198 144, 210 140, 218 134"
-        stroke="currentColor"
-        strokeWidth="10"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      <path d="M256 400 C216 396, 196 380, 210 362 C224 344, 260 340, 280 328 C300 316, 308 300, 296 288 C284 276, 252 272, 232 260 C212 248, 204 232, 218 218 C232 204, 260 200, 280 190 C300 180, 308 164, 296 150 C284 136, 256 132, 240 124" stroke="currentColor" strokeWidth="12" strokeLinecap="round" fill="none" />
+      <path d="M240 124 C232 116, 216 110, 200 114 C188 118, 184 130, 192 138 C198 144, 210 140, 218 134" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       <circle cx="204" cy="122" r="5" fill="currentColor" />
-      <path d="M194 114 L180 106" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      <path d="M194 114 L182 118" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
@@ -176,13 +163,8 @@ function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className
 // Sidebar
 // ------------------------------------------------------------------
 function Sidebar({
-  sessions,
-  activeSessionId,
-  onSelectSession,
-  onNewSession,
-  onDeleteSession,
-  sidebarOpen,
-  onToggleSidebar,
+  sessions, activeSessionId, onSelectSession, onNewSession, onDeleteSession,
+  sidebarOpen, onToggleSidebar,
 }: {
   sessions: SavedSession[];
   activeSessionId: string | null;
@@ -197,46 +179,26 @@ function Sidebar({
       {sidebarOpen && (
         <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={onToggleSidebar} />
       )}
-
-      <aside
-        className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-surface-3 bg-surface-1 transition-transform duration-200 lg:relative lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+      <aside className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-surface-3 bg-surface-1 transition-transform duration-200 lg:relative lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
             <button onClick={onNewSession} className="flex items-center gap-2 group">
               <AsclepiusLogo size={22} className="text-accent-400" />
-              <span className="text-sm font-semibold text-gray-100 group-hover:text-accent-400 transition">
-                Asclepius
-              </span>
+              <span className="text-sm font-semibold text-gray-100 group-hover:text-accent-400 transition">Asclepius</span>
             </button>
-            <button
-              onClick={onNewSession}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition"
-              title="New session"
-            >
+            <button onClick={onNewSession} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition" title="New session">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
           </div>
-
           <div className="flex-1 overflow-y-auto py-2">
             {sessions.length === 0 && (
-              <p className="px-4 py-8 text-center text-xs text-muted">
-                No saved sessions yet. Your research sessions will appear here.
-              </p>
+              <p className="px-4 py-8 text-center text-xs text-muted">No sessions yet. Your research appears here.</p>
             )}
             {sessions.map((session) => (
-              <div
-                key={session.id}
-                className={`group mx-2 mb-0.5 flex items-center rounded-lg px-3 py-2 cursor-pointer transition ${
-                  activeSessionId === session.id
-                    ? "bg-accent-600/15 text-accent-400"
-                    : "text-gray-400 hover:bg-surface-2 hover:text-gray-200"
-                }`}
+              <div key={session.id}
+                className={`group mx-2 mb-0.5 flex items-center rounded-lg px-3 py-2 cursor-pointer transition ${activeSessionId === session.id ? "bg-accent-600/15 text-accent-400" : "text-gray-400 hover:bg-surface-2 hover:text-gray-200"}`}
                 onClick={() => onSelectSession(session.id)}
               >
                 <div className="flex-1 min-w-0">
@@ -245,28 +207,99 @@ function Sidebar({
                     {MODE_CONFIG[session.mode]?.icon || ""} {session.entries.length} {session.entries.length === 1 ? "query" : "queries"}
                   </p>
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
+                <button onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
                   className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-400 transition"
-                  title="Delete session"
-                >
+                  title="Delete session">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
             ))}
           </div>
-
           <div className="border-t border-surface-3 px-4 py-3">
-            <p className="text-[10px] text-muted text-center">
-              Sessions stored locally
-            </p>
+            <p className="text-[10px] text-muted text-center">Sessions stored locally</p>
           </div>
         </div>
       </aside>
     </>
+  );
+}
+
+// ------------------------------------------------------------------
+// FrozenStreamEntry — renders a completed streamed response
+// ------------------------------------------------------------------
+function FrozenStreamEntry({ entry, onShowCitations }: {
+  entry: ConversationEntry;
+  onShowCitations: (citations: Citation[]) => void;
+}) {
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+
+  const sources = entry.streamedSources ?? [];
+  const displayed = sourcesExpanded ? sources : sources.slice(0, 6);
+
+  return (
+    <div className="rounded-xl border border-surface-3 bg-surface-1 overflow-hidden">
+      <div className="px-5 py-4">
+        <div className="prose prose-invert prose-sm max-w-none
+          prose-headings:text-gray-100 prose-headings:font-semibold
+          prose-p:text-gray-300 prose-p:leading-relaxed
+          prose-strong:text-gray-100
+          prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs
+          prose-ul:text-gray-300 prose-li:my-0.5
+          prose-h2:text-base prose-h3:text-sm">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.streamedText || ""}</ReactMarkdown>
+        </div>
+      </div>
+      <div className="border-t border-surface-3 bg-surface-0/50 px-5 py-2.5 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          {(entry.streamedCitations?.length ?? 0) > 0 && (
+            <button
+              onClick={() => onShowCitations(entry.streamedCitations!)}
+              className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-light hover:text-gray-200 hover:border-accent-600/50 transition"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              {entry.streamedCitations!.length} retrieved
+            </button>
+          )}
+          <div className="flex flex-wrap gap-1">
+            {displayed.map((s, i) => {
+              const pmidMatch = s.match(/PMID:\s*(\d+)/i);
+              return pmidMatch ? (
+                <a key={i} href={`https://pubmed.ncbi.nlm.nih.gov/${pmidMatch[1]}`} target="_blank" rel="noopener noreferrer"
+                  className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 transition">
+                  {s}
+                </a>
+              ) : (
+                <span key={i} className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-surface-4 bg-surface-2 text-muted-light">{s}</span>
+              );
+            })}
+            {sources.length > 6 && (
+              <button onClick={() => setSourcesExpanded(!sourcesExpanded)} className="text-[10px] text-muted hover:text-gray-300 transition">
+                {sourcesExpanded ? "less" : `+${sources.length - 6} more`}
+              </button>
+            )}
+          </div>
+        </div>
+        {entry.streamedModel && (
+          <div className="flex items-center gap-1.5 text-[10px] text-muted shrink-0">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
+            <span className="font-mono">
+              {entry.streamedModel.includes("haiku") ? "Haiku"
+                : entry.streamedModel.includes("sonnet") ? "Sonnet"
+                : entry.streamedModel.includes("opus") ? "Opus"
+                : entry.streamedModel}
+            </span>
+            {(entry.streamedCost ?? 0) > 0 && (
+              <><span className="text-surface-4">·</span><span className="font-mono">${entry.streamedCost!.toFixed(5)}</span></>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -283,42 +316,71 @@ export default function HomePage() {
   const [mode, setMode] = useState<Mode>("disease-report");
   const [includePubmed, setIncludePubmed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showCitationPanel, setShowCitationPanel] = useState(false);
+  const [panelCitations, setPanelCitations] = useState<Citation[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Streaming hook (used for standard mode)
+  const streaming = useStreamingQuery();
+  const [streamingEntryId, setStreamingEntryId] = useState<string | null>(null);
 
   // Session management
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSessions(loadSessions());
-  }, []);
+  useEffect(() => { setSessions(loadSessions()); }, []);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [entries, streaming.text]);
 
+  // When streaming completes, freeze the result into the entry
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries]);
+    if (streamingEntryId && streaming.done) {
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === streamingEntryId
+            ? {
+                ...e,
+                loading: false,
+                streamedText: streaming.text,
+                streamedCitations: streaming.citations,
+                streamedSources: streaming.done?.sources ?? [],
+                streamedModel: streaming.done?.model ?? "",
+                streamedCost: streaming.done?.cost ?? 0,
+              }
+            : e,
+        ),
+      );
+      setStreamingEntryId(null);
+    }
+  }, [streaming.done, streamingEntryId, streaming.text, streaming.citations]);
+
+  // When streaming has an error, mark the entry as failed
+  useEffect(() => {
+    if (streamingEntryId && streaming.error) {
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === streamingEntryId
+            ? { ...e, loading: false, error: streaming.error }
+            : e,
+        ),
+      );
+      setStreamingEntryId(null);
+      setLoading(false);
+    }
+  }, [streaming.error, streamingEntryId]);
 
   const saveCurrentSession = useCallback(() => {
     if (!entries.length) return;
-
     setSessions((prev) => {
       let updated: SavedSession[];
       if (activeSessionId) {
         updated = prev.map((s) =>
           s.id === activeSessionId
             ? { ...s, entries, title: sessionTitle(entries), mode, updatedAt: Date.now() }
-            : s
+            : s,
         );
       } else {
         const newId = genId();
-        const newSession: SavedSession = {
-          id: newId,
-          title: sessionTitle(entries),
-          mode,
-          entries,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        updated = [newSession, ...prev];
+        updated = [{ id: newId, title: sessionTitle(entries), mode, entries, createdAt: Date.now(), updatedAt: Date.now() }, ...prev];
         setActiveSessionId(newId);
       }
       persistSessions(updated);
@@ -333,6 +395,8 @@ export default function HomePage() {
   }, [entries, saveCurrentSession]);
 
   function handleNewSession() {
+    streaming.reset();
+    setStreamingEntryId(null);
     setEntries([]);
     setActiveSessionId(null);
     setQuestion("");
@@ -341,6 +405,8 @@ export default function HomePage() {
     setMode("disease-report");
     setVertical("immunology");
     setSidebarOpen(false);
+    setShowCitationPanel(false);
+    setLoading(false);
   }
 
   function handleSelectSession(sessionId: string) {
@@ -358,13 +424,12 @@ export default function HomePage() {
       persistSessions(updated);
       return updated;
     });
-    if (activeSessionId === sessionId) {
-      handleNewSession();
-    }
+    if (activeSessionId === sessionId) handleNewSession();
   }
 
-  function handleGoHome() {
-    handleNewSession();
+  function handleShowCitations(citations: Citation[]) {
+    setPanelCitations(citations);
+    setShowCitationPanel(true);
   }
 
   async function handleSubmit(e?: FormEvent<HTMLFormElement>) {
@@ -374,15 +439,10 @@ export default function HomePage() {
 
     const idx = entries.length;
     let displayQ = trimmed;
-    if (mode === "disease-report") {
-      displayQ = `Disease Report: ${trimmed} [${vertical}]`;
-    } else if (mode === "target-risk") {
-      displayQ = `Target Risk: ${targetName.trim()} in ${trimmed} [${vertical}]`;
-    } else if (mode === "compare" && diseaseB.trim()) {
-      displayQ = `Compare: ${trimmed} vs ${diseaseB.trim()}`;
-    } else if (mode === "hypothesis") {
-      displayQ = `Hypotheses: ${trimmed}`;
-    }
+    if (mode === "disease-report") displayQ = `Disease Report: ${trimmed} [${vertical}]`;
+    else if (mode === "target-risk") displayQ = `Target Risk: ${targetName.trim()} in ${trimmed} [${vertical}]`;
+    else if (mode === "compare" && diseaseB.trim()) displayQ = `Compare: ${trimmed} vs ${diseaseB.trim()}`;
+    else if (mode === "hypothesis") displayQ = `Hypotheses: ${trimmed}`;
 
     const entry: ConversationEntry = {
       id: genId(),
@@ -396,7 +456,6 @@ export default function HomePage() {
       loading: true,
       error: null,
       timestamp: Date.now(),
-      saved: false,
     };
 
     setEntries((prev) => [...prev, entry]);
@@ -406,54 +465,27 @@ export default function HomePage() {
     setLoading(true);
 
     try {
+      if (mode === "standard") {
+        // Use SSE streaming for Analyze mode
+        streaming.reset();
+        setStreamingEntryId(entry.id);
+        streaming.stream(trimmed);
+        setLoading(false); // loading indicator driven by streaming.isStreaming
+        return;
+      }
+
       if (mode === "disease-report") {
-        const result = await generateDiseaseReport({
-          disease_name: trimmed,
-          vertical,
-        });
-        setEntries((prev) =>
-          prev.map((e, i) =>
-            i === idx ? { ...e, diseaseReportResponse: result, loading: false } : e
-          )
-        );
+        const result = await generateDiseaseReport({ disease_name: trimmed, vertical });
+        setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, diseaseReportResponse: result, loading: false } : e));
       } else if (mode === "target-risk") {
-        const result = await generateTargetRiskReport({
-          disease_name: trimmed,
-          target_name: targetName.trim(),
-          vertical,
-        });
-        setEntries((prev) =>
-          prev.map((e, i) =>
-            i === idx ? { ...e, targetRiskResponse: result, loading: false } : e
-          )
-        );
+        const result = await generateTargetRiskReport({ disease_name: trimmed, target_name: targetName.trim(), vertical });
+        setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, targetRiskResponse: result, loading: false } : e));
       } else if (mode === "compare") {
-        const result = await compareDiseases({
-          disease_a: trimmed,
-          disease_b: diseaseB.trim() || trimmed,
-        });
-        setEntries((prev) =>
-          prev.map((e, i) =>
-            i === idx ? { ...e, compareResponse: result, loading: false } : e
-          )
-        );
+        const result = await compareDiseases({ disease_a: trimmed, disease_b: diseaseB.trim() || trimmed });
+        setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, compareResponse: result, loading: false } : e));
       } else if (mode === "hypothesis") {
         const result = await generateHypotheses({ topic: trimmed });
-        setEntries((prev) =>
-          prev.map((e, i) =>
-            i === idx ? { ...e, hypothesisResponse: result, loading: false } : e
-          )
-        );
-      } else {
-        const result = await submitQuery({
-          question: trimmed,
-          include_pubmed: includePubmed,
-        });
-        setEntries((prev) =>
-          prev.map((e, i) =>
-            i === idx ? { ...e, response: result, loading: false } : e
-          )
-        );
+        setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, hypothesisResponse: result, loading: false } : e));
       }
     } catch (err: unknown) {
       let detail = "Unable to reach the analysis service.";
@@ -462,11 +494,7 @@ export default function HomePage() {
         if (res?.data?.detail) detail = res.data.detail;
         else if (res?.data?.error) detail = res.data.error;
       }
-      setEntries((prev) =>
-        prev.map((e, i) =>
-          i === idx ? { ...e, error: detail, loading: false } : e
-        )
-      );
+      setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, error: detail, loading: false } : e));
     } finally {
       setLoading(false);
     }
@@ -475,27 +503,17 @@ export default function HomePage() {
   const isEmpty = entries.length === 0;
   const examples = EXAMPLE_PROMPTS[mode];
   const isDmiMode = mode === "disease-report" || mode === "target-risk";
-
-  function handleExampleClick(example: string) {
-    if (mode === "compare") {
-      const parts = example.split(" vs ");
-      setQuestion(parts[0] || example);
-      setDiseaseB(parts[1] || "");
-    } else if (mode === "target-risk") {
-      const parts = example.split(" in ");
-      setTargetName(parts[0] || "");
-      setQuestion(parts[1] || example);
-    } else {
-      setQuestion(example);
-    }
-  }
-
   const dmiModes: Mode[] = ["disease-report", "target-risk"];
   const legacyModes: Mode[] = ["standard", "compare", "hypothesis"];
 
+  function handleExampleClick(example: string) {
+    if (mode === "compare") { const p = example.split(" vs "); setQuestion(p[0] || example); setDiseaseB(p[1] || ""); }
+    else if (mode === "target-risk") { const p = example.split(" in "); setTargetName(p[0] || ""); setQuestion(p[1] || example); }
+    else setQuestion(example);
+  }
+
   return (
     <div className="flex h-screen bg-surface-0 overflow-hidden">
-      {/* Sidebar */}
       <Sidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -506,70 +524,40 @@ export default function HomePage() {
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      {/* Main content */}
       <main className="flex flex-1 min-w-0 flex-col">
         {/* Top bar */}
         <header className="sticky top-0 z-20 border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
           <div className="flex items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-gray-300 transition lg:hidden"
-              >
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-gray-300 transition lg:hidden">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <button
-                onClick={handleGoHome}
-                className="flex items-center gap-2.5 group"
-                title="Back to home"
-              >
+              <button onClick={handleNewSession} className="flex items-center gap-2.5 group" title="New session">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-600/20 text-accent-400 group-hover:bg-accent-600/30 transition">
                   <AsclepiusLogo size={20} />
                 </div>
                 <div className="hidden sm:block">
-                  <h1 className="text-sm font-semibold text-gray-100 tracking-tight group-hover:text-accent-400 transition">
-                    Asclepius Research Labs
-                  </h1>
-                  <p className="text-[10px] text-muted leading-none">
-                    Disease Mechanism Intelligence
-                  </p>
+                  <h1 className="text-sm font-semibold text-gray-100 tracking-tight group-hover:text-accent-400 transition">Asclepius Research Labs</h1>
+                  <p className="text-[10px] text-muted leading-none">Disease Mechanism Intelligence</p>
                 </div>
               </button>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Unified mode switcher */}
+              {/* Mode switcher */}
               <div className="flex rounded-xl border border-surface-3 bg-surface-1 p-1 gap-0.5">
                 {dmiModes.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    title={MODE_CONFIG[m].description}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                      mode === m
-                        ? "bg-accent-600/25 text-accent-300 shadow-sm"
-                        : "text-muted hover:text-gray-300 hover:bg-surface-2"
-                    }`}
-                  >
+                  <button key={m} onClick={() => setMode(m)} title={MODE_CONFIG[m].description}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${mode === m ? "bg-accent-600/25 text-accent-300 shadow-sm" : "text-muted hover:text-gray-300 hover:bg-surface-2"}`}>
                     <span>{MODE_CONFIG[m].icon}</span>
                     <span className="hidden sm:inline">{MODE_CONFIG[m].label}</span>
                   </button>
                 ))}
                 <div className="mx-1 w-px bg-surface-3 self-stretch" />
                 {legacyModes.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    title={MODE_CONFIG[m].description}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                      mode === m
-                        ? "bg-accent-600/25 text-accent-300 shadow-sm"
-                        : "text-muted hover:text-gray-300 hover:bg-surface-2"
-                    }`}
-                  >
+                  <button key={m} onClick={() => setMode(m)} title={MODE_CONFIG[m].description}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${mode === m ? "bg-accent-600/25 text-accent-300 shadow-sm" : "text-muted hover:text-gray-300 hover:bg-surface-2"}`}>
                     <span>{MODE_CONFIG[m].icon}</span>
                     <span className="hidden sm:inline">{MODE_CONFIG[m].label}</span>
                   </button>
@@ -581,41 +569,30 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* Content area */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {/* Empty state */}
           {isEmpty && (
             <div className="mx-auto flex max-w-2xl flex-col items-center px-6 pt-16 pb-8 sm:pt-24">
-              {/* Hero */}
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400 ring-1 ring-accent-500/20">
                 <AsclepiusLogo size={32} />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">
-                Disease Mechanism Intelligence
-              </h2>
+              <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">Disease Mechanism Intelligence</h2>
               <p className="mt-2 text-center text-sm text-muted max-w-md leading-relaxed">
-                Map causal disease biology, score therapeutic targets, and generate
-                mechanistically grounded hypotheses from primary literature.
+                Map causal disease biology, score therapeutic targets, and generate mechanistically grounded hypotheses.
+                {mode === "standard" && " Answers stream in real-time from a hybrid retrieval pipeline."}
               </p>
-
-              {/* Example prompts */}
               <div className="mt-8 w-full">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-px flex-1 bg-surface-3" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">
-                    Try an example
-                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">Try an example</p>
                   <div className="h-px flex-1 bg-surface-3" />
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {examples.map((example) => (
-                    <button
-                      key={example}
-                      onClick={() => handleExampleClick(example)}
-                      className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-left text-xs text-gray-400 transition hover:border-accent-500/30 hover:bg-surface-2 hover:text-gray-200 leading-relaxed"
-                    >
-                      <span className="mr-1.5 opacity-60">{MODE_CONFIG[mode].icon}</span>
-                      {example}
+                    <button key={example} onClick={() => handleExampleClick(example)}
+                      className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-left text-xs text-gray-400 transition hover:border-accent-500/30 hover:bg-surface-2 hover:text-gray-200 leading-relaxed">
+                      <span className="mr-1.5 opacity-60">{MODE_CONFIG[mode].icon}</span>{example}
                     </button>
                   ))}
                 </div>
@@ -626,206 +603,166 @@ export default function HomePage() {
           {/* Results */}
           {!isEmpty && (
             <div className="mx-auto max-w-5xl px-4 py-8 space-y-10 sm:px-6">
-              {entries.map((entry) => (
-                <div key={entry.id}>
-                  {/* User query */}
-                  <div className="mb-5 flex items-start gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-sm">
-                      {MODE_CONFIG[entry.mode]?.icon || "Q"}
+              {entries.map((entry) => {
+                const isCurrentlyStreaming = entry.id === streamingEntryId;
+                return (
+                  <div key={entry.id}>
+                    {/* User query bubble */}
+                    <div className="mb-5 flex items-start gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-sm">
+                        {MODE_CONFIG[entry.mode]?.icon || "Q"}
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <p className="text-sm font-semibold text-gray-100 leading-relaxed">{entry.question}</p>
+                        <p className="text-[10px] text-muted mt-0.5">
+                          {MODE_CONFIG[entry.mode]?.label} · {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <p className="text-sm font-semibold text-gray-100 leading-relaxed">
-                        {entry.question}
-                      </p>
-                      <p className="text-[10px] text-muted mt-0.5">
-                        {MODE_CONFIG[entry.mode]?.label} · {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </p>
+
+                    {/* Response area */}
+                    <div className="ml-10">
+                      {/* Error */}
+                      {entry.error && (
+                        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{entry.error}</div>
+                      )}
+
+                      {/* Active streaming (standard mode, in progress) */}
+                      {isCurrentlyStreaming && (
+                        <StreamingResponse
+                          state={streaming}
+                          onShowCitations={() => handleShowCitations(streaming.citations)}
+                        />
+                      )}
+
+                      {/* Completed streamed entry (standard mode, done) */}
+                      {!isCurrentlyStreaming && entry.mode === "standard" && entry.streamedText && (
+                        <FrozenStreamEntry
+                          entry={entry}
+                          onShowCitations={handleShowCitations}
+                        />
+                      )}
+
+                      {/* Loading spinner for non-streaming modes */}
+                      {entry.loading && !isCurrentlyStreaming && (
+                        <div className="flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
+                          <span className="animate-pulse text-sm text-muted-light">
+                            {entry.mode === "disease-report" ? "Analyzing literature…"
+                              : entry.mode === "target-risk" ? "Assessing target risk…"
+                              : entry.mode === "compare" ? "Comparing diseases…"
+                              : entry.mode === "hypothesis" ? "Generating hypotheses…"
+                              : "Reasoning across datasets…"}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Standard mode — non-streamed response (session restored) */}
+                      {entry.response && entry.mode === "standard" && !entry.streamedText && (
+                        <ResponseCard data={entry.response} />
+                      )}
+
+                      {/* Other mode responses */}
+                      {entry.diseaseReportResponse && <DiseaseReportCard data={entry.diseaseReportResponse} />}
+                      {entry.targetRiskResponse && <TargetRiskCard data={entry.targetRiskResponse} />}
+                      {entry.compareResponse && <CompareCard data={entry.compareResponse} />}
+                      {entry.hypothesisResponse && <HypothesisCard data={entry.hypothesisResponse} />}
                     </div>
                   </div>
-
-                  {/* Loading state */}
-                  {entry.loading && (
-                    <div className="ml-10 flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
-                      <span className="animate-pulse text-sm text-muted-light">
-                        {entry.mode === "disease-report"
-                          ? "Analyzing literature..."
-                          : entry.mode === "target-risk"
-                            ? "Assessing target risk..."
-                            : entry.mode === "compare"
-                              ? "Comparing diseases..."
-                              : entry.mode === "hypothesis"
-                                ? "Generating hypotheses..."
-                                : "Reasoning across datasets..."}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Error state */}
-                  {entry.error && (
-                    <div className="ml-10 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                      {entry.error}
-                    </div>
-                  )}
-
-                  {/* Disease Report response */}
-                  {entry.diseaseReportResponse && (
-                    <div className="ml-10">
-                      <DiseaseReportCard data={entry.diseaseReportResponse} />
-                    </div>
-                  )}
-
-                  {/* Target Risk response */}
-                  {entry.targetRiskResponse && (
-                    <div className="ml-10">
-                      <TargetRiskCard data={entry.targetRiskResponse} />
-                    </div>
-                  )}
-
-                  {/* Standard response */}
-                  {entry.response && (
-                    <div className="ml-10">
-                      <ResponseCard data={entry.response} />
-                    </div>
-                  )}
-
-                  {/* Compare response */}
-                  {entry.compareResponse && (
-                    <div className="ml-10">
-                      <CompareCard data={entry.compareResponse} />
-                    </div>
-                  )}
-
-                  {/* Hypothesis response */}
-                  {entry.hypothesisResponse && (
-                    <div className="ml-10">
-                      <HypothesisCard data={entry.hypothesisResponse} />
-                    </div>
-                  )}
-                </div>
-              ))}
-
+                );
+              })}
               <div ref={bottomRef} />
             </div>
           )}
         </div>
 
-        {/* Input area — sticky bottom */}
+        {/* Input bar */}
         <div className="border-t border-surface-3 bg-surface-0/95 backdrop-blur-md">
           <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-4 py-3 sm:px-6">
-            {/* Context strip — mode indicator + optional controls */}
-            <div className="flex items-center gap-3 mb-2.5">
+            {/* Context strip */}
+            <div className="flex items-center gap-3 mb-2.5 flex-wrap">
               <span className="flex items-center gap-1.5 rounded-md bg-surface-1 border border-surface-3 px-2.5 py-1 text-[11px] font-medium text-muted-light">
                 <span>{MODE_CONFIG[mode].icon}</span>
                 <span>{MODE_CONFIG[mode].label}</span>
               </span>
 
-              {/* Vertical toggle (DMI modes) */}
               {isDmiMode && (
                 <div className="flex rounded-md border border-surface-3 bg-surface-1 p-0.5">
                   {(["immunology", "oncology"] as Vertical[]).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setVertical(v)}
-                      className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${
-                        vertical === v
-                          ? "bg-accent-600/20 text-accent-400"
-                          : "text-muted hover:text-gray-300"
-                      }`}
-                    >
+                    <button key={v} type="button" onClick={() => setVertical(v)}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${vertical === v ? "bg-accent-600/20 text-accent-400" : "text-muted hover:text-gray-300"}`}>
                       {v}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* PubMed toggle (standard mode only) */}
               {mode === "standard" && (
-                <label className="flex items-center gap-2 cursor-pointer ml-auto">
-                  <div
-                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includePubmed ? "bg-accent-600" : "bg-surface-3"}`}
-                    onClick={() => setIncludePubmed(!includePubmed)}
-                  >
-                    <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includePubmed ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                  </div>
-                  <span className="text-[11px] text-muted-light select-none">Live PubMed</span>
-                </label>
-              )}
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <div className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includePubmed ? "bg-accent-600" : "bg-surface-3"}`}
+                      onClick={() => setIncludePubmed(!includePubmed)}>
+                      <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includePubmed ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                    </div>
+                    <span className="text-[11px] text-muted-light select-none">Live PubMed</span>
+                  </label>
 
-              {!isDmiMode && mode !== "standard" && <div className="flex-1" />}
+                  {/* Citation panel toggle */}
+                  {streaming.citations.length > 0 && (
+                    <button type="button" onClick={() => handleShowCitations(streaming.citations)}
+                      className="ml-auto flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-light hover:text-accent-400 hover:border-accent-500/40 transition">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      {streaming.citations.length} sources
+                    </button>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Input row */}
             <div className="flex gap-2 sm:gap-3">
               {mode === "target-risk" ? (
                 <>
-                  <input
-                    type="text"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Disease name (e.g., Rheumatoid arthritis)"
-                    disabled={loading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
-                  />
-                  <input
-                    type="text"
-                    value={targetName}
-                    onChange={(e) => setTargetName(e.target.value)}
-                    placeholder="Target (e.g., TNF-alpha)"
-                    disabled={loading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
-                  />
+                  <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Disease name (e.g., Rheumatoid arthritis)" disabled={loading || streaming.isStreaming}
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
+                  <input type="text" value={targetName} onChange={(e) => setTargetName(e.target.value)}
+                    placeholder="Target (e.g., TNF-alpha)" disabled={loading || streaming.isStreaming}
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
                 </>
               ) : mode === "compare" ? (
                 <>
-                  <input
-                    type="text"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Disease A (e.g., Rheumatoid arthritis)"
-                    disabled={loading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
-                  />
-                  <div className="flex items-center px-1">
-                    <span className="text-xs font-bold text-muted">vs</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={diseaseB}
-                    onChange={(e) => setDiseaseB(e.target.value)}
-                    placeholder="Disease B (e.g., Lupus)"
-                    disabled={loading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
-                  />
+                  <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Disease A (e.g., Rheumatoid arthritis)" disabled={loading}
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
+                  <div className="flex items-center px-1"><span className="text-xs font-bold text-muted">vs</span></div>
+                  <input type="text" value={diseaseB} onChange={(e) => setDiseaseB(e.target.value)}
+                    placeholder="Disease B (e.g., Lupus)" disabled={loading}
+                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
                 </>
               ) : (
-                <input
-                  type="text"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
+                <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
                   placeholder={
-                    mode === "disease-report"
-                      ? "Enter disease name (e.g., Rheumatoid arthritis, Non-small cell lung cancer)…"
-                      : mode === "hypothesis"
-                        ? "Enter a research topic (e.g., IL-17 signaling in psoriasis)…"
-                        : "Ask about a disease mechanism, pathway, or therapeutic target…"
+                    mode === "disease-report" ? "Enter disease name (e.g., Rheumatoid arthritis)…"
+                    : mode === "hypothesis" ? "Research topic (e.g., IL-17 signaling in psoriasis)…"
+                    : "Ask about a disease mechanism, pathway, or therapeutic target…"
                   }
-                  disabled={loading}
-                  className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
-                />
+                  disabled={loading || streaming.isStreaming}
+                  className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
               )}
-              <button
-                type="submit"
+
+              <button type="submit"
                 disabled={
-                  loading ||
+                  loading || streaming.isStreaming ||
                   !question.trim() ||
                   (mode === "compare" && !diseaseB.trim()) ||
                   (mode === "target-risk" && !targetName.trim())
                 }
-                className="rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {loading ? (
+                className="rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40">
+                {loading || streaming.isStreaming ? (
                   <span className="flex items-center gap-2">
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                     <span className="hidden sm:inline">Working…</span>
@@ -841,6 +778,13 @@ export default function HomePage() {
           </form>
         </div>
       </main>
+
+      {/* Sliding citation panel */}
+      <CitationPanel
+        citations={panelCitations}
+        isOpen={showCitationPanel}
+        onClose={() => setShowCitationPanel(false)}
+      />
     </div>
   );
 }

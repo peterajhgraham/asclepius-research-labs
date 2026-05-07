@@ -118,6 +118,39 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
 
   return (
     <div className="space-y-3">
+      {/* Full LLM answer (markdown rendered) */}
+      {data.answer && (
+        <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
+          <div className="prose prose-invert prose-sm max-w-none
+            prose-headings:text-gray-100 prose-headings:font-semibold
+            prose-p:text-gray-300 prose-p:leading-relaxed
+            prose-strong:text-gray-100
+            prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs
+            prose-ul:text-gray-300 prose-li:my-0.5
+            prose-h2:text-base prose-h3:text-sm">
+            {data.answer}
+          </div>
+          {/* Model + cost footer */}
+          {(data.model_used || (data.cost_usd ?? 0) > 0) && (
+            <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-surface-3 text-[10px] text-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
+              <span className="font-mono">
+                {data.model_used?.includes("haiku") ? "Haiku"
+                  : data.model_used?.includes("sonnet") ? "Sonnet"
+                  : data.model_used?.includes("opus") ? "Opus"
+                  : data.model_used || "Local"}
+              </span>
+              {(data.cost_usd ?? 0) > 0 && (
+                <><span className="text-surface-4">·</span><span className="font-mono">${data.cost_usd!.toFixed(5)}</span></>
+              )}
+              {(data.retrieved_propositions?.length ?? 0) > 0 && (
+                <><span className="text-surface-4">·</span><span>{data.retrieved_propositions!.length} propositions retrieved</span></>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Disease context banner */}
       {r?.disease_context && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">

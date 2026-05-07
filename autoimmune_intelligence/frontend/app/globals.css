@@ -1,11 +1,11 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #0a0b0f;
+  --background: #09090f;
   --foreground: #e5e7eb;
 }
 
@@ -19,21 +19,35 @@ body {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2c3b;
+  background: #1e2030;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b3d50;
+  background: #272940;
 }
 
 /* Selection */
 ::selection {
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(13, 148, 136, 0.25);
   color: #e5e7eb;
+}
+
+/* Prose override — tighten code blocks */
+.prose pre {
+  background-color: #0f1018;
+  border: 1px solid #1e2030;
+  border-radius: 0.5rem;
+}
+
+/* Glass card effect */
+.glass {
+  background: rgba(15, 16, 24, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }

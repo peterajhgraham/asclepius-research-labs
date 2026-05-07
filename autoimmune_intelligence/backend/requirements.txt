@@ -1,3 +1,4 @@
+# Core API
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.7.0
@@ -5,3 +6,20 @@ pydantic-settings>=2.2.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 numpy>=1.26.0
+
+# LLM providers
+anthropic>=0.40.0
+openai>=1.30.0
+
+# Retrieval pipeline
+rank-bm25>=0.2.2
+faiss-cpu>=1.8.0
+sentence-transformers>=3.0.0
+
+# Async database
+aiosqlite>=0.20.0
+sqlalchemy[asyncio]>=2.0.0
+
+# Observability
+prometheus-client>=0.20.0
+structlog>=24.1.0

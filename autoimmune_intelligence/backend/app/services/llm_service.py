@@ -1,17 +1,15 @@
-"""LLM service that answers autoimmune-disease questions.
+"""LLM service — answers autoimmune queries using the full retrieval pipeline.
 
-Searches across ALL data sources (knowledge base, cytokine network,
-immune pathways, disease-gene associations, therapeutics) and composes
-a rich, structured answer.
+Retrieval pipeline:
+  1. Hybrid BM25 + Dense → RRF → CrossEncoder (retrieval_service)
+  2. Structured dataset search (query_engine.search_all)
+  3. Optional live PubMed
+  4. Causal knowledge graph propagation
 
-Now enhanced with:
-- Live PubMed integration for latest literature
-- Knowledge graph context for mechanistic reasoning
-- Causal propagation for intervention insights
-
-When an OpenAI API key is configured the matched context is sent to the
-LLM for synthesis.  Without a key the service returns a locally composed
-answer — no external dependency required.
+LLM routing:
+  - Primary: Anthropic 4-tier (Haiku → Sonnet → Opus) via routing.router
+  - Fallback: OpenAI if ANTHROPIC_API_KEY not set
+  - Fallback-fallback: local structured answer if no LLM key
 """
 
 from __future__ import annotations
@@ -21,69 +19,119 @@ import logging
 from typing import Any, Optional
 
 from app.core.config import settings
-from app.models.schema import QueryResponse, StructuredReasoning, PubMedResult
-from app.services.query_engine import search_all, SearchResult
+from app.models.schema import (
+    PubMedResult,
+    QueryResponse,
+    RetrievedPropositionSchema,
+    StructuredReasoning,
+)
+from app.services.query_engine import SearchResult, search_all
 
 logger = logging.getLogger(__name__)
 
-# Optional OpenAI integration
+_SYSTEM_PROMPT = (
+    "You are Asclepius, an expert immunology research assistant that synthesises "
+    "evidence from curated knowledge bases, live PubMed literature, and a computable "
+    "immune signaling knowledge graph. Answer using ONLY the provided context. "
+    "Structure your response with clear sections: Disease Overview, Dysregulated Pathways, "
+    "Key Immune Cells, Cytokines Involved, Therapeutic Targets, and Open Research Gaps. "
+    "Cite retrieved propositions by their source type when relevant. Be precise and evidence-based."
+)
+
+# ------------------------------------------------------------------
+# OpenAI fallback client (kept for backward compatibility)
+# ------------------------------------------------------------------
 _openai_client: Optional[object] = None
 
-if settings.openai_api_key:
+if settings.openai_api_key and not settings.anthropic_api_key:
     try:
         from openai import OpenAI  # type: ignore[import-untyped]
 
         _openai_client = OpenAI(api_key=settings.openai_api_key)
-        logger.info("OpenAI client initialised (model=%s)", settings.llm_model)
+        logger.info("OpenAI fallback client initialised (model=%s)", settings.llm_model)
     except ImportError:
-        logger.warning("openai package not installed — falling back to knowledge-base mode")
+        logger.warning("openai package not installed")
     except Exception:
-        logger.warning("Failed to initialise OpenAI client — falling back", exc_info=True)
+        logger.warning("Failed to initialise OpenAI client", exc_info=True)
 
 
 class LLMService:
-    """Handles queries for the Autoimmune Intelligence API."""
+    """Handles queries for the Asclepius Research Labs API."""
 
     def query(
         self,
         question: str,
         include_pubmed: bool = False,
     ) -> QueryResponse:
-        logger.info("LLMService.query called with question=%r, pubmed=%s", question, include_pubmed)
+        logger.info("LLMService.query: %r pubmed=%s", question, include_pubmed)
 
-        results = search_all(question)
+        # 1. Hybrid retrieval (proposition-level)
+        propositions = self._retrieve_propositions(question)
 
-        # Fetch live PubMed articles if requested
+        # 2. Structured dataset search (for reasoning + graph)
+        sr = search_all(question)
+
+        # 3. Optional PubMed
         pubmed_articles: list[PubMedResult] = []
         if include_pubmed:
             pubmed_articles = self._fetch_pubmed(question)
 
-        # Get graph context for relevant entities
-        graph_context = self._get_graph_context(results)
+        # 4. Graph context
+        graph_context = self._get_graph_context(sr)
 
-        if not results.has_results and not pubmed_articles:
+        if not propositions and not sr.has_results and not pubmed_articles:
             return QueryResponse(
                 answer=(
-                    "I could not find a match for your query in the current "
-                    "datasets. Try asking about a specific autoimmune disease "
-                    "(e.g., rheumatoid arthritis, lupus, multiple sclerosis), "
-                    "a cytokine pathway (e.g., JAK-STAT, NF-\u03baB, IL-17), or "
-                    "a therapeutic (e.g., adalimumab, tofacitinib)."
+                    "I could not find relevant information for your query. "
+                    "Try asking about a specific autoimmune disease (rheumatoid arthritis, "
+                    "lupus, multiple sclerosis), a cytokine pathway (JAK-STAT, NF-κB, IL-17), "
+                    "or a therapeutic agent (adalimumab, tofacitinib)."
                 ),
                 sources=[],
             )
 
+        # 5. Route to LLM
+        if settings.anthropic_api_key:
+            return self._anthropic_answer(
+                question, propositions, sr, pubmed_articles, graph_context
+            )
         if _openai_client is not None:
-            return self._llm_answer(question, results, pubmed_articles, graph_context)
-
-        return self._local_answer(question, results, pubmed_articles, graph_context)
+            return self._openai_answer(
+                question, propositions, sr, pubmed_articles, graph_context
+            )
+        return self._local_answer(question, propositions, sr, pubmed_articles, graph_context)
 
     # ------------------------------------------------------------------
-    # PubMed integration
+    # Retrieval
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _retrieve_propositions(question: str) -> list[RetrievedPropositionSchema]:
+        try:
+            from app.services.retrieval_service import retrieve
+            from app.observability.metrics import observe_hits
+
+            hits = retrieve(question, top_k=8)
+            observe_hits(len(hits))
+            return [
+                RetrievedPropositionSchema(
+                    text=h.text,
+                    score=round(h.score, 6),
+                    rerank_score=round(h.rerank_score, 6),
+                    metadata=h.metadata,
+                )
+                for h in hits
+            ]
+        except Exception:
+            logger.debug("Retrieval failed — continuing without propositions", exc_info=True)
+            return []
+
+    # ------------------------------------------------------------------
+    # PubMed
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _fetch_pubmed(question: str) -> list[PubMedResult]:
-        """Fetch live PubMed articles for the query."""
         try:
             from app.services.pubmed_service import pubmed
 
@@ -102,25 +150,23 @@ class LLMService:
                 for a in articles
             ]
         except Exception:
-            logger.warning("PubMed fetch failed during query", exc_info=True)
+            logger.warning("PubMed fetch failed", exc_info=True)
             return []
 
     # ------------------------------------------------------------------
-    # Knowledge graph context
+    # Graph context
     # ------------------------------------------------------------------
+
     @staticmethod
     def _get_graph_context(sr: SearchResult) -> Optional[dict[str, Any]]:
-        """Extract relevant graph context for the query."""
         try:
             from app.services.graph_service import knowledge_graph
 
-            # Collect seed nodes from search results
             seed_nodes: list[str] = []
             for edge in sr.cytokine_hits[:5]:
-                if edge["source"] not in seed_nodes:
-                    seed_nodes.append(edge["source"])
-                if edge["target"] not in seed_nodes:
-                    seed_nodes.append(edge["target"])
+                for node in (edge["source"], edge["target"]):
+                    if node not in seed_nodes:
+                        seed_nodes.append(node)
             for pw in sr.pathway_hits[:2]:
                 for node in pw.get("key_nodes", [])[:3]:
                     gene = node.get("gene", "")
@@ -131,30 +177,128 @@ class LLMService:
                 return None
 
             subgraph = knowledge_graph.get_subgraph(seed_nodes[:8], hops=1)
-
-            # Run causal propagation from first seed
-            if seed_nodes:
-                prop_scores = knowledge_graph.propagate_signal(
-                    {seed_nodes[0]: 1.0}, direction="downstream"
-                )
-                top_downstream = sorted(
-                    prop_scores.items(), key=lambda x: abs(x[1]), reverse=True
-                )[:10]
-                subgraph["causal_downstream"] = [
-                    {"node": k, "score": round(v, 4)} for k, v in top_downstream
-                ]
-
+            prop_scores = knowledge_graph.propagate_signal(
+                {seed_nodes[0]: 1.0}, direction="downstream"
+            )
+            top_downstream = sorted(
+                prop_scores.items(), key=lambda x: abs(x[1]), reverse=True
+            )[:10]
+            subgraph["causal_downstream"] = [
+                {"node": k, "score": round(v, 4)} for k, v in top_downstream
+            ]
             return subgraph
         except Exception:
             logger.debug("Graph context extraction failed", exc_info=True)
             return None
 
     # ------------------------------------------------------------------
-    # Structured reasoning extraction from search results
+    # Context builder (shared by all LLM backends)
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_context(
+        propositions: list[RetrievedPropositionSchema],
+        sr: SearchResult,
+        pubmed_articles: list[PubMedResult],
+        graph_context: Optional[dict[str, Any]],
+    ) -> tuple[str, list[str]]:
+        """Build the context string and collect sources."""
+        blocks: list[str] = []
+        sources: list[str] = []
+
+        # Retrieved propositions (highest priority — most semantically relevant)
+        if propositions:
+            prop_lines = "\n".join(
+                f"- [{p.metadata.get('type', 'knowledge')}] {p.text}"
+                for p in propositions[:8]
+            )
+            blocks.append(f"### Retrieved Evidence\n{prop_lines}")
+            for p in propositions:
+                pmid = p.metadata.get("pmid", "")
+                if pmid:
+                    sources.append(f"PMID:{pmid}")
+
+        # KB entries
+        for hit in sr.kb_hits:
+            blocks.append(f"### {hit.entry.topic}\n{hit.entry.answer}")
+            sources.extend(hit.entry.sources)
+
+        # Disease context
+        for dis in sr.disease_hits[:2]:
+            blocks.append(
+                f"### Disease: {dis['disease_name']}\n{dis['description']}\n"
+                f"Mechanisms: {', '.join(dis.get('pathogenic_mechanisms', []))}\n"
+                f"Cell types: {', '.join(dis.get('key_cell_types', []))}\n"
+                f"Genes: {json.dumps(dis.get('associated_genes', [])[:8])}"
+            )
+            sources.extend(dis.get("references", []))
+
+        # Pathway context
+        for pw in sr.pathway_hits[:2]:
+            blocks.append(
+                f"### Pathway: {pw['pathway_name']} ({pw['pathway_id']})\n"
+                f"{pw['description']}\n"
+                f"Key nodes: {json.dumps(pw.get('key_nodes', [])[:6])}\n"
+                f"Therapeutic targets: {json.dumps(pw.get('therapeutic_targets', []))}"
+            )
+            sources.extend(pw.get("references", []))
+
+        # Cytokine network
+        if sr.cytokine_hits:
+            edges = "\n".join(
+                f"- {e['source']} → {e['target']} ({e['edge_type']}): {e['description']}"
+                for e in sr.cytokine_hits[:8]
+            )
+            blocks.append(f"### Cytokine Network\n{edges}")
+            for e in sr.cytokine_hits[:8]:
+                if e.get("pmid"):
+                    sources.append(f"PMID:{e['pmid']}")
+
+        # Therapeutics
+        if sr.therapeutic_hits:
+            rx_lines = []
+            for rx in sr.therapeutic_hits[:4]:
+                inds = [i["disease"] for i in rx.get("approved_indications", [])]
+                rx_lines.append(
+                    f"- {rx['drug_name']} ({rx['brand_name']}): {rx['drug_class']}, "
+                    f"target={rx['target']}, {rx['mechanism'][:120]}. "
+                    f"Indications: {', '.join(inds[:4])}"
+                )
+                for trial in rx.get("pivotal_trials", [])[:1]:
+                    if trial.get("pmid"):
+                        sources.append(f"PMID:{trial['pmid']}")
+            blocks.append("### Therapeutics\n" + "\n".join(rx_lines))
+
+        # PubMed literature
+        if pubmed_articles:
+            pm_lines = [
+                f"- [{a.year}] {a.title} ({a.journal}). {a.abstract[:200]}"
+                for a in pubmed_articles[:5]
+            ]
+            blocks.append("### Latest PubMed Literature\n" + "\n".join(pm_lines))
+            for a in pubmed_articles:
+                sources.append(f"PMID:{a.pmid}")
+
+        # Causal graph
+        if graph_context and graph_context.get("causal_downstream"):
+            causal = [
+                f"- {item['node']}: downstream impact={item['score']}"
+                for item in graph_context["causal_downstream"][:8]
+            ]
+            blocks.append("### Causal Network Analysis\n" + "\n".join(causal))
+
+        # Deduplicate sources
+        seen: set[str] = set()
+        unique_sources = [s for s in sources if s not in seen and not seen.add(s)]  # type: ignore[func-returns-value]
+
+        return "\n\n".join(blocks), unique_sources
+
+    # ------------------------------------------------------------------
+    # Structured reasoning extractor (unchanged from original)
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _extract_reasoning(sr: SearchResult) -> StructuredReasoning:
-        """Extract structured immune reasoning from aggregated search hits."""
         cells: list[str] = []
         cytokines: list[str] = []
         pathways: list[str] = []
@@ -164,7 +308,6 @@ class LLMService:
         summary_parts: list[str] = []
         disease_ctx = ""
 
-        # From disease hits
         if sr.disease_hits:
             dis = sr.disease_hits[0]
             disease_ctx = dis["description"]
@@ -176,14 +319,13 @@ class LLMService:
             for g in dis.get("associated_genes", [])[:8]:
                 label = g["gene"]
                 if g.get("description"):
-                    label += f" \u2014 {g['description']}"
+                    label += f" — {g['description']}"
                 genes.append(label)
             for rx in dis.get("approved_therapies", []):
                 targets.append(f"{rx['drug']} ({rx['class']})")
 
-        # From pathway hits
         for pw in sr.pathway_hits[:3]:
-            pathways.append(f"{pw['pathway_name']} \u2014 {pw['description'][:120]}")
+            pathways.append(f"{pw['pathway_name']} — {pw['description'][:120]}")
             for tgt in pw.get("therapeutic_targets", [])[:3]:
                 entry = f"{tgt.get('drug', '?')} targeting {tgt.get('target', '?')}"
                 if tgt.get("mechanism"):
@@ -191,49 +333,38 @@ class LLMService:
                 if entry not in targets:
                     targets.append(entry)
 
-        # From cytokine hits
         seen_cytokines: set[str] = set()
         for edge in sr.cytokine_hits[:10]:
-            src, tgt = edge["source"], edge["target"]
-            desc = edge["description"]
+            src = edge["source"]
             if src not in seen_cytokines:
                 seen_cytokines.add(src)
-                cytokines.append(f"{src} \u2014 {desc[:100]}")
-            if tgt not in seen_cytokines and len(cytokines) < 10:
-                seen_cytokines.add(tgt)
+                cytokines.append(f"{src} — {edge['description'][:100]}")
 
-        # From therapeutic hits
         for rx in sr.therapeutic_hits[:5]:
             indications = [i["disease"] for i in rx.get("approved_indications", [])[:3]]
             entry = (
-                f"{rx['drug_name']} ({rx['brand_name']}) \u2014 {rx['drug_class']}, "
-                f"targets {rx['target']}. {rx['mechanism'][:120]}. "
+                f"{rx['drug_name']} ({rx['brand_name']}) — {rx['drug_class']}, "
+                f"targets {rx['target']}. {rx['mechanism'][:100]}. "
                 f"Approved for: {', '.join(indications)}"
             )
             if entry not in targets:
                 targets.append(entry)
 
-        # From KB hits — build summary
         if sr.kb_hits:
             summary_parts.insert(0, sr.kb_hits[0].entry.answer)
 
-        # Generate open questions / hypotheses
         if sr.disease_hits:
             dis = sr.disease_hits[0]
             name = dis["disease_name"]
-            open_qs.append(
-                f"What environmental triggers initiate tolerance breakdown in {name}?"
-            )
+            open_qs.append(f"What environmental triggers initiate tolerance breakdown in {name}?")
             if dis.get("associated_genes"):
                 top_gene = dis["associated_genes"][0]["gene"]
                 open_qs.append(
-                    f"How do {top_gene} risk variants interact with epigenetic "
-                    f"modifications to drive disease onset?"
+                    f"How do {top_gene} risk variants interact with epigenetic modifications "
+                    f"to drive disease onset?"
                 )
             if dis.get("key_cell_types"):
-                open_qs.append(
-                    f"Can Treg-based cell therapy restore immune tolerance in {name}?"
-                )
+                open_qs.append(f"Can Treg-based cell therapy restore immune tolerance in {name}?")
         if sr.pathway_hits:
             pw = sr.pathway_hits[0]
             open_qs.append(
@@ -247,10 +378,8 @@ class LLMService:
                 f"pathway-specific agent improve treatment response?"
             )
 
-        summary = "\n\n".join(summary_parts) if summary_parts else ""
-
         return StructuredReasoning(
-            summary=summary,
+            summary="\n\n".join(summary_parts),
             key_cells=cells,
             key_cytokines=cytokines,
             pathways=pathways,
@@ -261,230 +390,82 @@ class LLMService:
         )
 
     # ------------------------------------------------------------------
-    # Local answer — no external API required
+    # Anthropic answer (primary)
     # ------------------------------------------------------------------
+
     @staticmethod
-    def _local_answer(
+    def _anthropic_answer(
         question: str,
+        propositions: list[RetrievedPropositionSchema],
         sr: SearchResult,
         pubmed_articles: list[PubMedResult],
         graph_context: Optional[dict[str, Any]],
     ) -> QueryResponse:
-        """Compose a structured answer from all matched data sources."""
-        sections: list[str] = []
-        sources: list[str] = []
+        from app.routing.router import call_with_routing
 
-        # 1. Primary KB narrative
-        if sr.kb_hits:
-            primary = sr.kb_hits[0].entry
-            sections.append(primary.answer)
-            for hit in sr.kb_hits:
-                sources.extend(hit.entry.sources)
-            for hit in sr.kb_hits[1:]:
-                if hit.score > 0.1:
-                    sections.append(
-                        f"\n**Related \u2014 {hit.entry.topic}:**\n{hit.entry.answer}"
-                    )
+        context, sources = LLMService._build_context(
+            propositions, sr, pubmed_articles, graph_context
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Context:\n{context}\n\n"
+                    f"Question: {question}\n\n"
+                    "Provide a detailed, structured immunology answer with sections for "
+                    "disease overview, dysregulated pathways, key immune cells, cytokines, "
+                    "therapeutic targets, and open research gaps."
+                ),
+            }
+        ]
 
-        # 2. Disease context
-        if sr.disease_hits:
-            dis = sr.disease_hits[0]
-            parts = [f"\n**Disease context \u2014 {dis['disease_name']}:**"]
-            parts.append(dis["description"])
-            if dis.get("prevalence"):
-                parts.append(f"Prevalence: {dis['prevalence']}.")
-            sections.append("\n".join(parts))
-            for ref in dis.get("references", []):
-                sources.append(ref)
+        answer, model_used, cost = call_with_routing(
+            messages=messages,
+            system=_SYSTEM_PROMPT,
+            query_preview=question[:100],
+        )
 
-        # 3. Pathway context
-        if sr.pathway_hits:
-            pw = sr.pathway_hits[0]
-            parts = [f"\n**Pathway \u2014 {pw['pathway_name']}** ({pw['pathway_id']}):"]
-            parts.append(pw["description"])
-            sections.append("\n".join(parts))
-            for ref in pw.get("references", []):
-                sources.append(ref)
-
-        # 4. Cytokine network interactions
-        if sr.cytokine_hits:
-            parts = ["\n**Relevant cytokine interactions:**"]
-            for edge in sr.cytokine_hits[:6]:
-                parts.append(
-                    f"{edge['source']} -> {edge['target']} "
-                    f"({edge['edge_type']}) \u2014 {edge['description']}"
-                )
-                if edge.get("pmid"):
-                    sources.append(f"PMID:{edge['pmid']}")
-            sections.append("\n".join(parts))
-
-        # 5. Therapeutics
-        if sr.therapeutic_hits:
-            parts = ["\n**Relevant therapeutics:**"]
-            for rx in sr.therapeutic_hits[:4]:
-                indications = [
-                    ind["disease"] for ind in rx.get("approved_indications", [])
-                ]
-                parts.append(
-                    f"{rx['drug_name']} ({rx['brand_name']}) \u2014 "
-                    f"{rx['drug_class']}. Target: {rx['target']}. "
-                    f"Approved for: {', '.join(indications[:5])}."
-                )
-                for trial in rx.get("pivotal_trials", [])[:1]:
-                    if trial.get("pmid"):
-                        sources.append(f"PMID:{trial['pmid']}")
-            sections.append("\n".join(parts))
-
-        # 6. Live PubMed articles
-        if pubmed_articles:
-            parts = ["\n**Latest from PubMed:**"]
-            for article in pubmed_articles[:5]:
-                parts.append(f"- {article.citation}")
-                sources.append(f"PMID:{article.pmid}")
-            sections.append("\n".join(parts))
-
-        # 7. Graph context
-        if graph_context and graph_context.get("causal_downstream"):
-            parts = ["\n**Causal network analysis:**"]
-            for item in graph_context["causal_downstream"][:5]:
-                parts.append(f"- {item['node']}: downstream impact score {item['score']}")
-            sections.append("\n".join(parts))
-
-        # Deduplicate sources
-        seen: set[str] = set()
-        unique_sources: list[str] = []
-        for s in sources:
-            if s not in seen:
-                seen.add(s)
-                unique_sources.append(s)
-
-        reasoning = LLMService._extract_reasoning(sr)
+        if not answer:
+            return LLMService._local_answer(
+                question, propositions, sr, pubmed_articles, graph_context
+            )
 
         return QueryResponse(
-            answer="\n".join(sections),
-            sources=unique_sources,
-            reasoning=reasoning,
+            answer=answer,
+            sources=sources,
+            reasoning=LLMService._extract_reasoning(sr),
             pubmed_articles=pubmed_articles,
             graph_context=graph_context,
+            retrieved_propositions=propositions,
+            model_used=model_used,
+            cost_usd=round(cost, 6),
         )
 
     # ------------------------------------------------------------------
-    # LLM-augmented answer (OpenAI)
+    # OpenAI fallback
     # ------------------------------------------------------------------
+
     @staticmethod
-    def _llm_answer(
+    def _openai_answer(
         question: str,
+        propositions: list[RetrievedPropositionSchema],
         sr: SearchResult,
         pubmed_articles: list[PubMedResult],
         graph_context: Optional[dict[str, Any]],
     ) -> QueryResponse:
-        """Send full dataset context to OpenAI for synthesis."""
-        context_blocks: list[str] = []
-        sources: list[str] = []
-
-        # KB context
-        for hit in sr.kb_hits:
-            context_blocks.append(
-                f"### {hit.entry.topic}\n{hit.entry.answer}\n"
-                f"Sources: {'; '.join(hit.entry.sources)}"
-            )
-            sources.extend(hit.entry.sources)
-
-        # Disease context
-        for dis in sr.disease_hits[:2]:
-            context_blocks.append(
-                f"### Disease: {dis['disease_name']}\n{dis['description']}\n"
-                f"Mechanisms: {', '.join(dis.get('pathogenic_mechanisms', []))}\n"
-                f"Cell types: {', '.join(dis.get('key_cell_types', []))}\n"
-                f"Genes: {json.dumps(dis.get('associated_genes', [])[:8])}"
-            )
-            sources.extend(dis.get("references", []))
-
-        # Pathway context
-        for pw in sr.pathway_hits[:2]:
-            context_blocks.append(
-                f"### Pathway: {pw['pathway_name']} ({pw['pathway_id']})\n"
-                f"{pw['description']}\n"
-                f"Key nodes: {json.dumps(pw.get('key_nodes', [])[:8])}\n"
-                f"Therapeutic targets: {json.dumps(pw.get('therapeutic_targets', []))}"
-            )
-            sources.extend(pw.get("references", []))
-
-        # Cytokine context
-        if sr.cytokine_hits:
-            edges_str = "\n".join(
-                f"- {e['source']} -> {e['target']} ({e['edge_type']}): {e['description']}"
-                for e in sr.cytokine_hits[:8]
-            )
-            context_blocks.append(f"### Cytokine Network\n{edges_str}")
-            for e in sr.cytokine_hits[:8]:
-                if e.get("pmid"):
-                    sources.append(f"PMID:{e['pmid']}")
-
-        # Therapeutics context
-        if sr.therapeutic_hits:
-            rx_strs = []
-            for rx in sr.therapeutic_hits[:4]:
-                indications = [i["disease"] for i in rx.get("approved_indications", [])]
-                rx_strs.append(
-                    f"- {rx['drug_name']} ({rx['brand_name']}): {rx['drug_class']}, "
-                    f"target={rx['target']}, {rx['mechanism']}. "
-                    f"Indications: {', '.join(indications[:5])}"
-                )
-                for trial in rx.get("pivotal_trials", [])[:1]:
-                    if trial.get("pmid"):
-                        sources.append(f"PMID:{trial['pmid']}")
-            context_blocks.append("### Therapeutics\n" + "\n".join(rx_strs))
-
-        # PubMed articles
-        if pubmed_articles:
-            pm_strs = []
-            for a in pubmed_articles[:5]:
-                pm_strs.append(f"- [{a.year}] {a.title} ({a.journal}). {a.abstract[:200]}")
-                sources.append(f"PMID:{a.pmid}")
-            context_blocks.append("### Latest PubMed Literature\n" + "\n".join(pm_strs))
-
-        # Graph context
-        if graph_context and graph_context.get("causal_downstream"):
-            causal_strs = [
-                f"- {item['node']}: impact={item['score']}"
-                for item in graph_context["causal_downstream"][:8]
-            ]
-            context_blocks.append(
-                "### Causal Network Analysis\n" + "\n".join(causal_strs)
-            )
-
-        context = "\n\n".join(context_blocks)
-
+        context, sources = LLMService._build_context(
+            propositions, sr, pubmed_articles, graph_context
+        )
         try:
             response = _openai_client.chat.completions.create(  # type: ignore[union-attr]
                 model=settings.llm_model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are Autoimmune Intelligence, a research assistant "
-                            "that synthesises immunological evidence from curated "
-                            "datasets, live PubMed literature, and a computable "
-                            "immune signaling knowledge graph. Answer using ONLY "
-                            "the provided context. Structure your answer with clear "
-                            "sections covering: (1) Disease Overview, (2) Dysregulated "
-                            "Pathways, (3) Key Immune Cells, (4) Cytokines Involved, "
-                            "(5) Known Therapeutic Targets, (6) Failed Targets, "
-                            "(7) Open Research Gaps. Cite sources by PMID or "
-                            "author/journal. Be precise and evidence-based."
-                        ),
-                    },
+                    {"role": "system", "content": _SYSTEM_PROMPT},
                     {
                         "role": "user",
                         "content": (
-                            f"Context:\n{context}\n\n"
-                            f"Question: {question}\n\n"
-                            "Provide a detailed, structured answer covering disease "
-                            "mechanisms, relevant pathways, cytokine interactions, "
-                            "causal network relationships, and available therapeutics "
-                            "where applicable. Include insights from the latest "
-                            "PubMed literature if provided."
+                            f"Context:\n{context}\n\nQuestion: {question}\n\n"
+                            "Provide a detailed structured immunology answer."
                         ),
                     },
                 ],
@@ -493,22 +474,124 @@ class LLMService:
             )
             answer = response.choices[0].message.content or ""
         except Exception:
-            logger.warning("OpenAI call failed \u2014 falling back to local", exc_info=True)
-            return LLMService._local_answer(question, sr, pubmed_articles, graph_context)
+            logger.warning("OpenAI call failed — falling back to local", exc_info=True)
+            return LLMService._local_answer(
+                question, propositions, sr, pubmed_articles, graph_context
+            )
 
         if not answer:
-            return LLMService._local_answer(question, sr, pubmed_articles, graph_context)
-
-        # Deduplicate sources
-        seen: set[str] = set()
-        unique_sources = [s for s in sources if s not in seen and not seen.add(s)]  # type: ignore[func-returns-value]
-
-        reasoning = LLMService._extract_reasoning(sr)
+            return LLMService._local_answer(
+                question, propositions, sr, pubmed_articles, graph_context
+            )
 
         return QueryResponse(
             answer=answer,
-            sources=unique_sources,
-            reasoning=reasoning,
+            sources=sources,
+            reasoning=LLMService._extract_reasoning(sr),
             pubmed_articles=pubmed_articles,
             graph_context=graph_context,
+            retrieved_propositions=propositions,
+            model_used=settings.llm_model,
+        )
+
+    # ------------------------------------------------------------------
+    # Local answer — no LLM key required
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _local_answer(
+        question: str,
+        propositions: list[RetrievedPropositionSchema],
+        sr: SearchResult,
+        pubmed_articles: list[PubMedResult],
+        graph_context: Optional[dict[str, Any]],
+    ) -> QueryResponse:
+        sections: list[str] = []
+        sources: list[str] = []
+
+        # Retrieved propositions
+        if propositions:
+            lines = [f"- {p.text}" for p in propositions[:6]]
+            sections.append("**Retrieved Evidence:**\n" + "\n".join(lines))
+            for p in propositions:
+                if p.metadata.get("pmid"):
+                    sources.append(f"PMID:{p.metadata['pmid']}")
+
+        # KB narrative
+        if sr.kb_hits:
+            primary = sr.kb_hits[0].entry
+            sections.append(primary.answer)
+            for hit in sr.kb_hits:
+                sources.extend(hit.entry.sources)
+            for hit in sr.kb_hits[1:]:
+                if hit.score > 0.1:
+                    sections.append(f"\n**Related — {hit.entry.topic}:**\n{hit.entry.answer}")
+
+        # Disease context
+        if sr.disease_hits:
+            dis = sr.disease_hits[0]
+            parts = [f"\n**Disease — {dis['disease_name']}:**", dis["description"]]
+            if dis.get("prevalence"):
+                parts.append(f"Prevalence: {dis['prevalence']}.")
+            sections.append("\n".join(parts))
+            sources.extend(dis.get("references", []))
+
+        # Pathway context
+        if sr.pathway_hits:
+            pw = sr.pathway_hits[0]
+            sections.append(
+                f"\n**Pathway — {pw['pathway_name']} ({pw['pathway_id']}):**\n{pw['description']}"
+            )
+            sources.extend(pw.get("references", []))
+
+        # Cytokine interactions
+        if sr.cytokine_hits:
+            lines = ["\n**Cytokine interactions:**"]
+            for edge in sr.cytokine_hits[:6]:
+                lines.append(
+                    f"{edge['source']} → {edge['target']} ({edge['edge_type']}) — {edge['description']}"
+                )
+                if edge.get("pmid"):
+                    sources.append(f"PMID:{edge['pmid']}")
+            sections.append("\n".join(lines))
+
+        # Therapeutics
+        if sr.therapeutic_hits:
+            lines = ["\n**Therapeutics:**"]
+            for rx in sr.therapeutic_hits[:4]:
+                inds = [i["disease"] for i in rx.get("approved_indications", [])]
+                lines.append(
+                    f"{rx['drug_name']} ({rx['brand_name']}) — {rx['drug_class']}. "
+                    f"Target: {rx['target']}. Approved for: {', '.join(inds[:4])}."
+                )
+                for trial in rx.get("pivotal_trials", [])[:1]:
+                    if trial.get("pmid"):
+                        sources.append(f"PMID:{trial['pmid']}")
+            sections.append("\n".join(lines))
+
+        # PubMed
+        if pubmed_articles:
+            lines = ["\n**Latest PubMed:**"]
+            for a in pubmed_articles[:5]:
+                lines.append(f"- {a.citation}")
+                sources.append(f"PMID:{a.pmid}")
+            sections.append("\n".join(lines))
+
+        # Causal graph
+        if graph_context and graph_context.get("causal_downstream"):
+            lines = ["\n**Causal network:**"]
+            for item in graph_context["causal_downstream"][:5]:
+                lines.append(f"- {item['node']}: downstream impact {item['score']}")
+            sections.append("\n".join(lines))
+
+        seen: set[str] = set()
+        unique_sources = [s for s in sources if s not in seen and not seen.add(s)]  # type: ignore[func-returns-value]
+
+        return QueryResponse(
+            answer="\n".join(sections),
+            sources=unique_sources,
+            reasoning=LLMService._extract_reasoning(sr),
+            pubmed_articles=pubmed_articles,
+            graph_context=graph_context,
+            retrieved_propositions=propositions,
         )

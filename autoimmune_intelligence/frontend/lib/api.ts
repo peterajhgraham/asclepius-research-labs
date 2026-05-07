@@ -45,12 +45,22 @@ export interface GraphContext {
   causal_downstream?: CausalDownstream[];
 }
 
+export interface RetrievedProposition {
+  text: string;
+  score: number;
+  rerank_score: number;
+  metadata: Record<string, unknown>;
+}
+
 export interface QueryResponse {
   answer: string;
   sources: string[];
   reasoning: StructuredReasoning;
   pubmed_articles?: PubMedArticle[];
   graph_context?: GraphContext | null;
+  retrieved_propositions?: RetrievedProposition[];
+  model_used?: string;
+  cost_usd?: number;
 }
 
 // ------------------------------------------------------------------

@@ -12,6 +12,14 @@ class QueryRequest(BaseModel):
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
 
 
+class RetrievedPropositionSchema(BaseModel):
+    """A single proposition retrieved from the hybrid search pipeline."""
+    text: str
+    score: float = Field(0.0, description="RRF fusion score")
+    rerank_score: float = Field(0.0, description="CrossEncoder reranking score")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class StructuredReasoning(BaseModel):
     """Structured immune reasoning breakdown."""
 
@@ -51,6 +59,12 @@ class QueryResponse(BaseModel):
     graph_context: Optional[dict[str, Any]] = Field(
         None, description="Knowledge graph subgraph context if available",
     )
+    retrieved_propositions: list[RetrievedPropositionSchema] = Field(
+        default_factory=list,
+        description="Top propositions from the hybrid retrieval pipeline (for citation panel)",
+    )
+    model_used: str = Field("", description="LLM model that generated the answer")
+    cost_usd: float = Field(0.0, description="Estimated cost of this query in USD")
 
 
 # ------------------------------------------------------------------

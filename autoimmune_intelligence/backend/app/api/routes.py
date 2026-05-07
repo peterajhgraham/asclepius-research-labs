@@ -1,12 +1,30 @@
+import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+import time
+from typing import AsyncGenerator
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+
+from app.core.config import settings
 from app.models.schema import (
-    QueryRequest, QueryResponse,
-    CompareRequest, CompareResponse,
-    HypothesisRequest, HypothesisResponse, HypothesisEntry,
-    PubMedSearchRequest, PubMedSearchResponse, PubMedResult,
-    GraphSubgraphRequest, InterventionRankRequest, CausalPropagateRequest,
-    CreateDossierRequest, AddToDossierRequest, UpdateNotesRequest,
+    AddToDossierRequest,
+    CausalPropagateRequest,
+    CompareRequest,
+    CompareResponse,
+    CreateDossierRequest,
+    GraphSubgraphRequest,
+    HypothesisEntry,
+    HypothesisRequest,
+    HypothesisResponse,
+    InterventionRankRequest,
+    PubMedResult,
+    PubMedSearchRequest,
+    PubMedSearchResponse,
+    QueryRequest,
+    QueryResponse,
+    RetrievedPropositionSchema,
+    UpdateNotesRequest,
 )
 from app.services.llm_service import LLMService
 from app.services.logger_service import log_query
@@ -39,6 +57,152 @@ def query(request: QueryRequest, service: LLMService = Depends(get_llm_service))
             status_code=500,
             detail="Internal server error — check server logs for details",
         ) from exc
+
+
+# ------------------------------------------------------------------
+# SSE streaming query endpoint
+# ------------------------------------------------------------------
+
+@router.get("/query/stream")
+async def query_stream(
+    question: str = Query(..., min_length=1),
+    include_pubmed: bool = Query(False),
+) -> StreamingResponse:
+    """Stream a query response as Server-Sent Events.
+
+    Event types:
+      - start:     {"type":"start","question":"..."}
+      - citations: {"type":"citations","data":[...]}
+      - token:     {"type":"token","text":"..."}
+      - done:      {"type":"done","model":"...","cost":0.00,"sources":[...]}
+    """
+
+    async def event_gen() -> AsyncGenerator[str, None]:
+        def sse(payload: dict) -> str:
+            return f"data: {json.dumps(payload)}\n\n"
+
+        try:
+            log_query(question)
+            yield sse({"type": "start", "question": question})
+
+            # Run retrieval and structured search synchronously in the event loop
+            # (heavy ML already loaded; calls are CPU-bound but fast after warm-up)
+            from app.services.retrieval_service import retrieve
+            from app.services.query_engine import search_all
+
+            propositions = retrieve(question, top_k=8)
+            sr = search_all(question)
+
+            # PubMed (skip for streaming to keep latency low)
+            pubmed_articles: list[PubMedResult] = []
+
+            # Graph context
+            service = LLMService()
+            graph_context = LLMService._get_graph_context(sr)
+
+            # Send citations immediately — frontend shows the panel while answer streams
+            citation_data = [
+                {
+                    "text": p.text,
+                    "score": round(p.score, 4),
+                    "rerank_score": round(p.rerank_score, 4),
+                    "type": p.metadata.get("type", "knowledge"),
+                    "pmid": p.metadata.get("pmid", ""),
+                    "source": p.metadata.get("drug_name")
+                        or p.metadata.get("disease_name")
+                        or p.metadata.get("pathway_name")
+                        or p.metadata.get("topic")
+                        or "",
+                }
+                for p in propositions
+            ]
+            yield sse({"type": "citations", "data": citation_data})
+
+            # Build context for the LLM prompt
+            props_schema = [
+                RetrievedPropositionSchema(
+                    text=p.text,
+                    score=p.score,
+                    rerank_score=p.rerank_score,
+                    metadata=p.metadata,
+                )
+                for p in propositions
+            ]
+            context, sources = LLMService._build_context(
+                props_schema, sr, pubmed_articles, graph_context
+            )
+
+            system = (
+                "You are Asclepius, an expert immunology research assistant. "
+                "Answer using ONLY the provided context. Structure your response with: "
+                "Disease Overview, Dysregulated Pathways, Key Immune Cells, Cytokines, "
+                "Therapeutic Targets, Open Research Gaps."
+            )
+            messages = [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Context:\n{context}\n\n"
+                        f"Question: {question}\n\n"
+                        "Provide a detailed, structured immunology answer."
+                    ),
+                }
+            ]
+
+            model_used = "local"
+            cost = 0.0
+
+            if settings.anthropic_api_key:
+                from app.routing.router import stream_with_routing
+
+                for token in stream_with_routing(
+                    messages=messages,
+                    system=system,
+                    query_preview=question[:100],
+                ):
+                    yield sse({"type": "token", "text": token})
+                model_used = "claude-haiku-4-5-20251001"
+            else:
+                # Fallback: use non-streaming call and emit answer as a single chunk
+                from app.routing.router import call_with_routing
+
+                answer, model_used, cost = call_with_routing(
+                    messages=messages,
+                    system=system,
+                    query_preview=question[:100],
+                )
+                if answer:
+                    # Simulate streaming by word to keep UX consistent
+                    for word in answer.split(" "):
+                        yield sse({"type": "token", "text": word + " "})
+                else:
+                    # Pure local fallback
+                    local_resp = LLMService._local_answer(
+                        question, props_schema, sr, pubmed_articles, graph_context
+                    )
+                    for word in local_resp.answer.split(" "):
+                        yield sse({"type": "token", "text": word + " "})
+
+            yield sse({
+                "type": "done",
+                "model": model_used,
+                "cost": cost,
+                "sources": sources[:20],
+            })
+
+        except Exception:
+            logger.exception("Streaming error")
+            yield sse({"type": "error", "message": "Internal streaming error"})
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ------------------------------------------------------------------

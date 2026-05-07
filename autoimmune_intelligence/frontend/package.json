@@ -1,6 +1,6 @@
 {
   "name": "autoimmune-intelligence",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,9 +11,12 @@
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
     "axios": "^1.7.2",
+    "framer-motion": "^11.18.2",
     "next": "^15.5.10",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "overrides": {
     "minimatch": ">=9.0.7"
