@@ -18,6 +18,7 @@ Immunology (JAK-STAT, NF-κB, TNF pathways) is the primary built-in dataset. The
 - **4-tier LLM routing** — Queries start at Haiku; escalate to Sonnet or Opus when confidence falls below 0.60. Daily budget cap enforced before every LLM call
 - **SSE streaming** — Tokens delivered in real-time via Server-Sent Events; citations arrive alongside the stream
 - **Domain-agnostic DMI module** — Structured mechanism reports and target risk scoring; domain passed as a free-text string at query time
+- **Multimodal image query** — Upload any scientific image (gel, flow cytometry plot, pathway diagram, microscopy) with a research question; Claude Sonnet vision analyzes the image and grounds its interpretation in retrieved KB propositions, returning a separate `image_analysis` field alongside the standard structured answer
 - **Comparative analysis & hypothesis generation** — Side-by-side topic comparison across pathways, cytokines, cell types, therapeutics; 5-strategy testable hypothesis generation with experimental designs
 
 ---
@@ -30,6 +31,7 @@ Immunology (JAK-STAT, NF-κB, TNF pathways) is the primary built-in dataset. The
 | Backend | FastAPI · Pydantic · Uvicorn · asyncio |
 | Retrieval | BM25 (rank-bm25 BM25Okapi) + FAISS IndexFlatIP (sentence-transformers/all-MiniLM-L6-v2) · RRF k=60 · CrossEncoder reranker (ms-marco-MiniLM-L-6-v2) |
 | Chunking | Proposition extraction via Claude Haiku · sliding-window fallback |
+| Multimodal | Claude Sonnet vision (claude-sonnet-4-5) — base64 image input grounded against KB propositions |
 | LLM Routing | Anthropic (Haiku → Sonnet → Opus, confidence-gated escalation) · OpenAI fallback · daily budget cap |
 | Observability | structlog JSON · Prometheus counters/histograms · JSONL cost audit log |
 | Data Sources | Live PubMed (NCBI E-utilities) · curated JSON datasets · SQLite async proposition store (aiosqlite) |
@@ -56,6 +58,21 @@ Query ├─ BM25 (rank-bm25)            ─┐
 ```
 
 Both BM25 and FAISS run in parallel at query time. Their ranked lists are merged by RRF (no score comparison, no training data required), then a CrossEncoder reranker rescores the merged set to produce the final top-8 propositions passed to the LLM as context.
+
+**Multimodal path** (image queries via `POST /query/images`):
+
+```
+Base64 image + question
+         ↓
+  KB context retrieval (same hybrid pipeline)
+         ↓
+  Claude Sonnet vision — image observations extracted first,
+  then grounded against retrieved propositions
+         ↓
+  QueryResponse { image_analysis: "...", answer: "...", sources: [...] }
+```
+
+Note: this is upload-and-analyze, not image retrieval. The system does not maintain an image index or perform similarity search over image embeddings (no CLIP, ColPali, or PDF figure extraction). Document parsing (PDF, OCR) is not currently implemented — images must be provided as base64 by the client.
 
 The retrieval pipeline indexes ~1,000+ documents from the configured knowledge base and datasets at startup (warm-up runs in a background thread; ~30s on cold start with ML model downloads).
 
@@ -281,6 +298,7 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 |---|---|---|
 | `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations in real-time |
 | `POST` | `/query` | Standard structured JSON response |
+| `POST` | `/query/images` | **Multimodal** — base64 image + question, KB-grounded vision analysis |
 | `POST` | `/compare` | Side-by-side topic comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation (5 strategies) |
 | `POST` | `/pubmed/search` | Live PubMed article search + interaction extraction |
@@ -344,6 +362,7 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 - [x] Prometheus observability + structlog JSON logging
 - [x] Async SQLite proposition store (aiosqlite)
 - [x] DMI (Disease/Mechanism Intelligence) module with domain-agnostic runtime parameter
+- [x] Multimodal image query (Claude Sonnet vision grounded against KB propositions)
 - [x] Production web application with multi-mode research interface
 - [x] Curated immunological knowledge bases (diseases, pathways, cytokines, therapeutics)
 - [x] Cloud deployment configuration (Railway + Vercel)
@@ -367,6 +386,8 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 
 ### Future
 
+- [ ] Image retrieval pipeline — CLIP or ColPali embeddings over figure corpora, enabling similarity search over scientific images rather than upload-only analysis
+- [ ] PDF / document parsing — PyMuPDF or Unstructured figure extraction, feeding extracted images into the multimodal pipeline automatically
 - [ ] Oncology immune network expansion
 - [ ] spaCy + BioBERT NLP pipeline for automated literature extraction
 - [ ] Team collaboration features (shared workspaces, comments)
