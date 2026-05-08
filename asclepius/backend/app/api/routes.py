@@ -3,7 +3,7 @@ import logging
 import time
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.core.config import settings
@@ -13,6 +13,7 @@ from app.models.schema import (
     CompareRequest,
     CompareResponse,
     CreateDossierRequest,
+    DocumentIngestResponse,
     GraphSubgraphRequest,
     HypothesisEntry,
     HypothesisRequest,
@@ -78,6 +79,36 @@ def query_with_image(request: ImageQueryRequest, service: LLMService = Depends(g
     except Exception as exc:
         logger.exception("Unhandled error in /query/images")
         raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
+# ------------------------------------------------------------------
+# PDF document ingestion endpoint
+# ------------------------------------------------------------------
+
+@router.post("/ingest/document", response_model=DocumentIngestResponse)
+async def ingest_document_endpoint(
+    file: UploadFile = File(..., description="PDF file to ingest into the retrieval pipeline"),
+) -> DocumentIngestResponse:
+    """Ingest a PDF document into the retrieval pipeline.
+
+    Extracts text and figures, chunks into propositions via Claude Haiku,
+    captions figures via Haiku vision, stores in SQLite, and rebuilds the
+    BM25+FAISS index so subsequent queries can retrieve from this document.
+    """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    from app.services.ingestion_service import ingest_document
+
+    pdf_bytes = await file.read()
+    if len(pdf_bytes) > 50 * 1024 * 1024:  # 50 MB limit
+        raise HTTPException(status_code=413, detail="PDF too large (max 50 MB)")
+
+    result = await ingest_document(pdf_bytes, file.filename or "upload.pdf")
+    return DocumentIngestResponse(
+        **result,
+        message=f"Indexed {result['propositions_added']} text propositions and {result['figures_captioned']} figure captions.",
+    )
 
 
 # ------------------------------------------------------------------

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+from typing import Optional
+
 from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -22,6 +24,8 @@ class Proposition(Base):
     source_id: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     metadata_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     extraction: Mapped[str] = mapped_column(String(32), nullable=False, default="sliding_window")
+    image_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    image_media_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     @property

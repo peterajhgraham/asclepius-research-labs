@@ -12,6 +12,7 @@ anthropic>=0.40.0
 openai>=1.30.0
 
 # Retrieval pipeline
+pymupdf>=1.24.0
 rank-bm25>=0.2.2
 faiss-cpu>=1.8.0
 torch>=2.2.2
