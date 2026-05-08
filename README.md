@@ -141,8 +141,7 @@ Routing every query to Opus at $15/M input tokens is economically unviable at an
 ```
 asclepius-research-labs/
 │
-├── autoimmune_intelligence/        # Production web application
-│   │                               # NOTE: legacy folder name — see "Naming Note" below
+├── asclepius/                      # Production web application
 │   ├── backend/
 │   │   ├── app/
 │   │   │   ├── main.py                         # FastAPI app + retrieval warm-up on startup
@@ -231,21 +230,15 @@ asclepius-research-labs/
 ├── api/app.py                      # Flask REST API (research engine)
 ├── docs/                           # Strategy & planning documents
 ├── notebooks/immune_demo.ipynb     # Interactive demo walkthrough
-├── nixpacks.toml                   # Railway build config (points to autoimmune_intelligence/backend)
+├── nixpacks.toml                   # Railway build config (points to asclepius/backend)
 └── requirements.txt                # Research engine dependencies
 ```
-
-### Naming Note
-
-The `autoimmune_intelligence/` folder is a legacy name from when the product was scoped to autoimmune disease only. The system is now fully domain-agnostic — the domain is a runtime parameter and no code assumes immunology. The folder rename is tracked as a separate refactor (it requires updating import paths, deployment config, and git history) and has not been done yet. Contributors should not infer from the folder name that the product is limited to autoimmune disease.
-
----
 
 ## Local Development
 
 ```bash
 # One-shot setup (creates venv, installs deps, copies .env.example → .env)
-cd autoimmune_intelligence/backend
+cd asclepius/backend
 bash scripts/setup_dev.sh
 
 # Backend
@@ -256,7 +249,7 @@ venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 venv/bin/pytest tests/test_retrieval.py -v
 
 # Frontend (separate terminal)
-cd autoimmune_intelligence/frontend
+cd asclepius/frontend
 cp .env.local.example .env.local
 npm install && npm run dev
 ```
@@ -269,7 +262,7 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 
 ## Environment Variables
 
-### Backend (`autoimmune_intelligence/backend/.env`)
+### Backend (`asclepius/backend/.env`)
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -280,7 +273,7 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 | `OPENAI_API_KEY` | | — | Fallback LLM if no Anthropic key is set |
 | `CORS_ORIGINS` | | `["*"]` | Allowed CORS origins |
 
-### Frontend (`autoimmune_intelligence/frontend/.env.local`)
+### Frontend (`asclepius/frontend/.env.local`)
 
 | Variable | Required | Description |
 |---|---|---|
@@ -345,7 +338,7 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 ## Deployment
 
 - **Backend** → Railway via `nixpacks.toml` (FastAPI + Uvicorn)
-- **Frontend** → Vercel via `vercel.json` in `autoimmune_intelligence/frontend/`
+- **Frontend** → Vercel via `vercel.json` in `asclepius/frontend/`
 - Cold start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90MB) on first deploy. Subsequent starts use Railway's volume cache.
 
 ---
@@ -394,7 +387,7 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 - [ ] API access for programmatic integration
 - [ ] Multi-tenant workspaces with enterprise SSO
 - [ ] User feedback loop for answer quality improvement
-- [ ] Rename `autoimmune_intelligence/` to a domain-neutral path (import path + deployment config refactor)
+
 
 ---
 

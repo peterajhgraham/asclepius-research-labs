@@ -18,7 +18,7 @@ Domain-agnostic scientific research intelligence platform. Query any field — i
 ## Project Structure
 
 ```
-autoimmune_intelligence/
+asclepius/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                         # FastAPI app + retrieval warm-up on startup
@@ -197,7 +197,7 @@ Cost per query is logged to `data/routing_logs/YYYY-MM-DD.jsonl`. Daily budget c
 # One-shot setup (creates venv, installs deps, copies .env.example → .env)
 bash scripts/setup_dev.sh
 
-# Backend (from autoimmune_intelligence/backend/)
+# Backend (from asclepius/backend/)
 cp .env.example .env          # fill in ANTHROPIC_API_KEY etc.
 venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 
@@ -205,7 +205,7 @@ venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 venv/bin/pytest tests/test_retrieval.py -v
 
 # Frontend
-cd autoimmune_intelligence/frontend
+cd asclepius/frontend
 cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL if needed
 npm install
 npm run dev
