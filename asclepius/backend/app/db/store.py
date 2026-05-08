@@ -32,6 +32,22 @@ async def _init_engine(database_url: str) -> None:
         async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
+        # Safe column migration — add new columns if the DB was created before this schema version
+        import sqlite3 as _sqlite3
+        if database_url.startswith("sqlite"):
+            db_path = database_url.split("///")[-1]
+            try:
+                _conn = _sqlite3.connect(db_path)
+                existing = [row[1] for row in _conn.execute("PRAGMA table_info(propositions)").fetchall()]
+                if "image_data" not in existing:
+                    _conn.execute("ALTER TABLE propositions ADD COLUMN image_data TEXT")
+                if "image_media_type" not in existing:
+                    _conn.execute("ALTER TABLE propositions ADD COLUMN image_media_type VARCHAR(32)")
+                _conn.commit()
+                _conn.close()
+            except Exception:
+                pass  # non-critical, table may not exist yet
+
         _session_factory = sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )
