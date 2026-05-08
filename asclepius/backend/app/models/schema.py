@@ -177,3 +177,15 @@ class AddToDossierRequest(BaseModel):
 
 class UpdateNotesRequest(BaseModel):
     notes: str = Field(..., description="Updated notes text")
+
+
+# ------------------------------------------------------------------
+# Document ingestion
+# ------------------------------------------------------------------
+
+class DocumentIngestResponse(BaseModel):
+    filename: str
+    propositions_added: int
+    figures_captioned: int
+    pages: int
+    message: str = ""

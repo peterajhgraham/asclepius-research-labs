@@ -55,6 +55,8 @@ class PropositionStore:
         self,
         text: str,
         metadata: dict[str, Any],
+        image_data: str | None = None,
+        image_media_type: str | None = None,
     ) -> None:
         if not self._ready or _session_factory is None:
             return
@@ -68,6 +70,8 @@ class PropositionStore:
                     source_id=str(metadata.get("source_id", "")),
                     metadata_json=json.dumps(metadata),
                     extraction=metadata.get("extraction", "unknown"),
+                    image_data=image_data,
+                    image_media_type=image_media_type,
                 )
                 session.add(prop)
                 await session.commit()
@@ -86,7 +90,12 @@ class PropositionStore:
                 result = await session.execute(select(Proposition))
                 rows = result.scalars().all()
                 return [
-                    {"text": r.text, "metadata": r.metadata_dict}
+                    {
+                        "text": r.text,
+                        "metadata": r.metadata_dict,
+                        "image_data": r.image_data,
+                        "image_media_type": r.image_media_type,
+                    }
                     for r in rows
                 ]
         except Exception:
