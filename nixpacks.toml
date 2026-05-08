@@ -2,7 +2,7 @@
 # faiss-cpu requires OpenBLAS; the apt provider installs system deps first.
 
 [phases.install]
-cmds = ["pip install -r autoimmune_intelligence/backend/requirements.txt"]
+cmds = ["pip install -r asclepius/backend/requirements.txt"]
 
 [start]
-cmd = "cd autoimmune_intelligence/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "cd asclepius/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"

@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-BACKEND_DIR="$(cd "$(dirname "$0")/../autoimmune_intelligence/backend" && pwd)"
+BACKEND_DIR="$(cd "$(dirname "$0")/../asclepius/backend" && pwd)"
 
 echo "==> Backend dir: $BACKEND_DIR"
 cd "$BACKEND_DIR"
@@ -31,7 +31,7 @@ fi
 echo ""
 echo "Setup complete. Start the backend with:"
 echo ""
-echo "  cd autoimmune_intelligence/backend"
+echo "  cd asclepius/backend"
 echo "  venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app"
 echo ""
 echo "Do NOT use bare 'python' or 'uvicorn' — the shell alias may resolve"
