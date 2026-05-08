@@ -33,6 +33,8 @@ asclepius/
 │   │   │   ├── reranker.py                 # CrossEncoder ms-marco-MiniLM-L-6-v2
 │   │   │   └── pipeline.py                 # Unified hybrid pipeline
 │   │   ├── chunking/
+│   │   │   ├── document_parser.py          # PyMuPDF PDF → text blocks + image blocks
+│   │   │   ├── image_captioner.py          # Haiku vision → figure caption propositions
 │   │   │   ├── proposition_extractor.py    # Claude Haiku atomic claim extraction
 │   │   │   └── sliding_window.py           # Word-level chunker with overlap
 │   │   ├── routing/
@@ -53,7 +55,8 @@ asclepius/
 │   │   │   ├── graph_service.py            # Causal propagation + intervention ranking
 │   │   │   ├── comparative_service.py      # Topic vs topic comparison
 │   │   │   ├── hypothesis_service.py       # Testable hypothesis generation
-│   │   │   └── dossier_service.py          # Persistent research workspaces
+│   │   │   ├── dossier_service.py          # Persistent research workspaces
+│   │   │   └── ingestion_service.py        # PDF ingestion orchestration (parse → chunk → caption → index)
 │   │   ├── data/
 │   │   │   ├── knowledge_base.py           # Curated KB entries (domain-specific data loaded here)
 │   │   │   └── ingestion.py                # JSON dataset loaders (edges, pathways, entities, therapeutics)
@@ -171,6 +174,7 @@ Cost per query is logged to `data/routing_logs/YYYY-MM-DD.jsonl`. Daily budget c
 |--------|------|-------------|
 | `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations in real-time |
 | `POST` | `/query` | Standard JSON query response |
+| `POST` | `/ingest/document` | Upload a PDF — extracts text + figures, captions via Haiku vision, indexes into BM25+FAISS pipeline |
 | `POST` | `/compare` | Side-by-side topic comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation |
 | `POST` | `/pubmed/search` | Live PubMed article search |
