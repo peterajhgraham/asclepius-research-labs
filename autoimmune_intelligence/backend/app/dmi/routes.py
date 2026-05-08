@@ -1,4 +1,4 @@
-"""FastAPI routes for Disease Mechanism Intelligence (DMI)."""
+"""FastAPI routes for Mechanism Intelligence (DMI)."""
 
 from __future__ import annotations
 
@@ -22,9 +22,9 @@ router = APIRouter(prefix="/dmi", tags=["DMI"])
 
 @router.post("/disease-report", response_model=DiseaseReportResponse)
 def disease_report(request: DiseaseReportRequest) -> DiseaseReportResponse:
-    """Generate a structured, citation-backed Disease Mechanism Report.
+    """Generate a structured, citation-backed Mechanism Report.
 
-    Supported verticals: immunology, oncology.
+    Specify domain for domain-specific analysis (e.g., immunology, oncology, neuroscience, general).
     """
     try:
         return generate_disease_report(
@@ -43,7 +43,7 @@ def disease_report(request: DiseaseReportRequest) -> DiseaseReportResponse:
 def target_risk(request: TargetRiskRequest) -> TargetRiskResponse:
     """Generate a structured Target Risk Report with rule-based scoring.
 
-    Supported verticals: immunology, oncology.
+    Specify domain for domain-specific analysis (e.g., immunology, oncology, neuroscience, general).
     """
     try:
         return generate_target_risk_report(

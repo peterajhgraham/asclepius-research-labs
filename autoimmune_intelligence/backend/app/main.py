@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title=settings.app_name,
     description=(
-        "Disease Mechanism Intelligence — AI system that maps causal disease biology "
-        "and generates mechanistically grounded target risk assessments from primary literature."
+        "Scientific Research Intelligence — AI system for literature synthesis, mechanism mapping, "
+        "and hypothesis generation across any scientific domain from primary literature."
     ),
     version="3.0.0",
 )

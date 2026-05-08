@@ -12,13 +12,13 @@ export interface QueryRequest {
 
 export interface StructuredReasoning {
   summary: string;
-  key_cells: string[];
-  key_cytokines: string[];
+  key_entities: string[];
+  key_mechanisms: string[];
   pathways: string[];
   therapeutic_targets: string[];
   open_questions: string[];
   genes: string[];
-  disease_context: string;
+  topic_context: string;
 }
 
 export interface PubMedArticle {
@@ -165,7 +165,7 @@ export interface HypothesisResponse {
 export interface PubMedSearchRequest {
   query: string;
   max_results?: number;
-  autoimmune_enriched?: boolean;
+  domain_enriched?: boolean;
 }
 
 export interface PubMedSearchResponse {
@@ -211,8 +211,8 @@ export interface Dossier {
 export interface DossierInsights {
   total_queries: number;
   queries: string[];
-  key_cells: string[];
-  key_cytokines: string[];
+  key_entities: string[];
+  key_mechanisms: string[];
   pathways: string[];
   therapeutic_targets: string[];
   genes: string[];

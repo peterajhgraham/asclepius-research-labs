@@ -18,7 +18,6 @@ from app.dmi.schemas import (
     FailedTarget,
     MechanisticContradiction,
     ValidatedTarget,
-    Vertical,
 )
 from app.dmi.pubmed import fetch_disease_literature
 from app.dmi.retriever import SimpleRetriever
@@ -30,10 +29,10 @@ logger = logging.getLogger(__name__)
 
 def generate_disease_report(
     disease_name: str,
-    vertical: Vertical,
+    vertical: str,
 ) -> DiseaseReportResponse:
-    """Generate a full disease mechanism report."""
-    logger.info("Generating disease report: disease=%r vertical=%s", disease_name, vertical.value)
+    """Generate a full mechanism report."""
+    logger.info("Generating disease report: disease=%r vertical=%s", disease_name, vertical)
 
     # 1. Fetch literature
     articles = fetch_disease_literature(disease_name, max_results=75)

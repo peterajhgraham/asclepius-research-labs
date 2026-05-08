@@ -15,7 +15,6 @@ import logging
 from app.dmi.schemas import (
     HistoricalFailure,
     TargetRiskResponse,
-    Vertical,
 )
 from app.dmi.pubmed import fetch_target_literature
 from app.dmi.retriever import SimpleRetriever
@@ -33,14 +32,14 @@ logger = logging.getLogger(__name__)
 def generate_target_risk_report(
     disease_name: str,
     target_name: str,
-    vertical: Vertical,
+    vertical: str,
 ) -> TargetRiskResponse:
     """Generate a target risk assessment report."""
     logger.info(
         "Generating target risk report: disease=%r target=%r vertical=%s",
         disease_name,
         target_name,
-        vertical.value,
+        vertical,
     )
 
     # 1. Fetch literature

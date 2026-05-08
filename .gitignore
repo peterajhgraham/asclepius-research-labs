@@ -22,3 +22,5 @@ autoimmune_intelligence/frontend/.next/
 autoimmune_intelligence/frontend/node_modules/
 autoimmune_intelligence/backend/.venv/
 autoimmune_intelligence/backend/.env
+autoimmune_intelligence/frontend/.env.local
+memory/

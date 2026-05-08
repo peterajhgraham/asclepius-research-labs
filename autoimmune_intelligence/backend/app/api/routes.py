@@ -133,10 +133,10 @@ async def query_stream(
             )
 
             system = (
-                "You are Asclepius, an expert immunology research assistant. "
-                "Answer using ONLY the provided context. Structure your response with: "
-                "Disease Overview, Dysregulated Pathways, Key Immune Cells, Cytokines, "
-                "Therapeutic Targets, Open Research Gaps."
+                "You are Asclepius, a scientific research assistant. "
+                "Answer using ONLY the provided context. Structure your response with sections "
+                "appropriate to the query domain (e.g., Overview, Key Mechanisms, Pathways, "
+                "Key Entities, Intervention Targets, Open Research Gaps)."
             )
             messages = [
                 {
@@ -144,7 +144,7 @@ async def query_stream(
                     "content": (
                         f"Context:\n{context}\n\n"
                         f"Question: {question}\n\n"
-                        "Provide a detailed, structured immunology answer."
+                        "Provide a detailed, structured scientific answer."
                     ),
                 }
             ]
@@ -211,7 +211,7 @@ async def query_stream(
 
 @router.post("/compare", response_model=CompareResponse)
 def compare_diseases(request: CompareRequest) -> CompareResponse:
-    """Compare two autoimmune diseases across all dimensions."""
+    """Compare two topics or conditions across all indexed dimensions."""
     from app.services.comparative_service import compare_diseases as do_compare
 
     log_query(f"COMPARE: {request.disease_a} vs {request.disease_b}")
@@ -263,7 +263,7 @@ def search_pubmed(request: PubMedSearchRequest) -> PubMedSearchResponse:
 
     log_query(f"PUBMED: {request.query}")
     try:
-        if request.autoimmune_enriched:
+        if request.domain_enriched:
             articles = pubmed.search_autoimmune(request.query, max_results=request.max_results)
         else:
             articles = pubmed.search(request.query, max_results=request.max_results)

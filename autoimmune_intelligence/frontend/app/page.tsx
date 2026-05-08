@@ -20,7 +20,6 @@ import {
   generateTargetRiskReport,
   type DiseaseReportResponse,
   type TargetRiskResponse,
-  type Vertical,
 } from "@/lib/dmi-api";
 import { useStreamingQuery, type Citation } from "@/hooks/useStreamingQuery";
 
@@ -75,49 +74,49 @@ interface SavedSession {
 // ------------------------------------------------------------------
 const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   "disease-report": [
-    "Rheumatoid arthritis",
+    "Alzheimer's disease",
     "Non-small cell lung cancer",
-    "Systemic lupus erythematosus",
-    "Triple-negative breast cancer",
-    "Multiple sclerosis",
-    "Colorectal cancer",
+    "Rheumatoid arthritis",
+    "Parkinson's disease",
+    "Type 2 diabetes",
+    "Glioblastoma",
   ],
   "target-risk": [
-    "TNF-alpha in Rheumatoid arthritis",
+    "BACE1 in Alzheimer's disease",
     "PD-1 in Non-small cell lung cancer",
-    "BAFF in Systemic lupus",
+    "TNF-alpha in Rheumatoid arthritis",
     "KRAS in Colorectal cancer",
-    "IL-17A in Psoriasis",
+    "LRRK2 in Parkinson's disease",
     "EGFR in Glioblastoma",
   ],
   standard: [
-    "Rheumatoid arthritis cytokine pathways",
-    "JAK-STAT dysregulation in lupus",
-    "T cell exhaustion in autoimmunity",
-    "IL-23/IL-17 axis in psoriasis",
-    "TNF signaling and therapeutic targets",
-    "Multiple sclerosis pathogenesis",
+    "mRNA vaccine immune response mechanisms",
+    "Tau aggregation in Alzheimer's disease",
+    "CRISPR off-target effects in gene therapy",
+    "Gut microbiome and metabolic syndrome",
+    "Neuroinflammation in Parkinson's disease",
+    "Climate change effects on vector-borne diseases",
   ],
   compare: [
+    "Alzheimer's disease vs Parkinson's disease",
     "Rheumatoid arthritis vs Lupus",
-    "Multiple sclerosis vs Type 1 diabetes",
-    "Psoriasis vs Ankylosing spondylitis",
+    "Type 1 vs Type 2 diabetes",
     "Crohn's disease vs Ulcerative colitis",
   ],
   hypothesis: [
+    "Tau propagation in Alzheimer's disease",
     "JAK-STAT pathway in rheumatoid arthritis",
-    "IL-17 signaling in psoriasis",
-    "B cell hyperactivity in lupus",
-    "Interferon signaling in multiple sclerosis",
+    "Ferroptosis in cancer therapy resistance",
+    "Gut-brain axis in Parkinson's disease",
   ],
 };
 
 const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Disease Report", description: "Structured mechanism report", icon: "🧠", group: "dmi" },
-  "target-risk":    { label: "Target Risk",    description: "Risk scoring assessment",     icon: "🎯", group: "dmi" },
-  standard:         { label: "Analyze",        description: "Streaming immune reasoning",  icon: "⚡", group: "legacy" },
-  compare:          { label: "Compare",        description: "Side-by-side comparison",     icon: "↔", group: "legacy" },
-  hypothesis:       { label: "Hypothesize",    description: "Testable hypotheses",         icon: "🧪", group: "legacy" },
+  "disease-report": { label: "Mechanism Report", description: "Structured mechanism report", icon: "🧠", group: "dmi" },
+  "target-risk":    { label: "Target Risk",       description: "Risk scoring assessment",     icon: "🎯", group: "dmi" },
+  standard:         { label: "Analyze",           description: "Streaming scientific reasoning", icon: "⚡", group: "legacy" },
+  compare:          { label: "Compare",           description: "Side-by-side comparison",     icon: "↔", group: "legacy" },
+  hypothesis:       { label: "Hypothesize",       description: "Testable hypotheses",         icon: "🧪", group: "legacy" },
 };
 
 const LS_KEY = "asclepius_sessions_v2";
@@ -310,7 +309,7 @@ export default function HomePage() {
   const [question, setQuestion] = useState("");
   const [diseaseB, setDiseaseB] = useState("");
   const [targetName, setTargetName] = useState("");
-  const [vertical, setVertical] = useState<Vertical>("immunology");
+  const [vertical, setVertical] = useState<string>("general");
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("disease-report");
@@ -403,7 +402,7 @@ export default function HomePage() {
     setDiseaseB("");
     setTargetName("");
     setMode("disease-report");
-    setVertical("immunology");
+    setVertical("general");
     setSidebarOpen(false);
     setShowCitationPanel(false);
     setLoading(false);
@@ -540,7 +539,7 @@ export default function HomePage() {
                 </div>
                 <div className="hidden sm:block">
                   <h1 className="text-sm font-semibold text-gray-100 tracking-tight group-hover:text-accent-400 transition">Asclepius Research Labs</h1>
-                  <p className="text-[10px] text-muted leading-none">Disease Mechanism Intelligence</p>
+                  <p className="text-[10px] text-muted leading-none">Scientific Research Intelligence</p>
                 </div>
               </button>
             </div>
@@ -577,9 +576,9 @@ export default function HomePage() {
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400 ring-1 ring-accent-500/20">
                 <AsclepiusLogo size={32} />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">Disease Mechanism Intelligence</h2>
+              <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">Scientific Research Intelligence</h2>
               <p className="mt-2 text-center text-sm text-muted max-w-md leading-relaxed">
-                Map causal disease biology, score therapeutic targets, and generate mechanistically grounded hypotheses.
+                Query any scientific domain — literature synthesis, mechanism mapping, and hypothesis generation grounded in primary research.
                 {mode === "standard" && " Answers stream in real-time from a hybrid retrieval pipeline."}
               </p>
               <div className="mt-8 w-full">
@@ -650,7 +649,7 @@ export default function HomePage() {
                           <span className="animate-pulse text-sm text-muted-light">
                             {entry.mode === "disease-report" ? "Analyzing literature…"
                               : entry.mode === "target-risk" ? "Assessing target risk…"
-                              : entry.mode === "compare" ? "Comparing diseases…"
+                              : entry.mode === "compare" ? "Comparing topics…"
                               : entry.mode === "hypothesis" ? "Generating hypotheses…"
                               : "Reasoning across datasets…"}
                           </span>
@@ -687,13 +686,15 @@ export default function HomePage() {
               </span>
 
               {isDmiMode && (
-                <div className="flex rounded-md border border-surface-3 bg-surface-1 p-0.5">
-                  {(["immunology", "oncology"] as Vertical[]).map((v) => (
-                    <button key={v} type="button" onClick={() => setVertical(v)}
-                      className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${vertical === v ? "bg-accent-600/20 text-accent-400" : "text-muted hover:text-gray-300"}`}>
-                      {v}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-muted-light">Domain:</span>
+                  <input
+                    type="text"
+                    value={vertical}
+                    onChange={(e) => setVertical(e.target.value)}
+                    placeholder="e.g., immunology"
+                    className="w-36 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 text-[11px] text-gray-200 placeholder-muted outline-none transition focus:border-accent-500/60"
+                  />
                 </div>
               )}
 
@@ -727,28 +728,28 @@ export default function HomePage() {
               {mode === "target-risk" ? (
                 <>
                   <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Disease name (e.g., Rheumatoid arthritis)" disabled={loading || streaming.isStreaming}
+                    placeholder="Topic or condition (e.g., Rheumatoid arthritis)" disabled={loading || streaming.isStreaming}
                     className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
                   <input type="text" value={targetName} onChange={(e) => setTargetName(e.target.value)}
-                    placeholder="Target (e.g., TNF-alpha)" disabled={loading || streaming.isStreaming}
+                    placeholder="Target (e.g., TNF-alpha, BACE1)" disabled={loading || streaming.isStreaming}
                     className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
                 </>
               ) : mode === "compare" ? (
                 <>
                   <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Disease A (e.g., Rheumatoid arthritis)" disabled={loading}
+                    placeholder="Topic A (e.g., Alzheimer's disease)" disabled={loading}
                     className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
                   <div className="flex items-center px-1"><span className="text-xs font-bold text-muted">vs</span></div>
                   <input type="text" value={diseaseB} onChange={(e) => setDiseaseB(e.target.value)}
-                    placeholder="Disease B (e.g., Lupus)" disabled={loading}
+                    placeholder="Topic B (e.g., Parkinson's disease)" disabled={loading}
                     className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
                 </>
               ) : (
                 <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
                   placeholder={
-                    mode === "disease-report" ? "Enter disease name (e.g., Rheumatoid arthritis)…"
-                    : mode === "hypothesis" ? "Research topic (e.g., IL-17 signaling in psoriasis)…"
-                    : "Ask about a disease mechanism, pathway, or therapeutic target…"
+                    mode === "disease-report" ? "Enter topic or condition name…"
+                    : mode === "hypothesis" ? "Research topic (e.g., tau aggregation in Alzheimer's)…"
+                    : "Ask about any mechanism, pathway, or research question…"
                   }
                   disabled={loading || streaming.isStreaming}
                   className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />

@@ -66,7 +66,7 @@ function CausalNetworkSection({ graphContext }: { graphContext: QueryResponse["g
         <span className="text-base">⚡</span>
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-accent-400">Causal Network Impact</p>
-          <p className="text-[10px] text-muted mt-0.5">Predicted downstream effects on the immune network</p>
+          <p className="text-[10px] text-muted mt-0.5">Predicted downstream network effects</p>
         </div>
         {graphContext.node_count > 0 && (
           <span className="ml-auto text-[10px] text-muted font-mono">
@@ -109,8 +109,8 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
   const r: StructuredReasoning | undefined = data.reasoning;
   const hasReasoning =
     r &&
-    (r.key_cells.length > 0 ||
-      r.key_cytokines.length > 0 ||
+    (r.key_entities.length > 0 ||
+      r.key_mechanisms.length > 0 ||
       r.pathways.length > 0 ||
       r.therapeutic_targets.length > 0 ||
       r.open_questions.length > 0 ||
@@ -151,11 +151,11 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
         </div>
       )}
 
-      {/* Disease context banner */}
-      {r?.disease_context && (
+      {/* Topic context banner */}
+      {r?.topic_context && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Disease Context</p>
-          <p className="text-sm leading-relaxed text-gray-300">{r.disease_context}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Topic Context</p>
+          <p className="text-sm leading-relaxed text-gray-300">{r.topic_context}</p>
         </div>
       )}
 
@@ -175,24 +175,24 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <ReasoningSection
             icon="🔬"
-            label="Key Immune Cells"
-            subtitle="Cellular drivers of pathology"
-            items={r.key_cells}
+            label="Key Entities"
+            subtitle="Key actors and components"
+            items={r.key_entities}
             accentClass="text-cell"
             borderClass="border-cell/20"
           />
           <ReasoningSection
-            icon="🔥"
-            label="Cytokines"
-            subtitle="Inflammatory mediators"
-            items={r.key_cytokines}
+            icon="⚗️"
+            label="Key Mechanisms"
+            subtitle="Signals and mediators"
+            items={r.key_mechanisms}
             accentClass="text-cytokine"
             borderClass="border-cytokine/20"
           />
           <ReasoningSection
             icon="🧠"
-            label="Dysregulated Pathways"
-            subtitle="Signaling cascades altered in disease"
+            label="Pathways"
+            subtitle="Regulatory and signaling cascades"
             items={r.pathways}
             accentClass="text-pathway"
             borderClass="border-pathway/20"

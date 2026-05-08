@@ -1,9 +1,9 @@
 import axios from "axios";
 
 // ------------------------------------------------------------------
-// Vertical type
+// Domain type — any scientific domain (e.g., immunology, oncology, neuroscience)
 // ------------------------------------------------------------------
-export type Vertical = "immunology" | "oncology";
+export type Vertical = string;
 
 // ------------------------------------------------------------------
 // Disease Mechanism Report types

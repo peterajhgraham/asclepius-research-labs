@@ -26,8 +26,12 @@ class DenseIndex:
             from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
             self._model = SentenceTransformer(_EMBED_MODEL)
             logger.info("Dense retrieval model loaded: %s", _EMBED_MODEL)
-        except ImportError:
-            logger.warning("sentence-transformers not installed — dense retrieval disabled")
+        except Exception:
+            logger.warning(
+                "sentence-transformers failed to load (missing or incompatible version) "
+                "— dense retrieval disabled, falling back to BM25 only",
+                exc_info=True,
+            )
 
     def add(self, text: str, metadata: dict[str, Any]) -> None:
         self._docs.append({"text": text, "metadata": metadata})

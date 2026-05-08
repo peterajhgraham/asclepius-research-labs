@@ -24,8 +24,12 @@ class CrossEncoderReranker:
             from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
             self._model = CrossEncoder(_CE_MODEL)
             logger.info("CrossEncoder reranker loaded: %s", _CE_MODEL)
-        except ImportError:
-            logger.warning("sentence-transformers not installed — reranking disabled")
+        except Exception:
+            logger.warning(
+                "sentence-transformers failed to load (missing or incompatible version) "
+                "— reranking disabled, using RRF order",
+                exc_info=True,
+            )
 
     def rerank(
         self,

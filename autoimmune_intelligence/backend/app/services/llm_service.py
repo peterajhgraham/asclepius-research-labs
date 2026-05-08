@@ -1,4 +1,4 @@
-"""LLM service — answers autoimmune queries using the full retrieval pipeline.
+"""LLM service — answers scientific queries using the full retrieval pipeline.
 
 Retrieval pipeline:
   1. Hybrid BM25 + Dense → RRF → CrossEncoder (retrieval_service)
@@ -30,11 +30,11 @@ from app.services.query_engine import SearchResult, search_all
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
-    "You are Asclepius, an expert immunology research assistant that synthesises "
-    "evidence from curated knowledge bases, live PubMed literature, and a computable "
-    "immune signaling knowledge graph. Answer using ONLY the provided context. "
-    "Structure your response with clear sections: Disease Overview, Dysregulated Pathways, "
-    "Key Immune Cells, Cytokines Involved, Therapeutic Targets, and Open Research Gaps. "
+    "You are Asclepius, a scientific research assistant that synthesises evidence from "
+    "curated knowledge bases, live PubMed literature, and structured datasets. "
+    "Answer using ONLY the provided context. Structure your response with clear sections "
+    "appropriate to the query domain (e.g., Overview, Key Mechanisms, Pathways, "
+    "Key Entities, Therapeutic or Intervention Targets, Open Research Gaps). "
     "Cite retrieved propositions by their source type when relevant. Be precise and evidence-based."
 )
 
@@ -56,7 +56,7 @@ if settings.openai_api_key and not settings.anthropic_api_key:
 
 
 class LLMService:
-    """Handles queries for the Asclepius Research Labs API."""
+    """Handles scientific queries for the Asclepius Research Labs API."""
 
     def query(
         self,
@@ -82,10 +82,9 @@ class LLMService:
         if not propositions and not sr.has_results and not pubmed_articles:
             return QueryResponse(
                 answer=(
-                    "I could not find relevant information for your query. "
-                    "Try asking about a specific autoimmune disease (rheumatoid arthritis, "
-                    "lupus, multiple sclerosis), a cytokine pathway (JAK-STAT, NF-κB, IL-17), "
-                    "or a therapeutic agent (adalimumab, tofacitinib)."
+                    "I could not find relevant information for your query in the indexed knowledge base. "
+                    "Try rephrasing your question, being more specific about the mechanism or pathway, "
+                    "or enabling Live PubMed to search primary literature directly."
                 ),
                 sources=[],
             )
@@ -135,7 +134,7 @@ class LLMService:
         try:
             from app.services.pubmed_service import pubmed
 
-            articles = pubmed.search_autoimmune(question, max_results=5)
+            articles = pubmed.search(question, max_results=5)
             return [
                 PubMedResult(
                     pmid=a.pmid,
@@ -299,21 +298,21 @@ class LLMService:
 
     @staticmethod
     def _extract_reasoning(sr: SearchResult) -> StructuredReasoning:
-        cells: list[str] = []
-        cytokines: list[str] = []
+        entities: list[str] = []
+        mechanisms: list[str] = []
         pathways: list[str] = []
         targets: list[str] = []
         genes: list[str] = []
         open_qs: list[str] = []
         summary_parts: list[str] = []
-        disease_ctx = ""
+        topic_ctx = ""
 
         if sr.disease_hits:
             dis = sr.disease_hits[0]
-            disease_ctx = dis["description"]
+            topic_ctx = dis["description"]
             if dis.get("prevalence"):
-                disease_ctx += f" Prevalence: {dis['prevalence']}."
-            cells.extend(dis.get("key_cell_types", []))
+                topic_ctx += f" Prevalence: {dis['prevalence']}."
+            entities.extend(dis.get("key_cell_types", []))
             for mech in dis.get("pathogenic_mechanisms", []):
                 summary_parts.append(mech)
             for g in dis.get("associated_genes", [])[:8]:
@@ -333,12 +332,12 @@ class LLMService:
                 if entry not in targets:
                     targets.append(entry)
 
-        seen_cytokines: set[str] = set()
+        seen_mechanisms: set[str] = set()
         for edge in sr.cytokine_hits[:10]:
             src = edge["source"]
-            if src not in seen_cytokines:
-                seen_cytokines.add(src)
-                cytokines.append(f"{src} — {edge['description'][:100]}")
+            if src not in seen_mechanisms:
+                seen_mechanisms.add(src)
+                mechanisms.append(f"{src} — {edge['description'][:100]}")
 
         for rx in sr.therapeutic_hits[:5]:
             indications = [i["disease"] for i in rx.get("approved_indications", [])[:3]]
@@ -356,15 +355,12 @@ class LLMService:
         if sr.disease_hits:
             dis = sr.disease_hits[0]
             name = dis["disease_name"]
-            open_qs.append(f"What environmental triggers initiate tolerance breakdown in {name}?")
+            open_qs.append(f"What are the primary drivers of {name} pathogenesis?")
             if dis.get("associated_genes"):
                 top_gene = dis["associated_genes"][0]["gene"]
                 open_qs.append(
-                    f"How do {top_gene} risk variants interact with epigenetic modifications "
-                    f"to drive disease onset?"
+                    f"How do {top_gene} variants contribute to {name} susceptibility?"
                 )
-            if dis.get("key_cell_types"):
-                open_qs.append(f"Can Treg-based cell therapy restore immune tolerance in {name}?")
         if sr.pathway_hits:
             pw = sr.pathway_hits[0]
             open_qs.append(
@@ -380,13 +376,13 @@ class LLMService:
 
         return StructuredReasoning(
             summary="\n\n".join(summary_parts),
-            key_cells=cells,
-            key_cytokines=cytokines,
+            key_entities=entities,
+            key_mechanisms=mechanisms,
             pathways=pathways,
             therapeutic_targets=targets,
             open_questions=open_qs,
             genes=genes,
-            disease_context=disease_ctx,
+            topic_context=topic_ctx,
         )
 
     # ------------------------------------------------------------------
@@ -412,9 +408,7 @@ class LLMService:
                 "content": (
                     f"Context:\n{context}\n\n"
                     f"Question: {question}\n\n"
-                    "Provide a detailed, structured immunology answer with sections for "
-                    "disease overview, dysregulated pathways, key immune cells, cytokines, "
-                    "therapeutic targets, and open research gaps."
+                    "Provide a detailed, structured answer with sections appropriate to the query domain."
                 ),
             }
         ]
@@ -465,7 +459,7 @@ class LLMService:
                         "role": "user",
                         "content": (
                             f"Context:\n{context}\n\nQuestion: {question}\n\n"
-                            "Provide a detailed structured immunology answer."
+                            "Provide a detailed structured scientific answer."
                         ),
                     },
                 ],

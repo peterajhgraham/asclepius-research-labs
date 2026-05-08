@@ -1,6 +1,6 @@
 # Asclepius Research Labs — Web Application
 
-Production full-stack ML platform for autoimmune disease research. Hybrid BM25 + dense retrieval pipeline, 4-tier LLM routing, SSE streaming, causal knowledge graph propagation, and structured immune reasoning.
+Domain-agnostic scientific research intelligence platform. Query any field — immunology, oncology, neuroscience, climate science, ML, or any scientific domain. Hybrid BM25 + dense retrieval pipeline, 4-tier LLM routing, SSE streaming, causal knowledge graph propagation, and structured scientific reasoning. Domain is a runtime parameter; no hardcoded domain focus.
 
 ## Stack
 
@@ -48,16 +48,16 @@ autoimmune_intelligence/
 │   │   ├── services/
 │   │   │   ├── retrieval_service.py        # Pipeline singleton, KB + dataset indexing
 │   │   │   ├── llm_service.py              # Anthropic routing → OpenAI fallback → local
-│   │   │   ├── query_engine.py             # Structured keyword search (cytokines/pathways/diseases)
+│   │   │   ├── query_engine.py             # Structured keyword search across indexed datasets
 │   │   │   ├── pubmed_service.py           # Live NCBI E-utilities search
 │   │   │   ├── graph_service.py            # Causal propagation + intervention ranking
-│   │   │   ├── comparative_service.py      # Disease vs disease comparison
+│   │   │   ├── comparative_service.py      # Topic vs topic comparison
 │   │   │   ├── hypothesis_service.py       # Testable hypothesis generation
 │   │   │   └── dossier_service.py          # Persistent research workspaces
 │   │   ├── data/
-│   │   │   ├── knowledge_base.py           # Curated immunology KB entries
-│   │   │   └── ingestion.py                # JSON dataset loaders (cytokines, pathways, diseases, therapeutics)
-│   │   ├── dmi/                            # Disease Mechanism Intelligence module
+│   │   │   ├── knowledge_base.py           # Curated KB entries (domain-specific data loaded here)
+│   │   │   └── ingestion.py                # JSON dataset loaders (edges, pathways, entities, therapeutics)
+│   │   ├── dmi/                            # Mechanism Intelligence module (domain = runtime param)
 │   │   │   ├── disease_report.py           # Structured mechanism reports
 │   │   │   └── target_risk.py              # Target druggability + risk scoring
 │   │   └── models/
@@ -83,10 +83,29 @@ autoimmune_intelligence/
     ├── hooks/
     │   └── useStreamingQuery.ts            # SSE streaming hook (AbortController, event parsing)
     └── lib/
-        ├── api.ts                          # Typed API functions + QueryResponse with retrieved_propositions
+        ├── api.ts                          # Typed API functions + StructuredReasoning (domain-agnostic fields)
         ├── backend.ts                      # Backend URL resolver + proxy helpers
-        └── dmi-api.ts                      # DMI-specific API functions
+        └── dmi-api.ts                      # DMI API functions (domain is a free-text string)
 ```
+
+---
+
+## Domain Configuration
+
+The `domain` (called `vertical` in the API) is a **runtime parameter** — pass any string:
+
+```json
+// Disease/Mechanism Report
+{ "disease_name": "Alzheimer's disease", "vertical": "neuroscience" }
+
+// Target Risk
+{ "disease_name": "Non-small cell lung cancer", "target_name": "EGFR", "vertical": "oncology" }
+
+// Standard query — domain inferred from question
+{ "question": "How does tau aggregation drive neurodegeneration?" }
+```
+
+Built-in domain focus templates: `immunology`, `oncology`, `neuroscience`. Any other value uses a general scientific extraction prompt.
 
 ---
 
@@ -130,7 +149,7 @@ Query → BM25 (rank-bm25)     ─┐
         SSE stream to frontend / JSON response
 ```
 
-The retrieval pipeline indexes ~1,000+ documents from curated datasets at startup (warm-up runs in a background thread, ~30s on cold start with ML model downloads).
+The retrieval pipeline indexes ~1,000+ documents from the configured knowledge base and datasets at startup (warm-up runs in a background thread, ~30s on cold start with ML model downloads). Index content is domain-agnostic — swap in datasets for any scientific field.
 
 ---
 
@@ -152,7 +171,7 @@ Cost per query is logged to `data/routing_logs/YYYY-MM-DD.jsonl`. Daily budget c
 |--------|------|-------------|
 | `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations in real-time |
 | `POST` | `/query` | Standard JSON query response |
-| `POST` | `/compare` | Side-by-side disease comparison |
+| `POST` | `/compare` | Side-by-side topic comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation |
 | `POST` | `/pubmed/search` | Live PubMed article search |
 | `GET` | `/graph/stats` | Knowledge graph statistics |
@@ -162,24 +181,32 @@ Cost per query is logged to `data/routing_logs/YYYY-MM-DD.jsonl`. Daily budget c
 | `GET` | `/metrics` | Cost + pipeline health |
 | `GET` | `/health` | Service health + retrieval status |
 | `POST/GET` | `/dossiers/*` | Research dossier CRUD |
-| `POST` | `/dmi/disease-report` | DMI structured disease report |
-| `POST` | `/dmi/target-risk` | DMI target risk scoring |
+| `POST` | `/dmi/disease-report` | Structured mechanism report (domain = runtime param) |
+| `POST` | `/dmi/target-risk` | Target risk scoring (domain = runtime param) |
 
 ---
 
 ## Development
 
+> **macOS venv note**: the shell alias `python` may resolve to system Python 3.9
+> even inside an activated virtualenv. Always use `venv/bin/python` and
+> `venv/bin/uvicorn` explicitly, or run `scripts/setup_dev.sh` which handles
+> this automatically.
+
 ```bash
-# Backend
-cd autoimmune_intelligence/backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+# One-shot setup (creates venv, installs deps, copies .env.example → .env)
+bash scripts/setup_dev.sh
+
+# Backend (from autoimmune_intelligence/backend/)
+cp .env.example .env          # fill in ANTHROPIC_API_KEY etc.
+venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 
 # Tests
-pytest tests/test_retrieval.py -v
+venv/bin/pytest tests/test_retrieval.py -v
 
 # Frontend
 cd autoimmune_intelligence/frontend
+cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL if needed
 npm install
 npm run dev
 ```

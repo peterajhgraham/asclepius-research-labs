@@ -1,7 +1,7 @@
 """LLM-based mechanism extraction for DMI reports.
 
-Uses structured prompting with vertical-specific templates to extract
-disease mechanism data from PubMed abstracts.
+Uses structured prompting with domain-adaptive templates to extract
+mechanism data from PubMed abstracts.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from typing import Any, Optional
 
 from app.core.config import settings
 from app.services.pubmed_service import PubMedArticle
-from app.dmi.schemas import Vertical
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +28,11 @@ if settings.openai_api_key:
 
 
 # ------------------------------------------------------------------
-# Vertical-specific prompt templates
+# Domain-adaptive prompt templates
 # ------------------------------------------------------------------
 
-_IMMUNOLOGY_FOCUS = """
+_DOMAIN_FOCUS: dict[str, str] = {
+    "immunology": """
 Focus your extraction on immunology-specific mechanisms:
 - Cytokine cascades (IL-1, IL-6, IL-17, IL-23, TNF, IFN-gamma, etc.)
 - T cell and B cell dynamics (Th1/Th2/Th17/Treg balance, B cell hyperactivation)
@@ -40,9 +40,8 @@ Focus your extraction on immunology-specific mechanisms:
 - Innate vs adaptive immunity interplay
 - Tolerance breakdown mechanisms
 - HLA associations and genetic susceptibility
-"""
-
-_ONCOLOGY_FOCUS = """
+""",
+    "oncology": """
 Focus your extraction on oncology-specific mechanisms:
 - Driver mutations and oncogenes (TP53, KRAS, BRAF, EGFR, etc.)
 - Tumor microenvironment (TME) composition and signaling
@@ -51,13 +50,27 @@ Focus your extraction on oncology-specific mechanisms:
 - Angiogenesis pathways (VEGF signaling)
 - DNA damage repair deficiencies
 - Metabolic reprogramming (Warburg effect)
+""",
+    "neuroscience": """
+Focus your extraction on neuroscience-specific mechanisms:
+- Neuronal signaling pathways and synaptic transmission
+- Glial cell dynamics (astrocytes, microglia, oligodendrocytes)
+- Neuroinflammation and blood-brain barrier dysfunction
+- Protein aggregation and proteostasis mechanisms
+- Neurodegeneration and axonal degeneration
+- Neurotransmitter systems (dopamine, serotonin, glutamate, GABA)
+""",
+}
+
+_GENERAL_FOCUS = """
+Extract the core mechanisms and pathways relevant to this condition or topic.
+Focus on: key molecular actors, signaling pathways, validated targets, failed interventions,
+conflicting evidence, and open research questions. Be domain-agnostic and comprehensive.
 """
 
 
-def _get_vertical_focus(vertical: Vertical) -> str:
-    if vertical == Vertical.immunology:
-        return _IMMUNOLOGY_FOCUS
-    return _ONCOLOGY_FOCUS
+def _get_domain_focus(vertical: str) -> str:
+    return _DOMAIN_FOCUS.get(vertical.lower(), _GENERAL_FOCUS)
 
 
 # ------------------------------------------------------------------
@@ -115,7 +128,7 @@ OUTPUT JSON SCHEMA:
 
 def extract_disease_mechanisms(
     disease_name: str,
-    vertical: Vertical,
+    vertical: str,
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
     """Extract structured disease mechanism data from articles."""
@@ -124,14 +137,14 @@ def extract_disease_mechanisms(
 
     context = _build_literature_context(articles)
     system_prompt = _DISEASE_SYSTEM_PROMPT.format(
-        vertical_focus=_get_vertical_focus(vertical)
+        vertical_focus=_get_domain_focus(vertical)
     )
 
     user_prompt = (
-        f"Disease: {disease_name}\n"
-        f"Vertical: {vertical.value}\n\n"
+        f"Disease/Topic: {disease_name}\n"
+        f"Domain: {vertical}\n\n"
         f"Literature context (abstracts with PMIDs):\n{context}\n\n"
-        f"Extract the structured disease mechanism report for {disease_name}. "
+        f"Extract the structured mechanism report for {disease_name}. "
         f"Only include claims supported by the provided PMIDs."
     )
 
@@ -198,7 +211,7 @@ OUTPUT JSON SCHEMA:
 def extract_target_assessment(
     disease_name: str,
     target_name: str,
-    vertical: Vertical,
+    vertical: str,
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
     """Extract target risk assessment data from articles."""
@@ -207,15 +220,15 @@ def extract_target_assessment(
 
     context = _build_literature_context(articles)
     system_prompt = _TARGET_SYSTEM_PROMPT.format(
-        vertical_focus=_get_vertical_focus(vertical)
+        vertical_focus=_get_domain_focus(vertical)
     )
 
     user_prompt = (
-        f"Disease: {disease_name}\n"
+        f"Disease/Topic: {disease_name}\n"
         f"Target: {target_name}\n"
-        f"Vertical: {vertical.value}\n\n"
+        f"Domain: {vertical}\n\n"
         f"Literature context (abstracts with PMIDs):\n{context}\n\n"
-        f"Assess {target_name} as a therapeutic target for {disease_name}. "
+        f"Assess {target_name} as a target for {disease_name}. "
         f"Evaluate pathway position, redundancy, historical failures, and biomarker alignment."
     )
 
@@ -266,7 +279,7 @@ def _build_literature_context(articles: list[PubMedArticle], max_chars: int = 12
 
 def _fallback_disease_extraction(
     disease_name: str,
-    vertical: Vertical,
+    vertical: str,
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
     """Rule-based fallback when no LLM is available."""
@@ -274,8 +287,8 @@ def _fallback_disease_extraction(
 
     all_text = " ".join(a.abstract for a in articles)
 
-    # Simple keyword extraction for pathways
-    pathway_keywords = {
+    # Domain-adaptive keyword extraction for pathways
+    pathway_keywords: dict[str, list[str]] = {
         "immunology": [
             "JAK-STAT", "NF-kB", "IL-17/IL-23", "TNF signaling",
             "Th17 differentiation", "B cell receptor signaling",
@@ -284,10 +297,14 @@ def _fallback_disease_extraction(
             "PI3K/AKT/mTOR", "RAS/MAPK", "Wnt/beta-catenin",
             "p53 pathway", "VEGF signaling", "PD-1/PD-L1",
         ],
+        "neuroscience": [
+            "mTOR signaling", "Wnt signaling", "MAPK/ERK",
+            "cAMP/PKA", "neurotrophin signaling", "NMDA receptor",
+        ],
     }
 
     found_pathways = []
-    for pw in pathway_keywords.get(vertical.value, []):
+    for pw in pathway_keywords.get(vertical.lower(), []):
         pw_lower = pw.lower().replace("/", " ").replace("-", " ")
         if any(kw in all_text.lower() for kw in pw_lower.split()):
             found_pathways.append({
@@ -318,7 +335,7 @@ def _fallback_disease_extraction(
 def _fallback_target_extraction(
     disease_name: str,
     target_name: str,
-    vertical: Vertical,
+    vertical: str,
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
     """Rule-based fallback for target assessment."""

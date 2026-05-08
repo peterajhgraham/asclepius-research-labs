@@ -90,8 +90,8 @@ class Dossier:
 
     def get_accumulated_insights(self) -> Dict[str, Any]:
         """Aggregate structured reasoning across all entries."""
-        all_cells: List[str] = []
-        all_cytokines: List[str] = []
+        all_entities: List[str] = []
+        all_mechanisms: List[str] = []
         all_pathways: List[str] = []
         all_targets: List[str] = []
         all_genes: List[str] = []
@@ -103,8 +103,8 @@ class Dossier:
             queries.append(entry.query)
             resp = entry.response
             reasoning = resp.get("reasoning", {})
-            all_cells.extend(reasoning.get("key_cells", []))
-            all_cytokines.extend(reasoning.get("key_cytokines", []))
+            all_entities.extend(reasoning.get("key_entities", []))
+            all_mechanisms.extend(reasoning.get("key_mechanisms", []))
             all_pathways.extend(reasoning.get("pathways", []))
             all_targets.extend(reasoning.get("therapeutic_targets", []))
             all_genes.extend(reasoning.get("genes", []))
@@ -114,8 +114,8 @@ class Dossier:
         return {
             "total_queries": len(self.entries),
             "queries": queries,
-            "key_cells": _dedupe(all_cells),
-            "key_cytokines": _dedupe(all_cytokines),
+            "key_entities": _dedupe(all_entities),
+            "key_mechanisms": _dedupe(all_mechanisms),
             "pathways": _dedupe(all_pathways),
             "therapeutic_targets": _dedupe(all_targets),
             "genes": _dedupe(all_genes),

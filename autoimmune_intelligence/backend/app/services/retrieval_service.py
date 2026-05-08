@@ -1,20 +1,23 @@
-"""Retrieval service singleton — indexes KB + datasets and exposes retrieve().
+"""Retrieval service singleton — indexes propositions and exposes retrieve().
 
 Initialization is lazy: the pipeline builds on the first retrieve() call.
 Heavy ML models (sentence-transformers, FAISS) load in the background so
 startup latency is not affected.
+
+Indexing priority:
+  1. SQLite database (propositions table) — used if populated
+  2. Bundled KB + JSON datasets — fallback when DB is empty or unavailable
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import sqlite3
 import threading
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from app.retrieval.pipeline import RetrievalPipeline, RetrievedProposition
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -39,19 +42,62 @@ def get_pipeline() -> RetrievalPipeline:
 
 def _build_pipeline() -> RetrievalPipeline:
     pipeline = RetrievalPipeline()
-    _index_knowledge_base(pipeline)
-    _index_datasets(pipeline)
+
+    db_count = _index_from_db(pipeline)
+    if db_count:
+        logger.info("Retrieval: loaded %d documents from SQLite", db_count)
+    else:
+        logger.info("Retrieval: DB empty or unavailable — indexing bundled datasets")
+        _index_knowledge_base(pipeline)
+        _index_json_datasets(pipeline)
+
     pipeline.build()
-    logger.info(
-        "Retrieval pipeline ready: %d documents indexed",
-        pipeline.doc_count,
-    )
+    logger.info("Retrieval pipeline ready: %d documents indexed", pipeline.doc_count)
     return pipeline
 
 
 # ------------------------------------------------------------------
 # Indexing helpers
 # ------------------------------------------------------------------
+
+def _index_from_db(pipeline: RetrievalPipeline) -> int:
+    """Load propositions from SQLite via stdlib sqlite3.
+
+    Returns the number of documents indexed (0 when DB is unavailable or empty).
+    Uses sqlite3 directly to avoid async event-loop complications in the
+    background warmup thread.
+    """
+    try:
+        from app.core.config import settings
+
+        url = settings.database_url
+        if "sqlite" not in url:
+            return 0
+
+        # sqlite+aiosqlite:///./path/to/db  →  ./path/to/db
+        db_path = url.split("///", 1)[-1]
+        if not Path(db_path).exists():
+            return 0
+
+        conn = sqlite3.connect(db_path)
+        try:
+            cursor = conn.execute("SELECT text, metadata_json FROM propositions")
+            rows = cursor.fetchall()
+        finally:
+            conn.close()
+
+        if not rows:
+            return 0
+
+        for text, meta_json in rows:
+            meta: dict = json.loads(meta_json) if meta_json else {}
+            meta["domain"] = "general"
+            pipeline.add_document(text, meta)
+        return len(rows)
+    except Exception:
+        logger.warning("DB load failed — will use bundled datasets", exc_info=True)
+        return 0
+
 
 def _index_knowledge_base(pipeline: RetrievalPipeline) -> None:
     try:
@@ -60,6 +106,7 @@ def _index_knowledge_base(pipeline: RetrievalPipeline) -> None:
         for entry in ENTRIES:
             text = f"{entry.topic}: {entry.answer}"
             pipeline.add_document(text, {
+                "domain": "general",
                 "type": "kb_entry",
                 "topic": entry.topic,
                 "sources": entry.sources,
@@ -70,45 +117,36 @@ def _index_knowledge_base(pipeline: RetrievalPipeline) -> None:
         logger.warning("Failed to index KB entries", exc_info=True)
 
 
-def _index_datasets(pipeline: RetrievalPipeline) -> None:
+def _index_json_datasets(pipeline: RetrievalPipeline) -> None:
+    """Index bundled JSON datasets with generic domain labels."""
     try:
         from app.data.ingestion import STORE
 
-        # Cytokine network edges
         n = 0
+
         for edge in STORE.cytokine_edges:
             text = (
                 f"{edge.source} {edge.edge_type} {edge.target} "
                 f"via {edge.pathway}. {edge.description}"
             )
             pipeline.add_document(text, {
-                "type": "cytokine_edge",
-                "source": edge.source,
-                "target": edge.target,
-                "edge_type": edge.edge_type,
-                "pathway": edge.pathway,
+                "domain": "general",
+                "type": "dataset_record",
+                "source": "cytokine_network",
                 "pmid": edge.pmid,
-                "diseases": edge.diseases,
-                "confidence": edge.confidence,
             })
             n += 1
-        logger.info("Retrieval: indexed %d cytokine edges", n)
 
-        # Immune pathways
-        n = 0
         for pw in STORE.pathways:
-            # Index pathway description
             pipeline.add_document(
                 f"{pw.pathway_name}: {pw.description}",
                 {
-                    "type": "pathway",
-                    "pathway_id": pw.pathway_id,
-                    "pathway_name": pw.pathway_name,
-                    "disease_relevance": pw.disease_relevance,
-                    "references": pw.key_references,
+                    "domain": "general",
+                    "type": "dataset_record",
+                    "source": "immune_pathways",
+                    "id": pw.pathway_id,
                 },
             )
-            # Index individual key nodes for finer-grained retrieval
             for node in pw.key_nodes[:10]:
                 gene = node.get("gene", "")
                 role = node.get("role", "")
@@ -116,32 +154,24 @@ def _index_datasets(pipeline: RetrievalPipeline) -> None:
                     pipeline.add_document(
                         f"{gene} in {pw.pathway_name}: {role}",
                         {
-                            "type": "pathway_node",
-                            "gene": gene,
-                            "pathway_name": pw.pathway_name,
-                            "pathway_id": pw.pathway_id,
+                            "domain": "general",
+                            "type": "dataset_record",
+                            "source": "immune_pathways",
                         },
                     )
             n += 1
-        logger.info("Retrieval: indexed %d pathways", n)
 
-        # Disease-gene associations
-        n = 0
         for dis in STORE.diseases:
             text = (
                 f"{dis.disease_name}: {dis.description} "
-                f"Key mechanisms: {', '.join(dis.pathogenic_mechanisms[:5])}. "
-                f"Key immune cells: {', '.join(dis.key_cell_types[:6])}. "
-                f"HLA associations: {', '.join(dis.hla_associations[:4])}."
+                f"Key mechanisms: {', '.join(dis.pathogenic_mechanisms[:5])}."
             )
             pipeline.add_document(text, {
-                "type": "disease",
-                "disease_id": dis.disease_id,
-                "disease_name": dis.disease_name,
-                "prevalence": dis.prevalence,
-                "references": dis.key_references,
+                "domain": "general",
+                "type": "dataset_record",
+                "source": "disease_associations",
+                "id": dis.disease_id,
             })
-            # Index each gene entry separately for precision
             for gene_rec in dis.associated_genes[:15]:
                 gene = gene_rec.get("gene", "")
                 desc = gene_rec.get("description", "")
@@ -149,17 +179,13 @@ def _index_datasets(pipeline: RetrievalPipeline) -> None:
                     pipeline.add_document(
                         f"{gene} is associated with {dis.disease_name}: {desc}",
                         {
-                            "type": "disease_gene",
-                            "gene": gene,
-                            "disease_name": dis.disease_name,
-                            "score": gene_rec.get("score", 0.0),
+                            "domain": "general",
+                            "type": "dataset_record",
+                            "source": "disease_associations",
                         },
                     )
             n += 1
-        logger.info("Retrieval: indexed %d disease entries", n)
 
-        # Therapeutics
-        n = 0
         for rx in STORE.therapeutics:
             indications = [i.get("disease", "") for i in rx.approved_indications[:6]]
             text = (
@@ -168,18 +194,15 @@ def _index_datasets(pipeline: RetrievalPipeline) -> None:
                 f"Approved indications: {', '.join(indications)}."
             )
             pipeline.add_document(text, {
-                "type": "therapeutic",
-                "drug_name": rx.drug_name,
-                "brand_name": rx.brand_name,
-                "target": rx.target,
-                "drug_class": rx.drug_class,
-                "mechanism": rx.mechanism,
+                "domain": "general",
+                "type": "dataset_record",
+                "source": "therapeutic_targets",
             })
             n += 1
-        logger.info("Retrieval: indexed %d therapeutics", n)
 
+        logger.info("Retrieval: indexed %d records from bundled JSON datasets", n)
     except Exception:
-        logger.warning("Failed to index datasets into retrieval pipeline", exc_info=True)
+        logger.warning("Failed to index bundled datasets", exc_info=True)
 
 
 # ------------------------------------------------------------------

@@ -7,7 +7,7 @@ from typing import Any, Optional
 # ------------------------------------------------------------------
 
 class QueryRequest(BaseModel):
-    question: str = Field(..., min_length=1, description="Natural language question about autoimmune biology")
+    question: str = Field(..., min_length=1, description="Natural language research question")
     mode: str = Field("standard", description="Query mode: standard, hypothesis, compare")
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
 
@@ -21,16 +21,16 @@ class RetrievedPropositionSchema(BaseModel):
 
 
 class StructuredReasoning(BaseModel):
-    """Structured immune reasoning breakdown."""
+    """Structured scientific reasoning breakdown."""
 
-    summary: str = Field("", description="Narrative summary of the immune mechanism")
-    key_cells: list[str] = Field(default_factory=list, description="Key immune cell types involved")
-    key_cytokines: list[str] = Field(default_factory=list, description="Relevant cytokines and signaling molecules")
-    pathways: list[str] = Field(default_factory=list, description="Dysregulated immune pathways")
+    summary: str = Field("", description="Narrative summary of the mechanism or finding")
+    key_entities: list[str] = Field(default_factory=list, description="Key entities and actors involved")
+    key_mechanisms: list[str] = Field(default_factory=list, description="Key mechanisms and signaling mediators")
+    pathways: list[str] = Field(default_factory=list, description="Key regulatory and signaling pathways")
     therapeutic_targets: list[str] = Field(default_factory=list, description="Druggable targets and approved therapeutics")
     open_questions: list[str] = Field(default_factory=list, description="Unresolved hypotheses and research gaps")
-    genes: list[str] = Field(default_factory=list, description="Associated genetic risk loci")
-    disease_context: str = Field("", description="Disease-specific context and epidemiology")
+    genes: list[str] = Field(default_factory=list, description="Associated genetic loci and variants")
+    topic_context: str = Field("", description="Domain-specific context and background")
 
 
 class PubMedResult(BaseModel):
@@ -50,7 +50,7 @@ class QueryResponse(BaseModel):
     sources: list[str] = Field(..., description="List of source references supporting the answer")
     reasoning: StructuredReasoning = Field(
         default_factory=StructuredReasoning,
-        description="Structured immune reasoning breakdown",
+        description="Structured scientific reasoning breakdown",
     )
     pubmed_articles: list[PubMedResult] = Field(
         default_factory=list,
@@ -118,7 +118,7 @@ class HypothesisResponse(BaseModel):
 class PubMedSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, description="PubMed search query")
     max_results: int = Field(10, ge=1, le=50, description="Maximum results to return")
-    autoimmune_enriched: bool = Field(True, description="Add autoimmune MeSH terms to query")
+    domain_enriched: bool = Field(False, description="Add domain-specific MeSH terms to query")
 
 
 class PubMedSearchResponse(BaseModel):

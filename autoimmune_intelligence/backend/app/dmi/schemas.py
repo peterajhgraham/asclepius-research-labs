@@ -1,16 +1,10 @@
-"""Pydantic schemas for Disease Mechanism Intelligence (DMI) reports."""
+"""Pydantic schemas for Mechanism Intelligence (DMI) reports."""
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
-
-
-class Vertical(str, Enum):
-    immunology = "immunology"
-    oncology = "oncology"
 
 
 # ------------------------------------------------------------------
@@ -45,7 +39,7 @@ class MechanisticContradiction(BaseModel):
 
 class DiseaseReportRequest(BaseModel):
     disease_name: str = Field(..., min_length=1)
-    vertical: Vertical
+    vertical: str = Field("general", description="Research domain (e.g., immunology, oncology, neuroscience)")
 
 
 class DiseaseReportResponse(BaseModel):
@@ -77,7 +71,7 @@ class HistoricalFailure(BaseModel):
 class TargetRiskRequest(BaseModel):
     disease_name: str = Field(..., min_length=1)
     target_name: str = Field(..., min_length=1)
-    vertical: Vertical
+    vertical: str = Field("general", description="Research domain (e.g., immunology, oncology, neuroscience)")
 
 
 class TargetRiskResponse(BaseModel):
