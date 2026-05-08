@@ -19,6 +19,7 @@ Immunology (JAK-STAT, NF-κB, TNF pathways) is the primary built-in dataset. The
 - **SSE streaming** — Tokens delivered in real-time via Server-Sent Events; citations arrive alongside the stream
 - **Domain-agnostic DMI module** — Structured mechanism reports and target risk scoring; domain passed as a free-text string at query time
 - **Multimodal image query** — Upload any scientific image (gel, flow cytometry plot, pathway diagram, microscopy) with a research question; Claude Sonnet vision analyzes the image and grounds its interpretation in retrieved KB propositions, returning a separate `image_analysis` field alongside the standard structured answer
+- **PDF document ingestion** — Upload any PDF (paper, preprint, protocol); text is chunked via proposition extraction, embedded figures are captioned by Claude Haiku vision, and all content is indexed into the BM25+FAISS pipeline so future queries retrieve from your uploaded documents
 - **Comparative analysis & hypothesis generation** — Side-by-side topic comparison across pathways, cytokines, cell types, therapeutics; 5-strategy testable hypothesis generation with experimental designs
 
 ---
@@ -30,7 +31,7 @@ Immunology (JAK-STAT, NF-κB, TNF pathways) is the primary built-in dataset. The
 | Frontend | Next.js 15 · TypeScript · TailwindCSS · Framer Motion · Clerk auth (optional) |
 | Backend | FastAPI · Pydantic · Uvicorn · asyncio |
 | Retrieval | BM25 (rank-bm25 BM25Okapi) + FAISS IndexFlatIP (sentence-transformers/all-MiniLM-L6-v2) · RRF k=60 · CrossEncoder reranker (ms-marco-MiniLM-L-6-v2) |
-| Chunking | Proposition extraction via Claude Haiku · sliding-window fallback |
+| Chunking | Proposition extraction via Claude Haiku · PyMuPDF (fitz) PDF parser · Haiku vision figure captioning · sliding-window fallback |
 | Multimodal | Claude Sonnet vision (claude-sonnet-4-5) — base64 image input grounded against KB propositions |
 | LLM Routing | Anthropic (Haiku → Sonnet → Opus, confidence-gated escalation) · OpenAI fallback · daily budget cap |
 | Observability | structlog JSON · Prometheus counters/histograms · JSONL cost audit log |
@@ -154,8 +155,10 @@ asclepius-research-labs/
 │   │   │   │   ├── reranker.py                 #   CrossEncoder ms-marco-MiniLM-L-6-v2
 │   │   │   │   └── pipeline.py                 #   Unified hybrid pipeline
 │   │   │   ├── chunking/
-│   │   │   │   ├── proposition_extractor.py    #   Claude Haiku atomic claim extraction
-│   │   │   │   └── sliding_window.py           #   Word-level chunker with overlap (fallback)
+│   │   │   │   ├── document_parser.py          #   PyMuPDF PDF → text blocks + image blocks
+│   │   │   │   ├── image_captioner.py          #   Haiku vision → figure caption propositions
+│   │   │   │   ├── proposition_extractor.py    #   Haiku text → atomic claims
+│   │   │   │   └── sliding_window.py           #   Word-level chunker (fallback)
 │   │   │   ├── routing/
 │   │   │   │   ├── classifier.py               #   Query complexity → starting tier
 │   │   │   │   ├── cost_tracker.py             #   JSONL audit log + daily budget cap
@@ -177,7 +180,8 @@ asclepius-research-labs/
 │   │   │   │   ├── graph_service.py            #   Causal propagation + intervention ranking
 │   │   │   │   ├── comparative_service.py      #   Topic vs topic comparison
 │   │   │   │   ├── hypothesis_service.py       #   Testable hypothesis generation
-│   │   │   │   └── dossier_service.py          #   Persistent research workspaces
+│   │   │   │   ├── dossier_service.py          #   Persistent research workspaces
+│   │   │   │   └── ingestion_service.py        #   PDF ingestion orchestration (parse → chunk → caption → index)
 │   │   │   ├── data/
 │   │   │   │   ├── knowledge_base.py           #   Curated KB entries (domain-specific data)
 │   │   │   │   └── ingestion.py                #   JSON dataset loaders
@@ -292,6 +296,7 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 | `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations in real-time |
 | `POST` | `/query` | Standard structured JSON response |
 | `POST` | `/query/images` | **Multimodal** — base64 image + question, KB-grounded vision analysis |
+| `POST` | `/ingest/document` | Upload a PDF — extracts text + figures, captions via Haiku vision, indexes into BM25+FAISS pipeline |
 | `POST` | `/compare` | Side-by-side topic comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation (5 strategies) |
 | `POST` | `/pubmed/search` | Live PubMed article search + interaction extraction |
@@ -305,6 +310,18 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 | `GET` | `/metrics` | Cost + pipeline health (Prometheus) |
 | `GET` | `/health` | Service health + retrieval status |
 | `POST/GET` | `/dossiers/*` | Research dossier CRUD |
+
+#### `POST /ingest/document` — `DocumentIngestResponse`
+
+```json
+{
+  "filename": "smith_2024_jak_stat.pdf",
+  "propositions_added": 142,
+  "figures_captioned": 7,
+  "pages": 18,
+  "message": "Document ingested successfully"
+}
+```
 
 ### Domain Configuration
 
@@ -367,6 +384,8 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 - [x] Hypothesis generator mode (5 strategies with experimental designs)
 - [x] Disease dossier system (persistent research workspaces)
 - [x] Sidebar with session persistence (localStorage)
+- [x] PDF document ingestion with PyMuPDF text extraction + Haiku vision figure captioning
+- [x] Renamed asclepius/ (domain-neutral folder, was autoimmune_intelligence/)
 
 ### In Progress / Next
 
@@ -380,7 +399,6 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 ### Future
 
 - [ ] Image retrieval pipeline — CLIP or ColPali embeddings over figure corpora, enabling similarity search over scientific images rather than upload-only analysis
-- [ ] PDF / document parsing — PyMuPDF or Unstructured figure extraction, feeding extracted images into the multimodal pipeline automatically
 - [ ] Oncology immune network expansion
 - [ ] spaCy + BioBERT NLP pipeline for automated literature extraction
 - [ ] Team collaboration features (shared workspaces, comments)
