@@ -123,9 +123,9 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
 };
 
 const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Mechanism Report", description: "Map causal disease biology from literature", icon: "🧠", group: "dmi" },
+  "disease-report": { label: "Mechanism Report", description: "Map disease biology from literature",       icon: "🧠", group: "dmi" },
   "target-risk":    { label: "Target Risk",       description: "Score therapeutic target tractability",    icon: "🎯", group: "dmi" },
-  standard:         { label: "Analyze",           description: "Stream real-time scientific reasoning",    icon: "⚡", group: "legacy" },
+  standard:         { label: "Analyze",           description: "Real-time scientific reasoning",           icon: "⚡", group: "legacy" },
   compare:          { label: "Compare",           description: "Side-by-side biological comparison",       icon: "↔",  group: "legacy" },
   hypothesis:       { label: "Hypothesize",       description: "Generate testable experimental hypotheses",icon: "🧪", group: "legacy" },
 };
@@ -185,7 +185,7 @@ function ModeSwitcher({
   onModeChange: (m: Mode) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+    <div className="flex flex-wrap items-center gap-1.5">
       {ALL_MODES.map((m) => {
         const active = mode === m;
         return (
@@ -397,7 +397,7 @@ const HOW_IT_WORKS = [
       </svg>
     ),
     title: "Search",
-    desc: "Ask about any mechanism, pathway, target, or disease in natural language",
+    desc: "Ask about any mechanism, pathway, target, or disease",
   },
   {
     icon: (
@@ -406,7 +406,7 @@ const HOW_IT_WORKS = [
       </svg>
     ),
     title: "Retrieve",
-    desc: "Hybrid BM25 + semantic search across curated knowledge bases and live PubMed",
+    desc: "BM25 and semantic search across knowledge bases and live PubMed",
   },
   {
     icon: (
@@ -415,28 +415,7 @@ const HOW_IT_WORKS = [
       </svg>
     ),
     title: "Synthesize",
-    desc: "Claude integrates evidence into structured scientific answers grounded in primary literature",
-  },
-];
-
-const EXPLORE_CARDS: Array<{ mode: Mode; icon: string; title: string; desc: string }> = [
-  {
-    mode: "disease-report",
-    icon: "🧠",
-    title: "Mechanism Reports",
-    desc: "Map the complete causal biology of any disease — core pathways, validated targets, failed programs, and open contradictions",
-  },
-  {
-    mode: "hypothesis",
-    icon: "🧪",
-    title: "Hypothesis Generation",
-    desc: "Generate testable scientific hypotheses with full experimental designs, biomarkers, and confidence assessments",
-  },
-  {
-    mode: "compare",
-    icon: "↔",
-    title: "Comparative Analysis",
-    desc: "Compare two conditions side-by-side across shared pathways, unique genes, cytokines, and therapeutic overlaps",
+    desc: "Answers are grounded in retrieved propositions from primary literature",
   },
 ];
 
@@ -756,13 +735,9 @@ export default function HomePage() {
                   <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <button onClick={handleNewSession} className="flex items-center gap-2.5 group" title="New session">
+              <button onClick={handleNewSession} className="flex items-center justify-center group" title="New session">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-600/20 text-accent-400 group-hover:bg-accent-600/30 transition">
                   <AsclepiusLogo size={20} />
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-sm font-semibold text-gray-100 tracking-tight group-hover:text-accent-400 transition">Asclepius Research Labs</h1>
-                  <p className="text-[10px] text-muted leading-none">Scientific Research Intelligence</p>
                 </div>
               </button>
             </div>
@@ -788,7 +763,7 @@ export default function HomePage() {
                 Scientific Research Intelligence
               </h2>
               <p className="mt-2 text-center text-sm text-muted max-w-sm leading-relaxed">
-                Query any scientific domain — mechanism mapping, hypothesis generation, and literature synthesis grounded in primary research.
+                Query any scientific domain. Mechanism mapping, hypothesis generation, and literature synthesis from primary research.
               </p>
 
               {/* Mode switcher — centered, prominent on landing */}
@@ -797,12 +772,7 @@ export default function HomePage() {
               </div>
 
               {/* Example chips */}
-              <div className="mt-6 w-full">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-px flex-1 bg-surface-3" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">Try an example</p>
-                  <div className="h-px flex-1 bg-surface-3" />
-                </div>
+              <div className="mt-4 w-full">
                 <div className="flex flex-wrap gap-2 justify-center">
                   {examples.map((example) => (
                     <motion.button
@@ -842,32 +812,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* What you can explore */}
-              <div className="mt-8 w-full">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-px flex-1 bg-surface-3" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">What you can explore</p>
-                  <div className="h-px flex-1 bg-surface-3" />
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {EXPLORE_CARDS.map((card, i) => (
-                    <motion.button
-                      key={card.mode}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.25 + i * 0.08 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setMode(card.mode)}
-                      className="rounded-xl border border-surface-3 bg-surface-1 p-4 text-left transition hover:border-accent-500/30 hover:bg-surface-2 group"
-                    >
-                      <div className="text-2xl mb-2">{card.icon}</div>
-                      <p className="text-sm font-semibold text-gray-200 mb-1.5 group-hover:text-accent-400 transition">{card.title}</p>
-                      <p className="text-xs text-muted leading-relaxed">{card.desc}</p>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
             </motion.div>
           )}
 
@@ -997,7 +941,9 @@ export default function HomePage() {
           <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-4 py-3 sm:px-6">
             {/* Mode switcher row */}
             <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
-              <ModeSwitcher mode={mode} onModeChange={setMode} />
+              <div className="flex-1 min-w-0">
+                <ModeSwitcher mode={mode} onModeChange={setMode} />
+              </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 {isDmiMode && (
@@ -1067,7 +1013,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <p className="text-[11px] text-gray-300 font-medium truncate max-w-[200px]">{uploadedImage.fileName}</p>
-                    <p className="text-[10px] text-muted">Image ready — will be analyzed with Claude Vision</p>
+                    <p className="text-[10px] text-muted">Image ready, will be analyzed with Claude Vision</p>
                   </div>
                 </motion.div>
               )}
