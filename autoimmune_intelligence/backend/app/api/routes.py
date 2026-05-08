@@ -17,6 +17,7 @@ from app.models.schema import (
     HypothesisEntry,
     HypothesisRequest,
     HypothesisResponse,
+    ImageQueryRequest,
     InterventionRankRequest,
     PubMedResult,
     PubMedSearchRequest,
@@ -57,6 +58,26 @@ def query(request: QueryRequest, service: LLMService = Depends(get_llm_service))
             status_code=500,
             detail="Internal server error — check server logs for details",
         ) from exc
+
+
+# ------------------------------------------------------------------
+# Multimodal image query endpoint
+# ------------------------------------------------------------------
+
+@router.post("/query/images", response_model=QueryResponse)
+def query_with_image(request: ImageQueryRequest, service: LLMService = Depends(get_llm_service)) -> QueryResponse:
+    """Accept a research question + base64 image and return a vision-grounded answer."""
+    log_query(f"IMAGE: {request.question}")
+    try:
+        return service.query_with_image(
+            question=request.question,
+            image_base64=request.image_base64,
+            media_type=request.media_type,
+            include_pubmed=request.include_pubmed,
+        )
+    except Exception as exc:
+        logger.exception("Unhandled error in /query/images")
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # ------------------------------------------------------------------

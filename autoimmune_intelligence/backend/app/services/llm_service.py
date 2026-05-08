@@ -100,6 +100,105 @@ class LLMService:
             )
         return self._local_answer(question, propositions, sr, pubmed_articles, graph_context)
 
+    def query_with_image(
+        self,
+        question: str,
+        image_base64: str,
+        media_type: str = "image/jpeg",
+        include_pubmed: bool = False,
+    ) -> QueryResponse:
+        """Answer a research question about an uploaded image using Claude vision."""
+        logger.info("LLMService.query_with_image: %r", question)
+
+        propositions = self._retrieve_propositions(question)
+        sr = search_all(question)
+        pubmed_articles: list[PubMedResult] = []
+        if include_pubmed:
+            pubmed_articles = self._fetch_pubmed(question)
+        graph_context = self._get_graph_context(sr)
+        context, sources = self._build_context(propositions, sr, pubmed_articles, graph_context)
+
+        if not settings.anthropic_api_key:
+            return QueryResponse(
+                answer="Image analysis requires an Anthropic API key with vision support.",
+                sources=[],
+                image_analysis=None,
+            )
+
+        try:
+            import anthropic as _anthropic
+            client = _anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+            image_prompt = (
+                "## Image Observations\n"
+                "Describe precisely what you see: measurements, labels, bands, patterns, "
+                "cell morphology, axes, trends, statistical annotations, scale bars — "
+                "any visual detail relevant to the research question.\n\n"
+                "## Integrated Analysis\n"
+                "Using ONLY the knowledge base context above and your image observations, "
+                "answer the research question with sections: Overview, Key Findings, "
+                "Mechanistic Interpretation, Implications."
+            )
+
+            response = client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=2500,
+                system=_SYSTEM_PROMPT,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_base64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                f"Knowledge base context:\n{context}\n\n"
+                                f"Research Question: {question}\n\n"
+                                f"{image_prompt}"
+                            ),
+                        },
+                    ],
+                }],
+            )
+
+            full_text = response.content[0].text if response.content else ""
+
+            # Split structured response into image observations vs integrated answer
+            image_analysis: Optional[str] = None
+            main_answer = full_text
+            if "## Integrated Analysis" in full_text:
+                parts = full_text.split("## Integrated Analysis", 1)
+                image_analysis = parts[0].replace("## Image Observations", "").strip() or None
+                main_answer = "## Integrated Analysis\n" + parts[1].strip()
+            elif "## Image Observations" in full_text:
+                obs = full_text.split("## Image Observations", 1)[-1].split("\n\n")[0].strip()
+                image_analysis = obs or None
+
+            usage = response.usage
+            cost = (usage.input_tokens * 3 + usage.output_tokens * 15) / 1_000_000
+
+            return QueryResponse(
+                answer=main_answer,
+                sources=sources,
+                reasoning=self._extract_reasoning(sr),
+                pubmed_articles=pubmed_articles,
+                graph_context=graph_context,
+                retrieved_propositions=propositions,
+                model_used="claude-sonnet-4-5",
+                cost_usd=round(cost, 6),
+                image_analysis=image_analysis,
+            )
+
+        except Exception:
+            logger.exception("Image query failed")
+            raise
+
     # ------------------------------------------------------------------
     # Retrieval
     # ------------------------------------------------------------------

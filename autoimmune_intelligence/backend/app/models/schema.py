@@ -12,6 +12,13 @@ class QueryRequest(BaseModel):
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
 
 
+class ImageQueryRequest(BaseModel):
+    question: str = Field(..., min_length=1, description="Research question about the image")
+    image_base64: str = Field(..., description="Base64-encoded image data")
+    media_type: str = Field("image/jpeg", description="Image MIME type: image/jpeg, image/png, image/gif, image/webp")
+    include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
+
+
 class RetrievedPropositionSchema(BaseModel):
     """A single proposition retrieved from the hybrid search pipeline."""
     text: str
@@ -65,6 +72,7 @@ class QueryResponse(BaseModel):
     )
     model_used: str = Field("", description="LLM model that generated the answer")
     cost_usd: float = Field(0.0, description="Estimated cost of this query in USD")
+    image_analysis: Optional[str] = Field(None, description="Claude vision observations extracted from an uploaded image")
 
 
 # ------------------------------------------------------------------

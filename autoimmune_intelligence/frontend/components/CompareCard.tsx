@@ -87,8 +87,56 @@ export default function CompareCard({ data }: CompareCardProps) {
   const pct = Math.round(similarity_score * 100);
   const [activeTab, setActiveTab] = useState<OverlapTab>("pathways");
 
+  const nameA = a.disease_name.split(" ")[0];
+  const nameB = b.disease_name.split(" ")[0];
+
+  const diffRows = [
+    { label: "Pathways",     shared: o.shared_pathways.length,     ua: o.unique_pathways_a.length,     ub: o.unique_pathways_b.length },
+    { label: "Genes",        shared: o.shared_genes.length,        ua: o.unique_genes_a.length,        ub: o.unique_genes_b.length },
+    { label: "Therapeutics", shared: o.shared_therapeutics.length, ua: o.unique_therapeutics_a.length, ub: o.unique_therapeutics_b.length },
+    { label: "Cytokines",    shared: o.shared_cytokines.length,    ua: o.unique_cytokines_a.length,    ub: o.unique_cytokines_b.length },
+    { label: "Cell Types",   shared: o.shared_cell_types.length,   ua: o.unique_cell_types_a.length,   ub: o.unique_cell_types_b.length },
+    { label: "Mechanisms",   shared: o.shared_mechanisms.length,   ua: o.unique_mechanisms_a.length,   ub: o.unique_mechanisms_b.length },
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Diff summary table */}
+      <div className="rounded-xl border border-surface-3 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-surface-2 border-b border-surface-3">
+              <th className="text-left px-4 py-2.5 text-muted font-semibold uppercase tracking-wider">Category</th>
+              <th className="text-center px-3 py-2.5 text-accent-400 font-semibold">Shared</th>
+              <th className="text-center px-3 py-2.5 text-blue-400 font-semibold">{nameA} only</th>
+              <th className="text-center px-3 py-2.5 text-purple-400 font-semibold">{nameB} only</th>
+            </tr>
+          </thead>
+          <tbody className="bg-surface-1 divide-y divide-surface-3">
+            {diffRows.map((row) => (
+              <tr key={row.label} className="hover:bg-surface-2/50 transition">
+                <td className="px-4 py-2 text-gray-400 font-medium">{row.label}</td>
+                <td className="px-3 py-2 text-center">
+                  {row.shared > 0
+                    ? <span className="inline-block rounded-full bg-accent-600/20 text-accent-400 px-2 py-0.5 text-[10px] font-bold">{row.shared}</span>
+                    : <span className="text-muted">—</span>}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  {row.ua > 0
+                    ? <span className="inline-block rounded-full bg-blue-500/15 text-blue-400 px-2 py-0.5 text-[10px] font-bold">{row.ua}</span>
+                    : <span className="text-muted">—</span>}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  {row.ub > 0
+                    ? <span className="inline-block rounded-full bg-purple-500/15 text-purple-400 px-2 py-0.5 text-[10px] font-bold">{row.ub}</span>
+                    : <span className="text-muted">—</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* Header — similarity score */}
       <div className="rounded-xl border border-accent-500/25 overflow-hidden">
         <div className="px-5 py-4 bg-surface-1">
@@ -193,8 +241,8 @@ export default function CompareCard({ data }: CompareCardProps) {
           <OverlapTabContent
             tab={activeTab}
             o={o}
-            nameA={a.disease_name.split(" ")[0]}
-            nameB={b.disease_name.split(" ")[0]}
+            nameA={nameA}
+            nameB={nameB}
           />
         </div>
       </div>

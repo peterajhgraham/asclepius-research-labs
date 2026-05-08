@@ -61,6 +61,14 @@ export interface QueryResponse {
   retrieved_propositions?: RetrievedProposition[];
   model_used?: string;
   cost_usd?: number;
+  image_analysis?: string;
+}
+
+export interface ImageQueryRequest {
+  question: string;
+  image_base64: string;
+  media_type: string;
+  include_pubmed?: boolean;
 }
 
 // ------------------------------------------------------------------
@@ -227,6 +235,11 @@ export interface DossierInsights {
 
 export async function submitQuery(payload: QueryRequest): Promise<QueryResponse> {
   const response = await axios.post<QueryResponse>("/api/query", payload);
+  return response.data;
+}
+
+export async function submitImageQuery(payload: ImageQueryRequest): Promise<QueryResponse> {
+  const response = await axios.post<QueryResponse>("/api/query/images", payload);
   return response.data;
 }
 

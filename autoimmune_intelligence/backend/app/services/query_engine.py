@@ -28,11 +28,41 @@ logger = logging.getLogger(__name__)
 # Tokeniser
 # ---------------------------------------------------------------------------
 
+# Words that appear in virtually every record and carry no discriminating
+# signal for matching.  "disease", "syndrome", and "disorder" are included
+# because they are present in every disease name/description, causing any
+# query containing those words to spuriously match unrelated records.
+_STOP_WORDS: frozenset[str] = frozenset({
+    "a", "an", "the", "and", "or", "but", "if", "in", "on", "at", "to",
+    "for", "of", "by", "with", "from", "as", "is", "are", "was", "were",
+    "be", "been", "being", "have", "has", "had", "do", "does", "did",
+    "will", "would", "could", "should", "may", "might", "can", "not",
+    "no", "so", "up", "out", "it", "its", "this", "that", "these", "those",
+    "all", "just", "also", "about", "via", "vs", "per", "et", "al",
+    "disease", "syndrome", "disorder",
+})
+
+# Minimum overlap-score for structured dataset hits (diseases, cytokines,
+# pathways, therapeutics).  Without a threshold any single stop-word match
+# would qualify every record regardless of query relevance.
+_MIN_STRUCTURED_SCORE: float = 0.15
+
+
 def _tokenize(text: str) -> set[str]:
     """Lowercase, strip punctuation, split into unique tokens (len > 1)."""
     text = text.lower()
     text = re.sub(r"[^\w\s-]", " ", text)
     return {t for t in text.split() if len(t) > 1}
+
+
+def _effective_tokens(text: str) -> set[str]:
+    """Query-side tokenizer: like _tokenize but also removes stop words.
+
+    Used when building the query token set so that generic words such as
+    'disease', 'in', 'of' do not cause false matches against every record
+    in the knowledge base.
+    """
+    return _tokenize(text) - _STOP_WORDS
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +133,8 @@ def _search_cytokines(query_tokens: set[str], top_k: int = 10) -> list[dict[str,
         overlap = query_tokens & searchable
         if overlap:
             score = len(overlap) / max(len(query_tokens), 1)
+            if score < _MIN_STRUCTURED_SCORE:
+                continue
             hits.append((score, {
                 "source": edge.source,
                 "target": edge.target,
@@ -135,6 +167,8 @@ def _search_pathways(query_tokens: set[str], top_k: int = 5) -> list[dict[str, A
         overlap = query_tokens & searchable
         if overlap:
             score = len(overlap) / max(len(query_tokens), 1)
+            if score < _MIN_STRUCTURED_SCORE:
+                continue
             hits.append((score, {
                 "pathway_id": pw.pathway_id,
                 "pathway_name": pw.pathway_name,
@@ -168,6 +202,8 @@ def _search_diseases(query_tokens: set[str], top_k: int = 5) -> list[dict[str, A
         overlap = query_tokens & searchable
         if overlap:
             score = len(overlap) / max(len(query_tokens), 1)
+            if score < _MIN_STRUCTURED_SCORE:
+                continue
             hits.append((score, {
                 "disease_name": dis.disease_name,
                 "disease_id": dis.disease_id,
@@ -202,6 +238,8 @@ def _search_therapeutics(query_tokens: set[str], top_k: int = 8) -> list[dict[st
         overlap = query_tokens & searchable
         if overlap:
             score = len(overlap) / max(len(query_tokens), 1)
+            if score < _MIN_STRUCTURED_SCORE:
+                continue
             hits.append((score, {
                 "drug_name": rx.drug_name,
                 "brand_name": rx.brand_name,
@@ -222,7 +260,7 @@ def _search_therapeutics(query_tokens: set[str], top_k: int = 8) -> list[dict[st
 
 def search(query: str, top_k: int = 3, threshold: float = 0.05) -> list[ScoredEntry]:
     """Backward-compatible: return KB hits only (used by existing LLM service)."""
-    tokens = _tokenize(query)
+    tokens = _effective_tokens(query)
     if not tokens:
         return []
     return _search_kb(tokens, top_k=top_k, threshold=threshold)
@@ -230,7 +268,7 @@ def search(query: str, top_k: int = 3, threshold: float = 0.05) -> list[ScoredEn
 
 def search_all(query: str) -> SearchResult:
     """Search across ALL data sources and return aggregated results."""
-    tokens = _tokenize(query)
+    tokens = _effective_tokens(query)
     if not tokens:
         return SearchResult()
 

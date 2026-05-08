@@ -11,11 +11,11 @@ const CATEGORY_CONFIG: Record<string, { color: string; icon: string; description
   "Combination Therapy": { color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/25", icon: "⚗️", description: "Synergistic multi-target therapeutic approaches" },
 };
 
-const CONFIDENCE_CONFIG: Record<string, { color: string; dot: string }> = {
-  "High":        { color: "bg-green-500/20 text-green-400 border-green-500/30",  dot: "bg-green-400" },
-  "Medium-High": { color: "bg-blue-500/20 text-blue-400 border-blue-500/30",     dot: "bg-blue-400" },
-  "Medium":      { color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", dot: "bg-yellow-400" },
-  "Low":         { color: "bg-red-500/20 text-red-400 border-red-500/30",        dot: "bg-red-400" },
+const CONFIDENCE_CONFIG: Record<string, { pct: number; bar: string; label: string }> = {
+  "High":        { pct: 92, bar: "bg-green-400",  label: "text-green-400" },
+  "Medium-High": { pct: 70, bar: "bg-blue-400",   label: "text-blue-400" },
+  "Medium":      { pct: 50, bar: "bg-yellow-400", label: "text-yellow-400" },
+  "Low":         { pct: 25, bar: "bg-red-400",    label: "text-red-400" },
 };
 
 function CategoryBadge({ category }: { category: string }) {
@@ -28,13 +28,18 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
-function ConfidenceBadge({ confidence }: { confidence: string }) {
+function ConfidenceMeter({ confidence }: { confidence: string }) {
   const cfg = CONFIDENCE_CONFIG[confidence] || CONFIDENCE_CONFIG["Medium"];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${cfg.color}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-      {confidence} confidence
-    </span>
+    <div className="flex items-center gap-2 min-w-0">
+      <span className={`text-[10px] font-bold whitespace-nowrap ${cfg.label}`}>{confidence}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-surface-3 overflow-hidden" style={{ minWidth: 48 }}>
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${cfg.bar}`}
+          style={{ width: `${cfg.pct}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -54,9 +59,9 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-100 leading-relaxed">{h.hypothesis}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-3 mt-2">
               <CategoryBadge category={h.category} />
-              <ConfidenceBadge confidence={h.confidence} />
+              <ConfidenceMeter confidence={h.confidence} />
             </div>
           </div>
           <svg
@@ -153,6 +158,36 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
               </div>
             )}
           </div>
+
+          {/* Supporting Evidence with clickable PubMed links */}
+          {h.supporting_evidence.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-1.5">Supporting Evidence</p>
+              <div className="flex flex-wrap gap-1.5">
+                {h.supporting_evidence.map((cite, i) => {
+                  const pmidMatch = cite.match(/(?:PMID:?\s*)?(\d{7,9})/i);
+                  return pmidMatch ? (
+                    <a
+                      key={i}
+                      href={`https://pubmed.ncbi.nlm.nih.gov/${pmidMatch[1]}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-mono border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 hover:border-accent-500/60 transition"
+                    >
+                      {cite}
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                      </svg>
+                    </a>
+                  ) : (
+                    <span key={i} className="rounded px-2 py-0.5 text-[10px] border border-surface-3 bg-surface-2 text-muted-light">
+                      {cite}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
