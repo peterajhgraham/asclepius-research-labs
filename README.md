@@ -2,7 +2,7 @@
 
 > **Hybrid retrieval + causal reasoning for scientific research.**
 
-Asclepius Research Labs is a domain-agnostic scientific research intelligence platform. The domain is a runtime parameter — query immunology, oncology, neuroscience, or any scientific field. The system goes beyond generic AI chat by combining hybrid BM25 + dense retrieval with proposition-level chunking, causal graph propagation, intervention ranking, and a 4-tier LLM routing layer with confidence-gated escalation.
+Domain-agnostic scientific research intelligence platform. The domain is a runtime parameter — query immunology, oncology, neuroscience, or any field. Goes beyond generic AI chat by combining hybrid BM25 + dense retrieval with proposition-level chunking, causal graph propagation, intervention ranking, and a 4-tier LLM routing layer with confidence-gated escalation.
 
 Immunology (JAK-STAT, NF-κB, TNF pathways) is the primary built-in dataset. The retrieval and reasoning pipeline is field-neutral.
 
@@ -10,17 +10,17 @@ Immunology (JAK-STAT, NF-κB, TNF pathways) is the primary built-in dataset. The
 
 ## What It Does
 
-- **Hybrid retrieval** — BM25 (exact-match) + FAISS dense (semantic) retrieval, fused via Reciprocal Rank Fusion and reranked by a CrossEncoder, returning the top-8 most relevant propositions per query
-- **Proposition-level chunking** — Claude Haiku decomposes each source document into atomic, self-contained claims; each retrieved unit expresses one verifiable fact
+- **Hybrid retrieval** — BM25 + FAISS dense retrieval, fused via Reciprocal Rank Fusion and reranked by a CrossEncoder; returns top-8 propositions per query
+- **Proposition-level chunking** — Claude Haiku decomposes source documents into atomic, self-contained claims; each retrieved unit expresses one verifiable fact
 - **Live PubMed integration** — Real-time search via NCBI E-utilities with molecular interaction extraction from abstracts
-- **Causal signal propagation** — "If I inhibit Target X, what downstream effects propagate through the network?" Computed over graph structure with signed edge weights and configurable decay (0.85)
-- **Intervention ranking** — Systematically rank upstream therapeutic targets by predicted impact on a disease phenotype
-- **4-tier LLM routing** — Queries start at Haiku; escalate to Sonnet or Opus when confidence falls below 0.60. Daily budget cap enforced before every LLM call
-- **SSE streaming** — Tokens delivered in real-time via Server-Sent Events; citations arrive alongside the stream
+- **Causal signal propagation** — Computes downstream effects of inhibiting a target over the graph, with signed edge weights and configurable decay (0.85)
+- **Intervention ranking** — Ranks upstream therapeutic targets by predicted impact on a disease phenotype
+- **4-tier LLM routing** — Queries start at Haiku; escalate to Sonnet or Opus when confidence < 0.60; daily budget cap enforced before every LLM call
+- **SSE streaming** — Real-time token delivery with citations alongside the stream
 - **Domain-agnostic DMI module** — Structured mechanism reports and target risk scoring; domain passed as a free-text string at query time
-- **Multimodal image query** — Upload any scientific image (gel, flow cytometry plot, pathway diagram, microscopy) with a research question; Claude Sonnet vision analyzes the image and grounds its interpretation in retrieved KB propositions, returning a separate `image_analysis` field alongside the standard structured answer
-- **PDF document ingestion** — Upload any PDF (paper, preprint, protocol); text is chunked via proposition extraction, embedded figures are captioned by Claude Haiku vision, and all content is indexed into the BM25+FAISS pipeline so future queries retrieve from your uploaded documents
-- **Comparative analysis & hypothesis generation** — Side-by-side topic comparison across pathways, cytokines, cell types, therapeutics; 5-strategy testable hypothesis generation with experimental designs
+- **Multimodal image query** — Upload any scientific image (gel, flow cytometry, pathway diagram, microscopy) with a question; Claude Sonnet vision analyzes it grounded in retrieved KB propositions, returning a separate `image_analysis` field
+- **PDF document ingestion** — Upload any PDF; text is proposition-chunked, figures are captioned by Haiku vision, and all content is indexed into the BM25+FAISS pipeline
+- **Comparative analysis & hypothesis generation** — Side-by-side topic comparison; 5-strategy testable hypothesis generation with experimental designs
 
 ---
 
@@ -58,24 +58,23 @@ Query ├─ BM25 (rank-bm25)            ─┐
                                 SSE stream / structured JSON response
 ```
 
-Both BM25 and FAISS run in parallel at query time. Their ranked lists are merged by RRF (no score comparison, no training data required), then a CrossEncoder reranker rescores the merged set to produce the final top-8 propositions passed to the LLM as context.
+BM25 and FAISS run in parallel. Their ranked lists are merged by RRF (rank-based, no score comparison, no training data), then a CrossEncoder reranker produces the final top-8 propositions passed to the LLM as context.
 
-**Multimodal path** (image queries via `POST /query/images`):
+**Multimodal path** (`POST /query/images`):
 
 ```
 Base64 image + question
          ↓
   KB context retrieval (same hybrid pipeline)
          ↓
-  Claude Sonnet vision — image observations extracted first,
-  then grounded against retrieved propositions
+  Claude Sonnet vision — image observations extracted, then grounded against retrieved propositions
          ↓
   QueryResponse { image_analysis: "...", answer: "...", sources: [...] }
 ```
 
-Note: this is upload-and-analyze, not image retrieval. The system does not maintain an image index or perform similarity search over image embeddings (no CLIP, ColPali, or PDF figure extraction). Document parsing (PDF, OCR) is not currently implemented — images must be provided as base64 by the client.
+> This is upload-and-analyze, not image retrieval — no CLIP/ColPali image index. Image similarity search is on the roadmap.
 
-The retrieval pipeline indexes ~1,000+ documents from the configured knowledge base and datasets at startup (warm-up runs in a background thread; ~30s on cold start with ML model downloads).
+The retrieval pipeline indexes ~1,000+ documents at startup (warm-up in a background thread; ~30s on cold start with ML model downloads).
 
 ### Research Engine Modules
 
@@ -113,21 +112,21 @@ suggestions = suggester.suggest_experiments("STAT3", edge_list, budget=3)
 
 ## Design Decisions
 
-### Hybrid BM25 + FAISS retrieval instead of either alone
+### Hybrid BM25 + FAISS retrieval
 
-Biomedical queries split into two failure modes that each retriever handles differently. BM25 is a term-frequency model — it reliably surfaces documents containing exact token matches for gene symbols (JAK1, STAT3, IL-6), drug names (tofacitinib, baricitinib), and pathway identifiers where the embedding model has limited discriminative power due to sparse training signal on rare biomedical vocabulary. Dense retrieval with all-MiniLM-L6-v2 captures semantic paraphrase — "how does tofacitinib work" matches documents about JAK inhibitors without lexical overlap. Neither retriever alone is sufficient: BM25 misses paraphrase, dense misses rare exact-match entities. BEIR benchmark results consistently show hybrid retrieval outperforming either individually on biomedical corpora. The pipeline runs both in parallel and fuses at the rank level.
+Biomedical queries split into two failure modes. BM25 reliably surfaces exact token matches for gene symbols (JAK1, STAT3, IL-6), drug names, and pathway identifiers where embedding models have limited discriminative power on rare biomedical vocabulary. Dense retrieval with all-MiniLM-L6-v2 captures semantic paraphrase — "how does tofacitinib work" matches documents about JAK inhibitors without lexical overlap. Neither alone is sufficient. BEIR benchmark results consistently show hybrid retrieval outperforming either on biomedical corpora.
 
-### RRF (k=60) for fusion instead of learned score interpolation
+### RRF (k=60) for fusion
 
-Learned fusion (linear score blending, learning-to-rank, late-fusion networks) requires labelled query-document relevance pairs to calibrate weights. No such labelled dataset exists for this retrieval corpus. Score interpolation between BM25 and FAISS cosine similarity is also problematic because the two score distributions are not comparable in magnitude — BM25 scores scale with corpus statistics, cosine similarities are bounded [0,1]. RRF sidesteps both problems by operating on ranks rather than scores: each document contributes `1/(k + rank)` to the fused score, making it insensitive to score distribution differences and requiring no training data. The k=60 constant is the standard value from Cormack et al. 2009 (SIGIR), which showed RRF outperforming learned methods on held-out queries.
+Learned fusion requires labelled query-document relevance pairs that don't exist for this corpus. Score interpolation between BM25 and FAISS is problematic because their score distributions aren't comparable — BM25 scales with corpus statistics, cosine similarity is bounded [0,1]. RRF operates on ranks rather than scores (`1/(k + rank)`), making it insensitive to score distribution differences and requiring no training data. k=60 is the standard value from Cormack et al. 2009 (SIGIR).
 
-### Proposition-level chunking instead of sliding window
+### Proposition-level chunking
 
-Sliding-window chunking splits text at fixed token boundaries regardless of semantic structure, routinely cutting mid-sentence or straddling multiple distinct claims. For biomedical abstracts this is particularly damaging: a single abstract may assert "IL-6 activates JAK1", "JAK1 phosphorylates STAT3", and "STAT3 drives inflammatory gene expression" — three independent, retrievable facts that a sliding window conflates into a single noisy chunk. Proposition extraction (via Claude Haiku) decomposes each passage into atomic, self-contained declarative sentences. The result is that each retrieval unit expresses exactly one verifiable claim, which improves both retrieval precision (each proposition matches a narrower query surface) and citation quality (the cited unit directly supports the claim being cited). Haiku is used for cost efficiency; extraction is bounded at 5 chunks per document. Sliding window remains as a fallback when the Anthropic key is unavailable.
+Sliding-window chunking cuts at fixed token boundaries regardless of semantic structure — a single abstract can assert three independent facts that a window conflates into one noisy chunk. Proposition extraction (via Claude Haiku) decomposes each passage into atomic, self-contained declarative sentences. Each retrieval unit expresses exactly one verifiable claim, improving both retrieval precision and citation quality. Haiku is used for cost efficiency; extraction is bounded at 5 chunks per document. Sliding window remains as fallback when no Anthropic key is set.
 
-### 4-tier routing with confidence-gated escalation instead of always routing to the best model
+### 4-tier routing with confidence-gated escalation
 
-Routing every query to Opus at $15/M input tokens is economically unviable at any meaningful query volume. The system uses a two-stage routing strategy: (1) a lightweight regex complexity classifier pre-selects the starting tier — simple and medium queries start at Haiku, complex queries (≥2 complexity pattern hits or >20 words) start at Sonnet, skipping the Haiku round-trip; (2) after each response, a heuristic confidence estimator checks response length (<150 chars → 0.30) and uncertainty phrases ("I don't know", "insufficient information", etc. → 0.40) against a 0.60 threshold — below threshold, the query escalates to the next tier. This means cost scales with actual query complexity rather than applying a flat premium. The daily budget cap (`DAILY_BUDGET_USD`, default $10) provides a hard ceiling enforced before each LLM call, with all spend logged to JSONL for auditability.
+Always routing to Opus at $15/M input tokens is unviable at any meaningful query volume. The system uses two-stage routing: (1) a lightweight regex complexity classifier pre-selects the starting tier — simple/medium queries start at Haiku, complex queries (≥2 complexity pattern hits or >20 words) start at Sonnet; (2) after each response, a heuristic confidence estimator checks response length (<150 chars → 0.30) and uncertainty phrases against a 0.60 threshold — below threshold, the query escalates to the next tier. Cost scales with actual query complexity. The daily budget cap (`DAILY_BUDGET_USD`, default $10) is enforced before each LLM call, with all spend logged to JSONL.
 
 | Tier | Model | Input $/M | Output $/M | Use case |
 |------|-------|-----------|------------|----------|
@@ -238,6 +237,8 @@ asclepius-research-labs/
 └── requirements.txt                # Research engine dependencies
 ```
 
+---
+
 ## Local Development
 
 ```bash
@@ -260,7 +261,7 @@ npm install && npm run dev
 
 Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3000`
 
-> **macOS venv note**: the shell alias `python` may resolve to system Python 3.9 even inside an activated virtualenv. Always use `venv/bin/python` and `venv/bin/uvicorn` explicitly, or rely on `scripts/setup_dev.sh`.
+> **macOS venv note:** `python` may resolve to system Python 3.9 even inside an activated venv. Use `venv/bin/python` and `venv/bin/uvicorn` explicitly, or rely on `scripts/setup_dev.sh`.
 
 ---
 
@@ -296,7 +297,7 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 | `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations in real-time |
 | `POST` | `/query` | Standard structured JSON response |
 | `POST` | `/query/images` | **Multimodal** — base64 image + question, KB-grounded vision analysis |
-| `POST` | `/ingest/document` | Upload a PDF — extracts text + figures, captions via Haiku vision, indexes into BM25+FAISS pipeline |
+| `POST` | `/ingest/document` | Upload a PDF — extracts text + figures, captions via Haiku vision, indexes into BM25+FAISS |
 | `POST` | `/compare` | Side-by-side topic comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation (5 strategies) |
 | `POST` | `/pubmed/search` | Live PubMed article search + interaction extraction |
@@ -325,7 +326,7 @@ Backend API docs: `http://localhost:8000/docs` — Frontend: `http://localhost:3
 
 ### Domain Configuration
 
-The `domain` (API field: `vertical`) is a free-text runtime parameter:
+`domain` (API field: `vertical`) is a free-text runtime parameter:
 
 ```json
 { "disease_name": "Alzheimer's disease", "vertical": "neuroscience" }
@@ -354,23 +355,19 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 
 ## Deployment
 
-This is a monorepo: backend (FastAPI) lives in `asclepius/backend/`, frontend (Next.js 15 App Router) in `asclepius/frontend/`. Both Vercel and Railway support deploying a subdirectory either via dashboard *Root Directory* or via root-level config files. Configs for both styles are checked in, but the dashboard `Root Directory` setting must match the chosen style — otherwise the platform reads a config file you didn't intend.
+Monorepo: FastAPI backend in `asclepius/backend/`, Next.js 15 frontend in `asclepius/frontend/`. Both platforms support deploying a subdirectory via a dashboard *Root Directory* setting or root-level config files — pick one approach and don't mix them.
 
 ### Vercel (frontend)
 
-Pick **one** of these — do not mix them.
+- **Recommended:** Set Project Settings → *Root Directory* = `asclepius/frontend`. Vercel auto-detects Next.js, reads the in-folder `vercel.json`, and ignores the repo-root one.
+- **Alternate:** Leave Root Directory as `./`. Vercel reads the root `vercel.json`, which `cd`s into `asclepius/frontend` for install/build.
 
-- **Recommended — Root Directory in dashboard:** set Project Settings → General → *Root Directory* = `asclepius/frontend`. Vercel auto-detects Next.js, reads `asclepius/frontend/vercel.json`, and ignores the repo-root `vercel.json`. This is the canonical Vercel monorepo pattern and works correctly with the App Router.
-- **Alternate — Root Directory left as repo root (`./`):** Vercel reads the root `vercel.json`, which `cd`s into `asclepius/frontend` for install/build and points `outputDirectory` at `asclepius/frontend/.next`.
-
-> ⚠️ The legacy `builds` API in `vercel.json` (`{"builds": [{ "use": "@vercel/next" }]}`) does **not** properly support Next.js 13+ App Router and will fail on this project. Both supported configs above use the modern framework integration.
+> The legacy `builds` API in `vercel.json` does not support Next.js 13+ App Router — both configs above use the modern framework integration.
 
 ### Railway (backend)
 
-Pick **one** of these — do not mix them.
-
-- **Recommended — Root Directory in dashboard:** set Service Settings → *Root Directory* = `asclepius/backend`. Railway auto-detects Python via the in-folder `requirements.txt` + `.python-version`, reads `asclepius/backend/railway.json`, and uses `asclepius/backend/Procfile` for the start command.
-- **Alternate — Root Directory left as repo root (`/`):** Railway reads the repo-root `nixpacks.toml` + `railway.json`, which install `asclepius/backend/requirements.txt` and start uvicorn after `cd`ing into `asclepius/backend`.
+- **Recommended:** Set Service Settings → *Root Directory* = `asclepius/backend`. Railway auto-detects Python via the in-folder `requirements.txt` + `.python-version`.
+- **Alternate:** Leave Root Directory as `/`. Railway reads the repo-root `nixpacks.toml` + `railway.json`, which install and start from `asclepius/backend`.
 
 Cold-start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90 MB) on first deploy. Subsequent starts use Railway's volume cache.
 
@@ -401,7 +398,6 @@ Cold-start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90 MB) on 
 - [x] Disease dossier system (persistent research workspaces)
 - [x] Sidebar with session persistence (localStorage)
 - [x] PDF document ingestion with PyMuPDF text extraction + Haiku vision figure captioning
-- [x] Renamed asclepius/ (domain-neutral folder, was autoimmune_intelligence/)
 
 ### In Progress / Next
 
@@ -414,14 +410,13 @@ Cold-start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90 MB) on 
 
 ### Future
 
-- [ ] Image retrieval pipeline — CLIP or ColPali embeddings over figure corpora, enabling similarity search over scientific images rather than upload-only analysis
+- [ ] Image retrieval pipeline — CLIP or ColPali embeddings over figure corpora for similarity search over scientific images
 - [ ] Oncology immune network expansion
 - [ ] spaCy + BioBERT NLP pipeline for automated literature extraction
 - [ ] Team collaboration features (shared workspaces, comments)
 - [ ] API access for programmatic integration
 - [ ] Multi-tenant workspaces with enterprise SSO
 - [ ] User feedback loop for answer quality improvement
-
 
 ---
 
