@@ -1,12 +1,8 @@
 # Tells Railway/Nixpacks to build the FastAPI backend from the monorepo root.
-# Python 3.11 is pinned via [phases.setup]; the root .python-version is also
-# present as a fallback for tools that read it directly.
-
-[phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
+# Python 3.11 is pinned via the root .python-version file.
 
 [phases.install]
-cmds = ["python3.11 -m pip install -r asclepius/backend/requirements.txt"]
+cmds = ["pip install -r asclepius/backend/requirements.txt"]
 
 [start]
 cmd = "cd asclepius/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
