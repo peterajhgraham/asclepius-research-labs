@@ -63,7 +63,7 @@ BM25 and FAISS run in parallel. Their ranked lists are merged by RRF (rank-based
 **Multimodal path** (`POST /query/images`):
 
 ```
-Base64 image + question
+  Base64 image + question
          ↓
   KB context retrieval (same hybrid pipeline)
          ↓
