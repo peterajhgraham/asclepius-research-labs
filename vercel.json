@@ -1,8 +1,6 @@
 {
-  "builds": [
-    {
-      "src": "asclepius/frontend/package.json",
-      "use": "@vercel/next"
-    }
-  ]
+  "framework": "nextjs",
+  "installCommand": "cd asclepius/frontend && npm install",
+  "buildCommand": "cd asclepius/frontend && npm run build",
+  "outputDirectory": "asclepius/frontend/.next"
 }
