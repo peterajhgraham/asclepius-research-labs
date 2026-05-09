@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
   "installCommand": "cd asclepius/frontend && npm install",
-  "buildCommand": "cd asclepius/frontend && npm run build && cp -r .next ../../.next",
-  "outputDirectory": ".next"
+  "buildCommand": "cd asclepius/frontend && npm run build",
+  "outputDirectory": "asclepius/frontend/.next"
 }
