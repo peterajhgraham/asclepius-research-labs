@@ -850,7 +850,7 @@ export default function HomePage() {
               {/* Powered by Claude badge */}
               <div className="mt-5 flex items-center gap-2">
                 <ClaudeBadge />
-                <span className="text-xs text-muted">· Hybrid RAG · Live PubMed · Multimodal</span>
+                <span className="text-xs text-muted">· Multimodal Hybrid RAG · Live PubMed</span>
               </div>
 
               {/* Mode switcher */}
