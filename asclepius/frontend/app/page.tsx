@@ -844,7 +844,7 @@ export default function HomePage() {
                 Asclepius Research Labs
               </h1>
               <p className="mt-2.5 text-center text-sm text-muted max-w-md leading-relaxed">
-                Scientific research intelligence powered by Claude. Query any domain — mechanism mapping, target risk assessment, hypothesis generation.
+                Scientific research intelligence powered by Claude. Query any domain: mechanism mapping, target risk assessment, hypothesis generation.
               </p>
 
               {/* Powered by Claude badge */}
