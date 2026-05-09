@@ -422,4 +422,6 @@ Cold-start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90 MB) on 
 
 ## License
 
-Proprietary. All rights reserved.
+Copyright (c) 2026 Peter Graham. All rights reserved.
+
+This software is proprietary and may not be copied, modified, distributed, or used without explicit written permission from the author.
