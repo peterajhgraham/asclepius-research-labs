@@ -42,8 +42,8 @@ module.exports = {
         hypothesis: "#fbbf24",   // amber — hypotheses
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "monospace"],
       },
       animation: {
         "fade-in":   "fadeIn 0.2s ease-in-out",
