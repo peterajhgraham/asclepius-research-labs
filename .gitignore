@@ -25,3 +25,4 @@ asclepius/backend/.venv/
 asclepius/backend/.env
 asclepius/frontend/.env.local
 memory/
+.env.local
