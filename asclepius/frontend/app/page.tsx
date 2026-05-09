@@ -241,7 +241,7 @@ function Sidebar({
           <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
             <button onClick={onNewSession} className="flex items-center gap-2 group">
               <AsclepiusLogo size={22} className="text-accent-400" />
-              <span className="text-sm font-semibold text-gray-100 group-hover:text-accent-400 transition">Asclepius</span>
+              <span className="text-sm font-semibold text-gray-100 group-hover:text-accent-400 transition">Scientific Research Intelligence</span>
             </button>
             <button onClick={onNewSession} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition" title="New session">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -735,11 +735,6 @@ export default function HomePage() {
                   <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <button onClick={handleNewSession} className="flex items-center justify-center group" title="New session">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-600/20 text-accent-400 group-hover:bg-accent-600/30 transition">
-                  <AsclepiusLogo size={20} />
-                </div>
-              </button>
             </div>
             <AuthHeader />
           </div>
@@ -760,7 +755,7 @@ export default function HomePage() {
                 <AsclepiusLogo size={36} />
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl text-center">
-                Scientific Research Intelligence
+                Asclepius Research Labs
               </h2>
               <p className="mt-2 text-center text-sm text-muted max-w-sm leading-relaxed">
                 Query any scientific domain. Mechanism mapping, hypothesis generation, and literature synthesis from primary research.
