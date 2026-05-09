@@ -57,6 +57,7 @@ class DocumentParser:
 
         doc = fitz.open(str(path))
         try:
+            page_count = len(doc)
             for page_num, page in enumerate(doc):
                 # Text extraction
                 blocks = page.get_text("blocks")
@@ -94,7 +95,7 @@ class DocumentParser:
 
         logger.info(
             "Parsed PDF %s: %d text blocks, %d images across %d pages",
-            path.name, len(text_blocks), len(image_blocks), len(doc)
+            path.name, len(text_blocks), len(image_blocks), page_count,
         )
         return text_blocks, image_blocks
 

@@ -354,9 +354,25 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 
 ## Deployment
 
-- **Backend** → Railway via `nixpacks.toml` (FastAPI + Uvicorn)
-- **Frontend** → Vercel via `vercel.json` in `asclepius/frontend/`
-- Cold start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90MB) on first deploy. Subsequent starts use Railway's volume cache.
+This is a monorepo: backend (FastAPI) lives in `asclepius/backend/`, frontend (Next.js 15 App Router) in `asclepius/frontend/`. Both Vercel and Railway support deploying a subdirectory either via dashboard *Root Directory* or via root-level config files. Configs for both styles are checked in, but the dashboard `Root Directory` setting must match the chosen style — otherwise the platform reads a config file you didn't intend.
+
+### Vercel (frontend)
+
+Pick **one** of these — do not mix them.
+
+- **Recommended — Root Directory in dashboard:** set Project Settings → General → *Root Directory* = `asclepius/frontend`. Vercel auto-detects Next.js, reads `asclepius/frontend/vercel.json`, and ignores the repo-root `vercel.json`. This is the canonical Vercel monorepo pattern and works correctly with the App Router.
+- **Alternate — Root Directory left as repo root (`./`):** Vercel reads the root `vercel.json`, which `cd`s into `asclepius/frontend` for install/build and points `outputDirectory` at `asclepius/frontend/.next`.
+
+> ⚠️ The legacy `builds` API in `vercel.json` (`{"builds": [{ "use": "@vercel/next" }]}`) does **not** properly support Next.js 13+ App Router and will fail on this project. Both supported configs above use the modern framework integration.
+
+### Railway (backend)
+
+Pick **one** of these — do not mix them.
+
+- **Recommended — Root Directory in dashboard:** set Service Settings → *Root Directory* = `asclepius/backend`. Railway auto-detects Python via the in-folder `requirements.txt` + `.python-version`, reads `asclepius/backend/railway.json`, and uses `asclepius/backend/Procfile` for the start command.
+- **Alternate — Root Directory left as repo root (`/`):** Railway reads the repo-root `nixpacks.toml` + `railway.json`, which install `asclepius/backend/requirements.txt` and start uvicorn after `cd`ing into `asclepius/backend`.
+
+Cold-start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90 MB) on first deploy. Subsequent starts use Railway's volume cache.
 
 ---
 
