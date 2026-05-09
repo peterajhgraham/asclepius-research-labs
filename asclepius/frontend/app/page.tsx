@@ -50,6 +50,13 @@ interface UploadedImage {
   fileName: string;
 }
 
+interface UploadedPdf {
+  file: File;
+  fileName: string;
+  status: "pending" | "indexing" | "done" | "error";
+  message?: string;
+}
+
 interface ConversationEntry {
   id: string;
   question: string;
@@ -122,16 +129,15 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const MODE_CONFIG: Record<Mode, { label: string; description: string; icon: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Mechanism Report", description: "Map disease biology from literature",       icon: "🧠", group: "dmi" },
-  "target-risk":    { label: "Target Risk",       description: "Score therapeutic target tractability",    icon: "🎯", group: "dmi" },
-  standard:         { label: "Analyze",           description: "Real-time scientific reasoning",           icon: "⚡", group: "legacy" },
-  compare:          { label: "Compare",           description: "Side-by-side biological comparison",       icon: "↔",  group: "legacy" },
-  hypothesis:       { label: "Hypothesize",       description: "Generate testable experimental hypotheses",icon: "🧪", group: "legacy" },
+const MODE_CONFIG: Record<Mode, { label: string; description: string; group: "dmi" | "legacy" }> = {
+  "disease-report": { label: "Mechanism Report", description: "Map disease biology from literature",        group: "dmi" },
+  "target-risk":    { label: "Target Risk",       description: "Score therapeutic target tractability",     group: "dmi" },
+  standard:         { label: "Analyze",           description: "Real-time scientific reasoning",            group: "legacy" },
+  compare:          { label: "Compare",           description: "Side-by-side biological comparison",        group: "legacy" },
+  hypothesis:       { label: "Hypothesize",       description: "Generate testable experimental hypotheses", group: "legacy" },
 };
 
 const ALL_MODES: Mode[] = ["disease-report", "target-risk", "standard", "compare", "hypothesis"];
-
 const LS_KEY = "asclepius_sessions_v2";
 
 // ------------------------------------------------------------------
@@ -156,26 +162,57 @@ function sessionTitle(entries: ConversationEntry[]): string {
 function pmidToUrl(pmid: string): string {
   return `https://pubmed.ncbi.nlm.nih.gov/${pmid}`;
 }
+function modelDisplayName(model: string): string {
+  if (model.includes("haiku")) return "Claude Haiku";
+  if (model.includes("sonnet")) return "Claude Sonnet";
+  if (model.includes("opus")) return "Claude Opus";
+  return "Claude";
+}
 
 // ------------------------------------------------------------------
-// Asclepius Logo
+// Claude attribution badge
 // ------------------------------------------------------------------
-function AsclepiusLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
+function ClaudeBadge({
+  model,
+  cost,
+  isStreaming = false,
+  sourceCount = 0,
+}: {
+  model?: string;
+  cost?: number;
+  isStreaming?: boolean;
+  sourceCount?: number;
+}) {
+  const name = model ? modelDisplayName(model) : "Claude";
   return (
-    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <circle cx="256" cy="256" r="240" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="8" />
-      <circle cx="256" cy="256" r="220" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.12" />
-      <line x1="256" y1="80" x2="256" y2="432" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
-      <circle cx="256" cy="72" r="16" fill="currentColor" />
-      <path d="M256 400 C216 396, 196 380, 210 362 C224 344, 260 340, 280 328 C300 316, 308 300, 296 288 C284 276, 252 272, 232 260 C212 248, 204 232, 218 218 C232 204, 260 200, 280 190 C300 180, 308 164, 296 150 C284 136, 256 132, 240 124" stroke="currentColor" strokeWidth="12" strokeLinecap="round" fill="none" />
-      <path d="M240 124 C232 116, 216 110, 200 114 C188 118, 184 130, 192 138 C198 144, 210 140, 218 134" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <circle cx="204" cy="122" r="5" fill="currentColor" />
-    </svg>
+    <div className="flex items-center gap-2 text-[11px] text-muted-light">
+      {/* Anthropic-style mark */}
+      <div className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 font-medium">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
+        <span className="font-mono tracking-tight">{isStreaming ? "Claude" : name}</span>
+        {!isStreaming && cost != null && cost > 0 && (
+          <span className="text-muted font-mono opacity-70 ml-0.5">${cost.toFixed(5)}</span>
+        )}
+      </div>
+      {isStreaming ? (
+        <span className="flex items-center gap-1 text-muted">
+          <span className="flex gap-0.5">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="h-1 w-1 rounded-full bg-accent-500 animate-pulse-dot"
+                style={{ animationDelay: `${i * 0.16}s` }} />
+            ))}
+          </span>
+          Generating…
+        </span>
+      ) : sourceCount > 0 ? (
+        <span className="text-muted">{sourceCount} source{sourceCount !== 1 ? "s" : ""} retrieved</span>
+      ) : null}
+    </div>
   );
 }
 
 // ------------------------------------------------------------------
-// Mode Switcher — segmented pill control
+// Mode Switcher — clean flat tabs
 // ------------------------------------------------------------------
 function ModeSwitcher({
   mode,
@@ -185,7 +222,7 @@ function ModeSwitcher({
   onModeChange: (m: Mode) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex items-center gap-0.5 rounded-lg border border-surface-3 bg-surface-1 p-0.5">
       {ALL_MODES.map((m) => {
         const active = mode === m;
         return (
@@ -193,19 +230,17 @@ function ModeSwitcher({
             <button
               onClick={() => onModeChange(m)}
               className={`
-                flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium whitespace-nowrap transition-all
+                relative rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all
                 ${active
-                  ? "bg-accent-600 text-white shadow-md shadow-accent-600/20"
-                  : "border border-surface-3 text-muted-light hover:border-accent-500/40 hover:text-gray-200 hover:bg-surface-2"
+                  ? "bg-surface-3 text-gray-100 shadow-sm"
+                  : "text-muted hover:text-gray-300"
                 }
               `}
             >
-              <span className="text-sm">{MODE_CONFIG[m].icon}</span>
-              <span>{MODE_CONFIG[m].label}</span>
+              {MODE_CONFIG[m].label}
             </button>
-            {/* Hover tooltip */}
             <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-              <div className="rounded-lg border border-surface-3 bg-surface-1 px-2.5 py-1.5 text-[11px] text-gray-300 whitespace-nowrap shadow-lg">
+              <div className="rounded-md border border-surface-3 bg-surface-0 px-2.5 py-1.5 text-[11px] text-gray-400 whitespace-nowrap shadow-xl">
                 {MODE_CONFIG[m].description}
               </div>
             </div>
@@ -234,49 +269,68 @@ function Sidebar({
   return (
     <>
       {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={onToggleSidebar} />
+        <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onToggleSidebar} />
       )}
-      <aside className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-surface-3 bg-surface-1 transition-transform duration-200 lg:relative lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
-            <button onClick={onNewSession} className="flex items-center gap-2 group">
-              <AsclepiusLogo size={22} className="text-accent-400" />
-              <span className="text-sm font-semibold text-gray-100 group-hover:text-accent-400 transition">Scientific Research Intelligence</span>
-            </button>
-            <button onClick={onNewSession} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition" title="New session">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto py-2">
-            {sessions.length === 0 && (
-              <p className="px-4 py-8 text-center text-xs text-muted">No sessions yet. Your research appears here.</p>
-            )}
-            {sessions.map((session) => (
-              <div key={session.id}
-                className={`group mx-2 mb-0.5 flex items-center rounded-lg px-3 py-2 cursor-pointer transition ${activeSessionId === session.id ? "bg-accent-600/15 text-accent-400" : "text-gray-400 hover:bg-surface-2 hover:text-gray-200"}`}
-                onClick={() => onSelectSession(session.id)}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{session.title}</p>
-                  <p className="text-[10px] text-muted mt-0.5">
-                    {MODE_CONFIG[session.mode]?.icon || ""} {session.entries.length} {session.entries.length === 1 ? "query" : "queries"}
-                  </p>
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
-                  className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-400 transition"
-                  title="Delete session">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
+      <aside className={`fixed top-0 left-0 z-40 h-full w-60 border-r border-surface-3 bg-surface-1 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        {/* Sidebar header */}
+        <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3.5">
+          <button onClick={onNewSession} className="flex items-center gap-2 group">
+            <span className="text-sm font-semibold tracking-tight text-gray-100 group-hover:text-accent-400 transition">
+              Asclepius
+            </span>
+            <span className="rounded-md bg-accent-600/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-400 tracking-wide">
+              Research
+            </span>
+          </button>
+          <button
+            onClick={onNewSession}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition"
+            title="New session"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Session list */}
+        <div className="flex-1 overflow-y-auto py-1.5">
+          {sessions.length === 0 && (
+            <p className="px-4 py-8 text-center text-xs text-muted leading-relaxed">
+              No sessions yet.<br />Start a query to begin.
+            </p>
+          )}
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              className={`group mx-2 mb-0.5 flex items-center gap-2 rounded-md px-3 py-2 cursor-pointer transition ${
+                activeSessionId === session.id
+                  ? "bg-surface-2 text-gray-200"
+                  : "text-muted hover:bg-surface-2/60 hover:text-gray-300"
+              }`}
+              onClick={() => onSelectSession(session.id)}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate leading-snug">{session.title}</p>
+                <p className="text-[10px] text-muted mt-0.5 font-mono">
+                  {MODE_CONFIG[session.mode]?.label} · {session.entries.length}q
+                </p>
               </div>
-            ))}
-          </div>
-          <div className="border-t border-surface-3 px-4 py-3">
-            <p className="text-[10px] text-muted text-center">Sessions stored locally</p>
-          </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
+                className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/15 hover:text-red-400 transition"
+                title="Delete"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-surface-3 px-4 py-2.5">
+          <p className="text-[10px] text-muted font-mono">sessions · local storage</p>
         </div>
       </aside>
     </>
@@ -291,17 +345,20 @@ function ImageAnalysisCard({ analysis, previewUrl }: { analysis: string; preview
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 rounded-xl border border-blue-500/25 bg-blue-500/5 overflow-hidden"
+      className="mt-4 rounded-lg border border-surface-3 bg-surface-1 overflow-hidden"
     >
-      <div className="flex items-center gap-2 border-b border-blue-500/15 px-4 py-2.5 bg-blue-500/8">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-blue-400">
+      <div className="flex items-center gap-2 border-b border-surface-3 px-4 py-2.5">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-accent-400 shrink-0">
           <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
         </svg>
-        <p className="text-xs font-bold uppercase tracking-widest text-blue-400">Image Analysis</p>
+        <span className="text-xs font-semibold text-gray-200 tracking-tight">Visual Analysis</span>
+        <span className="ml-auto">
+          <ClaudeBadge model="sonnet" />
+        </span>
       </div>
       <div className="p-4 flex gap-4">
         {previewUrl && (
-          <img src={previewUrl} alt="Uploaded research image" className="h-28 w-28 shrink-0 rounded-lg object-cover border border-surface-3" />
+          <img src={previewUrl} alt="Uploaded" className="h-24 w-24 shrink-0 rounded-md object-cover border border-surface-3" />
         )}
         <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{analysis}</p>
       </div>
@@ -310,114 +367,135 @@ function ImageAnalysisCard({ analysis, previewUrl }: { analysis: string; preview
 }
 
 // ------------------------------------------------------------------
-// FrozenStreamEntry — renders a completed streamed response
+// FrozenStreamEntry — completed streamed response
 // ------------------------------------------------------------------
 function FrozenStreamEntry({ entry, onShowCitations }: {
   entry: ConversationEntry;
   onShowCitations: (citations: Citation[]) => void;
 }) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
-
   const sources = entry.streamedSources ?? [];
-  const displayed = sourcesExpanded ? sources : sources.slice(0, 6);
+  const displayed = sourcesExpanded ? sources : sources.slice(0, 5);
 
   return (
-    <div className="rounded-xl border border-surface-3 bg-surface-1 overflow-hidden">
+    <div className="rounded-lg border border-surface-3 bg-surface-1 overflow-hidden">
+      {/* Response header — Claude attribution */}
+      <div className="flex items-center gap-3 border-b border-surface-3 px-4 py-2.5">
+        <ClaudeBadge
+          model={entry.streamedModel}
+          cost={entry.streamedCost}
+          sourceCount={entry.streamedCitations?.length ?? 0}
+        />
+        {(entry.streamedCitations?.length ?? 0) > 0 && (
+          <button
+            onClick={() => onShowCitations(entry.streamedCitations!)}
+            className="ml-auto flex items-center gap-1.5 rounded-md border border-surface-3 px-2 py-1 text-[11px] text-muted hover:text-gray-300 hover:border-accent-500/30 transition"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            {entry.streamedCitations!.length} retrieved
+          </button>
+        )}
+      </div>
+
+      {/* Answer body */}
       <div className="px-5 py-4">
         <div className="prose prose-invert prose-sm max-w-none
-          prose-headings:text-gray-100 prose-headings:font-semibold
+          prose-headings:text-gray-100 prose-headings:font-semibold prose-headings:tracking-tight
           prose-p:text-gray-300 prose-p:leading-relaxed
           prose-strong:text-gray-100
-          prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs
+          prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs prose-code:font-mono
           prose-ul:text-gray-300 prose-li:my-0.5
           prose-h2:text-base prose-h3:text-sm">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.streamedText || ""}</ReactMarkdown>
         </div>
       </div>
-      <div className="border-t border-surface-3 bg-surface-0/50 px-5 py-2.5 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3 flex-wrap">
-          {(entry.streamedCitations?.length ?? 0) > 0 && (
-            <button
-              onClick={() => onShowCitations(entry.streamedCitations!)}
-              className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-light hover:text-gray-200 hover:border-accent-600/50 transition"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-              {entry.streamedCitations!.length} retrieved
+
+      {/* Sources footer */}
+      {sources.length > 0 && (
+        <div className="border-t border-surface-3 bg-surface-0/40 px-4 py-2.5 flex flex-wrap items-center gap-1.5">
+          {displayed.map((s, i) => {
+            const pmidMatch = s.match(/PMID:\s*(\d+)/i);
+            return pmidMatch ? (
+              <a key={i} href={pmidToUrl(pmidMatch[1])} target="_blank" rel="noopener noreferrer"
+                className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 transition">
+                {s}
+              </a>
+            ) : (
+              <span key={i} className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-surface-3 bg-surface-2 text-muted-light">{s}</span>
+            );
+          })}
+          {sources.length > 5 && (
+            <button onClick={() => setSourcesExpanded(!sourcesExpanded)} className="text-[10px] text-muted hover:text-gray-300 transition">
+              {sourcesExpanded ? "show less" : `+${sources.length - 5} more`}
             </button>
           )}
-          <div className="flex flex-wrap gap-1">
-            {displayed.map((s, i) => {
-              const pmidMatch = s.match(/PMID:\s*(\d+)/i);
-              return pmidMatch ? (
-                <a key={i} href={pmidToUrl(pmidMatch[1])} target="_blank" rel="noopener noreferrer"
-                  className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 transition">
-                  {s}
-                </a>
-              ) : (
-                <span key={i} className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-surface-4 bg-surface-2 text-muted-light">{s}</span>
-              );
-            })}
-            {sources.length > 6 && (
-              <button onClick={() => setSourcesExpanded(!sourcesExpanded)} className="text-[10px] text-muted hover:text-gray-300 transition">
-                {sourcesExpanded ? "less" : `+${sources.length - 6} more`}
-              </button>
-            )}
-          </div>
         </div>
-        {entry.streamedModel && (
-          <div className="flex items-center gap-1.5 text-[10px] text-muted shrink-0">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
-            <span className="font-mono">
-              {entry.streamedModel.includes("haiku") ? "Haiku"
-                : entry.streamedModel.includes("sonnet") ? "Sonnet"
-                : entry.streamedModel.includes("opus") ? "Opus"
-                : entry.streamedModel}
-            </span>
-            {(entry.streamedCost ?? 0) > 0 && (
-              <><span className="text-surface-4">·</span><span className="font-mono">${entry.streamedCost!.toFixed(5)}</span></>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
 // ------------------------------------------------------------------
-// Landing Page Sections
+// AI Response Wrapper — wraps non-streaming cards with Claude badge
+// ------------------------------------------------------------------
+function AiResponseWrapper({ children, label }: { children: React.ReactNode; label: string }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <ClaudeBadge />
+        <span className="text-[11px] text-muted">{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// Landing Page
 // ------------------------------------------------------------------
 const HOW_IT_WORKS = [
   {
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
       </svg>
     ),
-    title: "Search",
-    desc: "Ask about any mechanism, pathway, target, or disease",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" />
-      </svg>
-    ),
     title: "Retrieve",
-    desc: "BM25 and semantic search across knowledge bases and live PubMed",
+    desc: "BM25 + semantic search across curated knowledge bases and live PubMed",
   },
   {
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M12 2a10 10 0 1 0 10 10" /><path d="M12 6v6l4 2" /><path d="M22 2L12 12" /><path d="M17 2h5v5" />
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M12 2a10 10 0 1 0 10 10" /><path d="M12 6v6l4 2" />
       </svg>
     ),
     title: "Synthesize",
-    desc: "Answers are grounded in retrieved propositions from primary literature",
+    desc: "Claude grounds answers in retrieved propositions from primary literature",
+  },
+  {
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+      </svg>
+    ),
+    title: "Multimodal",
+    desc: "Upload images or PDFs — figures are captioned and indexed for retrieval",
   },
 ];
+
+// ------------------------------------------------------------------
+// PDF ingest helper
+// ------------------------------------------------------------------
+async function ingestDocument(file: File): Promise<{ propositions_indexed: number; images_captioned: number }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch("/api/ingest", { method: "POST", body: formData });
+  if (!res.ok) throw new Error(`Ingest failed: ${res.status}`);
+  return res.json();
+}
 
 // ------------------------------------------------------------------
 // Main Page
@@ -435,9 +513,11 @@ export default function HomePage() {
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [panelCitations, setPanelCitations] = useState<Citation[]>([]);
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
+  const [uploadedPdf, setUploadedPdf] = useState<UploadedPdf | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const streaming = useStreamingQuery();
   const [streamingEntryId, setStreamingEntryId] = useState<string | null>(null);
@@ -523,6 +603,7 @@ export default function HomePage() {
     setShowCitationPanel(false);
     setLoading(false);
     setUploadedImage(null);
+    setUploadedPdf(null);
   }
 
   function handleSelectSession(sessionId: string) {
@@ -549,7 +630,7 @@ export default function HomePage() {
   }
 
   // ------------------------------------------------------------------
-  // Image upload handlers
+  // Image upload
   // ------------------------------------------------------------------
   function processImageFile(file: File) {
     if (!file.type.startsWith("image/")) return;
@@ -557,12 +638,7 @@ export default function HomePage() {
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       const base64 = dataUrl.split(",")[1];
-      setUploadedImage({
-        base64,
-        previewUrl: dataUrl,
-        mediaType: file.type,
-        fileName: file.name,
-      });
+      setUploadedImage({ base64, previewUrl: dataUrl, mediaType: file.type, fileName: file.name });
     };
     reader.readAsDataURL(file);
   }
@@ -571,16 +647,29 @@ export default function HomePage() {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processImageFile(file);
+    if (!file) return;
+    if (file.type.startsWith("image/")) processImageFile(file);
+    else if (file.type === "application/pdf") handlePdfSelected(file);
   }
 
-  function handleDragOver(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setIsDragging(true);
-  }
+  function handleDragOver(e: DragEvent<HTMLDivElement>) { e.preventDefault(); setIsDragging(true); }
+  function handleDragLeave() { setIsDragging(false); }
 
-  function handleDragLeave() {
-    setIsDragging(false);
+  // ------------------------------------------------------------------
+  // PDF upload / ingest
+  // ------------------------------------------------------------------
+  async function handlePdfSelected(file: File) {
+    setUploadedPdf({ file, fileName: file.name, status: "indexing" });
+    try {
+      const result = await ingestDocument(file);
+      setUploadedPdf((prev) => prev ? {
+        ...prev,
+        status: "done",
+        message: `${result.propositions_indexed} propositions indexed · ${result.images_captioned} figures captioned`,
+      } : null);
+    } catch {
+      setUploadedPdf((prev) => prev ? { ...prev, status: "error", message: "Failed to index document" } : null);
+    }
   }
 
   // ------------------------------------------------------------------
@@ -593,10 +682,9 @@ export default function HomePage() {
 
     const idx = entries.length;
     let displayQ = trimmed;
-    if (mode === "disease-report") displayQ = `Disease Report: ${trimmed} [${vertical}]`;
-    else if (mode === "target-risk") displayQ = `Target Risk: ${targetName.trim()} in ${trimmed} [${vertical}]`;
-    else if (mode === "compare" && diseaseB.trim()) displayQ = `Compare: ${trimmed} vs ${diseaseB.trim()}`;
-    else if (mode === "hypothesis") displayQ = `Hypotheses: ${trimmed}`;
+    if (mode === "disease-report") displayQ = `${trimmed} [${vertical}]`;
+    else if (mode === "target-risk") displayQ = `${targetName.trim()} in ${trimmed}`;
+    else if (mode === "compare" && diseaseB.trim()) displayQ = `${trimmed} vs ${diseaseB.trim()}`;
 
     const capturedImage = uploadedImage;
 
@@ -623,7 +711,6 @@ export default function HomePage() {
     setLoading(true);
 
     try {
-      // Image query — always routes through vision endpoint
       if (capturedImage) {
         const result = await submitImageQuery({
           question: trimmed,
@@ -633,9 +720,7 @@ export default function HomePage() {
         });
         setEntries((prev) =>
           prev.map((e, i) =>
-            i === idx
-              ? { ...e, response: result, imageAnalysis: result.image_analysis ?? undefined, loading: false }
-              : e,
+            i === idx ? { ...e, response: result, imageAnalysis: result.image_analysis ?? undefined, loading: false } : e,
           ),
         );
         setLoading(false);
@@ -687,6 +772,9 @@ export default function HomePage() {
     else setQuestion(example);
   }
 
+  // Input class shared by all text inputs in the bar
+  const inputCls = "h-11 flex-1 min-w-0 rounded-lg border border-surface-3 bg-surface-1/80 px-3.5 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 disabled:opacity-40 font-sans";
+
   // ------------------------------------------------------------------
   // Render
   // ------------------------------------------------------------------
@@ -704,12 +792,11 @@ export default function HomePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-accent-900/60 backdrop-blur-sm border-4 border-dashed border-accent-400/60"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0/80 backdrop-blur-sm border-2 border-dashed border-accent-500/40"
           >
             <div className="text-center">
-              <div className="text-5xl mb-3">🖼️</div>
-              <p className="text-xl font-bold text-accent-300">Drop image to upload</p>
-              <p className="text-sm text-accent-400/70 mt-1">Supports JPEG, PNG, GIF, WebP</p>
+              <p className="text-lg font-semibold text-gray-200">Drop to attach</p>
+              <p className="text-sm text-muted mt-1">Images · PDF documents</p>
             </div>
           </motion.div>
         )}
@@ -726,127 +813,130 @@ export default function HomePage() {
       />
 
       <main className="flex flex-1 min-w-0 flex-col">
-        {/* Top bar — logo + auth only (mode switcher moved to input area) */}
+        {/* Top bar */}
         <header className="sticky top-0 z-20 border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-gray-300 transition lg:hidden">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              </button>
-            </div>
+          <div className="flex items-center justify-between px-4 py-2.5 sm:px-5">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition lg:hidden"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <div className="hidden lg:block" />
             <AuthHeader />
           </div>
         </header>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {/* Landing state */}
+
+          {/* Landing */}
           {isEmpty && (
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35 }}
-              className="mx-auto flex max-w-2xl flex-col items-center px-6 pt-12 pb-10 sm:pt-16"
+              transition={{ duration: 0.3 }}
+              className="mx-auto flex max-w-2xl flex-col items-center px-6 pt-16 pb-10 sm:pt-20"
             >
-              {/* Hero */}
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-600/10 text-accent-400 ring-1 ring-accent-500/20">
-                <AsclepiusLogo size={36} />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl text-center">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-100 sm:text-3xl text-center">
                 Asclepius Research Labs
-              </h2>
-              <p className="mt-2 text-center text-sm text-muted max-w-sm leading-relaxed">
-                Query any scientific domain. Mechanism mapping, hypothesis generation, and literature synthesis from primary research.
+              </h1>
+              <p className="mt-2.5 text-center text-sm text-muted max-w-md leading-relaxed">
+                Scientific research intelligence powered by Claude. Query any domain — mechanism mapping, target risk assessment, hypothesis generation.
               </p>
 
-              {/* Mode switcher — centered, prominent on landing */}
-              <div className="mt-8 flex justify-center w-full">
+              {/* Powered by Claude badge */}
+              <div className="mt-5 flex items-center gap-2">
+                <ClaudeBadge />
+                <span className="text-xs text-muted">· Hybrid RAG · Live PubMed · Multimodal</span>
+              </div>
+
+              {/* Mode switcher */}
+              <div className="mt-8">
                 <ModeSwitcher mode={mode} onModeChange={setMode} />
               </div>
 
               {/* Example chips */}
-              <div className="mt-4 w-full">
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {examples.map((example) => (
-                    <motion.button
-                      key={example}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => handleExampleClick(example)}
-                      className="rounded-full border border-surface-3 bg-surface-1 px-4 py-2 text-xs text-gray-400 transition hover:border-accent-500/40 hover:bg-surface-2 hover:text-gray-200 hover:shadow-[0_0_12px_rgba(13,148,136,0.15)]"
-                    >
-                      <span className="mr-1.5 opacity-60">{MODE_CONFIG[mode].icon}</span>{example}
-                    </motion.button>
-                  ))}
-                </div>
+              <div className="mt-5 flex flex-wrap gap-2 justify-center">
+                {examples.map((example) => (
+                  <motion.button
+                    key={example}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleExampleClick(example)}
+                    className="rounded-md border border-surface-3 bg-surface-1 px-3.5 py-1.5 text-xs text-muted hover:border-surface-4 hover:bg-surface-2 hover:text-gray-300 transition"
+                  >
+                    {example}
+                  </motion.button>
+                ))}
               </div>
 
               {/* How it works */}
-              <div className="mt-10 w-full">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="mt-12 w-full">
+                <div className="flex items-center gap-3 mb-4">
                   <div className="h-px flex-1 bg-surface-3" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-dim px-2">How it works</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted font-mono">How it works</p>
                   <div className="h-px flex-1 bg-surface-3" />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {HOW_IT_WORKS.map((step, i) => (
                     <motion.div
                       key={step.title}
-                      initial={{ opacity: 0, y: 10 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 + i * 0.08 }}
-                      className="rounded-xl border border-surface-3 bg-surface-1 p-4 text-center"
+                      transition={{ delay: 0.1 + i * 0.07 }}
+                      className="rounded-lg border border-surface-3 bg-surface-1 p-4"
                     >
-                      <div className="flex justify-center mb-2 text-accent-400">{step.icon}</div>
+                      <div className="mb-2 text-accent-400">{step.icon}</div>
                       <p className="text-xs font-semibold text-gray-200 mb-1">{step.title}</p>
                       <p className="text-[11px] text-muted leading-relaxed">{step.desc}</p>
                     </motion.div>
                   ))}
                 </div>
               </div>
-
             </motion.div>
           )}
 
           {/* Results */}
           {!isEmpty && (
-            <div className="mx-auto max-w-5xl px-4 py-8 space-y-10 sm:px-6">
+            <div className="mx-auto max-w-3xl px-4 py-8 space-y-8 sm:px-6">
               {entries.map((entry) => {
                 const isCurrentlyStreaming = entry.id === streamingEntryId;
                 return (
                   <motion.div
                     key={entry.id}
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    {/* User query bubble */}
-                    <div className="mb-5 flex items-start gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-600/20 text-sm">
-                        {MODE_CONFIG[entry.mode]?.icon || "Q"}
+                    {/* User message */}
+                    <div className="mb-4 flex items-start gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-2 text-xs font-semibold text-muted-light">
+                        {MODE_CONFIG[entry.mode]?.label.slice(0, 1)}
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
-                        {/* Show uploaded image thumbnail if present */}
                         {entry.imagePreviewUrl && (
                           <img
                             src={entry.imagePreviewUrl}
                             alt="Uploaded"
-                            className="mb-2 h-20 w-20 rounded-lg object-cover border border-surface-3"
+                            className="mb-2 h-16 w-16 rounded-md object-cover border border-surface-3"
                           />
                         )}
-                        <p className="text-sm font-semibold text-gray-100 leading-relaxed">{entry.question}</p>
-                        <p className="text-[10px] text-muted mt-0.5">
+                        <p className="text-sm font-medium text-gray-100 leading-relaxed">{entry.question}</p>
+                        <p className="text-[10px] text-muted mt-0.5 font-mono">
                           {MODE_CONFIG[entry.mode]?.label} · {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
                     </div>
 
-                    {/* Response area */}
+                    {/* Response */}
                     <div className="ml-10">
                       {entry.error && (
-                        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{entry.error}</div>
+                        <div className="rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-400">
+                          {entry.error}
+                        </div>
                       )}
 
                       {isCurrentlyStreaming && (
@@ -862,41 +952,39 @@ export default function HomePage() {
 
                       {entry.loading && !isCurrentlyStreaming && (
                         <div className="flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
-                          <span className="animate-pulse text-sm text-muted-light">
-                            {entry.mode === "disease-report" ? "Analyzing literature…"
-                              : entry.mode === "target-risk" ? "Assessing target risk…"
-                              : entry.mode === "compare" ? "Comparing topics…"
+                          <ClaudeBadge isStreaming />
+                          <span className="text-xs text-muted">
+                            {entry.mode === "disease-report" ? "Mapping disease mechanisms…"
+                              : entry.mode === "target-risk" ? "Assessing target tractability…"
+                              : entry.mode === "compare" ? "Running comparative analysis…"
                               : entry.mode === "hypothesis" ? "Generating hypotheses…"
-                              : entry.imagePreviewUrl ? "Analyzing image with Claude vision…"
-                              : "Reasoning across datasets…"}
+                              : entry.imagePreviewUrl ? "Analyzing image…"
+                              : "Reasoning across literature…"}
                           </span>
                         </div>
                       )}
 
-                      {/* Image analysis card (shown for image queries) */}
                       {entry.imageAnalysis && (
-                        <ImageAnalysisCard
-                          analysis={entry.imageAnalysis}
-                          previewUrl={entry.imagePreviewUrl}
-                        />
+                        <ImageAnalysisCard analysis={entry.imageAnalysis} previewUrl={entry.imagePreviewUrl} />
                       )}
 
-                      {/* Image query main response */}
                       {entry.response && entry.imagePreviewUrl && (
-                        <div className="mt-4 rounded-xl border border-surface-3 bg-surface-1 overflow-hidden">
+                        <div className="mt-3 rounded-lg border border-surface-3 bg-surface-1 overflow-hidden">
+                          <div className="flex items-center gap-2 border-b border-surface-3 px-4 py-2.5">
+                            <ClaudeBadge model={entry.response.model_used} sourceCount={entry.response.sources?.length ?? 0} />
+                          </div>
                           <div className="px-5 py-4">
                             <div className="prose prose-invert prose-sm max-w-none
                               prose-headings:text-gray-100 prose-headings:font-semibold
                               prose-p:text-gray-300 prose-p:leading-relaxed
                               prose-strong:text-gray-100
-                              prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs
+                              prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs prose-code:font-mono
                               prose-ul:text-gray-300 prose-li:my-0.5">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.response.answer}</ReactMarkdown>
                             </div>
                           </div>
                           {entry.response.sources?.length > 0 && (
-                            <div className="border-t border-surface-3 bg-surface-0/50 px-5 py-2.5 flex flex-wrap gap-1">
+                            <div className="border-t border-surface-3 bg-surface-0/40 px-4 py-2.5 flex flex-wrap gap-1.5">
                               {entry.response.sources.slice(0, 8).map((s, i) => {
                                 const m = s.match(/PMID:\s*(\d+)/i);
                                 return m ? (
@@ -905,7 +993,7 @@ export default function HomePage() {
                                     {s}
                                   </a>
                                 ) : (
-                                  <span key={i} className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-surface-4 bg-surface-2 text-muted-light">{s}</span>
+                                  <span key={i} className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-surface-3 bg-surface-2 text-muted-light">{s}</span>
                                 );
                               })}
                             </div>
@@ -913,15 +1001,32 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      {/* Standard mode — restored session */}
                       {entry.response && entry.mode === "standard" && !entry.streamedText && !entry.imagePreviewUrl && (
-                        <ResponseCard data={entry.response} />
+                        <AiResponseWrapper label="Standard retrieval">
+                          <ResponseCard data={entry.response} />
+                        </AiResponseWrapper>
                       )}
 
-                      {entry.diseaseReportResponse && <DiseaseReportCard data={entry.diseaseReportResponse} />}
-                      {entry.targetRiskResponse && <TargetRiskCard data={entry.targetRiskResponse} />}
-                      {entry.compareResponse && <CompareCard data={entry.compareResponse} />}
-                      {entry.hypothesisResponse && <HypothesisCard data={entry.hypothesisResponse} />}
+                      {entry.diseaseReportResponse && (
+                        <AiResponseWrapper label="Mechanism report via Claude">
+                          <DiseaseReportCard data={entry.diseaseReportResponse} />
+                        </AiResponseWrapper>
+                      )}
+                      {entry.targetRiskResponse && (
+                        <AiResponseWrapper label="Target risk via Claude">
+                          <TargetRiskCard data={entry.targetRiskResponse} />
+                        </AiResponseWrapper>
+                      )}
+                      {entry.compareResponse && (
+                        <AiResponseWrapper label="Comparative analysis via Claude">
+                          <CompareCard data={entry.compareResponse} />
+                        </AiResponseWrapper>
+                      )}
+                      {entry.hypothesisResponse && (
+                        <AiResponseWrapper label="Hypothesis generation via Claude">
+                          <HypothesisCard data={entry.hypothesisResponse} />
+                        </AiResponseWrapper>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -933,53 +1038,99 @@ export default function HomePage() {
 
         {/* Input bar */}
         <div className="border-t border-surface-3 bg-surface-0/95 backdrop-blur-md">
-          <form onSubmit={handleSubmit} className="mx-auto max-w-5xl px-4 py-3 sm:px-6">
-            {/* Mode switcher row */}
+          <form onSubmit={handleSubmit} className="mx-auto max-w-3xl px-4 py-3 sm:px-5">
+
+            {/* Top row: mode + options */}
             <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <ModeSwitcher mode={mode} onModeChange={setMode} />
-              </div>
+              <ModeSwitcher mode={mode} onModeChange={setMode} />
 
               <div className="flex items-center gap-3 shrink-0">
                 {isDmiMode && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-muted-light">Domain:</span>
+                    <span className="text-[11px] text-muted font-mono">domain:</span>
                     <input
                       type="text"
                       value={vertical}
                       onChange={(e) => setVertical(e.target.value)}
-                      placeholder="e.g., immunology"
-                      className="w-32 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 text-[11px] text-gray-200 placeholder-muted outline-none transition focus:border-accent-500/60"
+                      placeholder="general"
+                      className="w-28 h-7 rounded-md border border-surface-3 bg-surface-1 px-2 text-[11px] text-gray-200 placeholder-muted outline-none transition focus:border-accent-500/50 font-mono"
                     />
                   </div>
                 )}
 
                 {mode === "standard" && (
-                  <>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div
-                        className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includePubmed ? "bg-accent-600" : "bg-surface-3"}`}
-                        onClick={() => setIncludePubmed(!includePubmed)}
-                      >
-                        <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includePubmed ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                      </div>
-                      <span className="text-[11px] text-muted-light select-none">Live PubMed</span>
-                    </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <div
+                      className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includePubmed ? "bg-accent-600" : "bg-surface-3"}`}
+                      onClick={() => setIncludePubmed(!includePubmed)}
+                    >
+                      <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includePubmed ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                    </div>
+                    <span className="text-[11px] text-muted select-none font-mono">pubmed</span>
+                  </label>
+                )}
 
-                    {streaming.citations.length > 0 && (
-                      <button type="button" onClick={() => handleShowCitations(streaming.citations)}
-                        className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-light hover:text-accent-400 hover:border-accent-500/40 transition">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                          <polyline points="14 2 14 8 20 8" />
-                        </svg>
-                        {streaming.citations.length} sources
-                      </button>
-                    )}
-                  </>
+                {streaming.citations.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleShowCitations(streaming.citations)}
+                    className="flex items-center gap-1.5 rounded-md border border-surface-3 px-2 py-1 text-[11px] text-muted hover:text-gray-300 hover:border-accent-500/30 transition"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    {streaming.citations.length} sources
+                  </button>
                 )}
               </div>
             </div>
+
+            {/* PDF status banner */}
+            <AnimatePresence>
+              {uploadedPdf && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-2"
+                >
+                  <div className={`flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs ${
+                    uploadedPdf.status === "done"
+                      ? "border-accent-700/40 bg-accent-900/15 text-accent-400"
+                      : uploadedPdf.status === "error"
+                      ? "border-red-500/30 bg-red-500/8 text-red-400"
+                      : "border-surface-3 bg-surface-1 text-muted-light"
+                  }`}>
+                    {uploadedPdf.status === "indexing" && (
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent-500 border-t-transparent shrink-0" />
+                    )}
+                    {uploadedPdf.status === "done" && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                    {uploadedPdf.status === "error" && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    )}
+                    <span className="font-mono truncate max-w-[200px]">{uploadedPdf.fileName}</span>
+                    {uploadedPdf.status === "indexing" && <span className="text-muted">Indexing with Claude…</span>}
+                    {uploadedPdf.message && <span className="text-muted">{uploadedPdf.message}</span>}
+                    <button
+                      type="button"
+                      onClick={() => setUploadedPdf(null)}
+                      className="ml-auto shrink-0 text-muted hover:text-gray-300 transition"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Image preview */}
             <AnimatePresence>
@@ -988,18 +1139,18 @@ export default function HomePage() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="mb-2 flex items-center gap-2"
+                  className="mb-2 flex items-center gap-2.5"
                 >
                   <div className="relative">
                     <img
                       src={uploadedImage.previewUrl}
                       alt={uploadedImage.fileName}
-                      className="h-14 w-14 rounded-lg object-cover border border-accent-500/30"
+                      className="h-12 w-12 rounded-md object-cover border border-surface-3"
                     />
                     <button
                       type="button"
                       onClick={() => setUploadedImage(null)}
-                      className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-surface-0 border border-surface-3 text-muted hover:text-red-400 hover:border-red-400/40 transition"
+                      className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-surface-0 border border-surface-3 text-muted hover:text-red-400 transition"
                     >
                       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -1007,60 +1158,73 @@ export default function HomePage() {
                     </button>
                   </div>
                   <div>
-                    <p className="text-[11px] text-gray-300 font-medium truncate max-w-[200px]">{uploadedImage.fileName}</p>
-                    <p className="text-[10px] text-muted">Image ready, will be analyzed with Claude Vision</p>
+                    <p className="text-[11px] text-gray-300 font-medium font-mono truncate max-w-[180px]">{uploadedImage.fileName}</p>
+                    <p className="text-[10px] text-muted">Claude Vision · multimodal RAG</p>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
             {/* Input row */}
-            <div className="flex gap-2 sm:gap-3">
-              {/* Image upload button */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) processImageFile(file);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Upload image for visual analysis"
-                className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border transition ${
-                  uploadedImage
-                    ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
-                    : "border-surface-3 bg-surface-1 text-muted hover:border-accent-500/30 hover:text-gray-300"
-                }`}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                </svg>
-              </button>
+            <div className="flex items-center gap-2">
+              {/* Hidden file inputs */}
+              <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) processImageFile(f); e.target.value = ""; }} />
+              <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePdfSelected(f); e.target.value = ""; }} />
 
+              {/* Attach buttons */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  title="Attach image for Claude Vision analysis"
+                  className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
+                    uploadedImage
+                      ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
+                      : "border-surface-3 bg-surface-1 text-muted hover:border-surface-4 hover:text-gray-300"
+                  }`}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pdfInputRef.current?.click()}
+                  title="Upload PDF — Claude captions figures and indexes propositions for RAG"
+                  className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
+                    uploadedPdf
+                      ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
+                      : "border-surface-3 bg-surface-1 text-muted hover:border-surface-4 hover:text-gray-300"
+                  }`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Text inputs — consistent height */}
               {mode === "target-risk" ? (
                 <>
                   <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Topic or condition (e.g., Rheumatoid arthritis)" disabled={isLoading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
+                    placeholder="Condition (e.g., Rheumatoid arthritis)" disabled={isLoading}
+                    className={inputCls} />
+                  <span className="text-[11px] font-semibold text-muted shrink-0 font-mono">·</span>
                   <input type="text" value={targetName} onChange={(e) => setTargetName(e.target.value)}
-                    placeholder="Target (e.g., TNF-alpha, BACE1)" disabled={isLoading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
+                    placeholder="Target (e.g., TNF-alpha)" disabled={isLoading}
+                    className={inputCls} />
                 </>
               ) : mode === "compare" ? (
                 <>
                   <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Topic A (e.g., Alzheimer's disease)" disabled={loading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
-                  <div className="flex items-center px-1"><span className="text-xs font-bold text-muted">vs</span></div>
+                    placeholder="Topic A" disabled={loading} className={inputCls} />
+                  <span className="text-[11px] font-semibold text-muted shrink-0 font-mono">vs</span>
                   <input type="text" value={diseaseB} onChange={(e) => setDiseaseB(e.target.value)}
-                    placeholder="Topic B (e.g., Parkinson's disease)" disabled={loading}
-                    className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50" />
+                    placeholder="Topic B" disabled={loading} className={inputCls} />
                 </>
               ) : (
                 <input
@@ -1068,17 +1232,17 @@ export default function HomePage() {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder={
-                    uploadedImage
-                      ? "Ask a question about this image…"
-                      : mode === "disease-report" ? "Enter topic or condition name…"
-                      : mode === "hypothesis" ? "Research topic (e.g., tau aggregation in Alzheimer's)…"
-                      : "Ask about any mechanism, pathway, or research question…"
+                    uploadedImage ? "Ask about this image…"
+                    : mode === "disease-report" ? "Disease or condition name…"
+                    : mode === "hypothesis" ? "Research topic…"
+                    : "Ask about any mechanism, pathway, or target…"
                   }
                   disabled={isLoading}
-                  className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/25 disabled:opacity-50"
+                  className={inputCls}
                 />
               )}
 
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={
@@ -1087,21 +1251,21 @@ export default function HomePage() {
                   (mode === "compare" && !diseaseB.trim() && !uploadedImage) ||
                   (mode === "target-risk" && !targetName.trim() && !uploadedImage)
                 }
-                className="rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-11 shrink-0 rounded-lg bg-accent-600 px-4 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    <span className="hidden sm:inline">Working…</span>
-                  </span>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white block" />
                 ) : (
-                  <span className="flex items-center gap-1.5">
-                    <span>{uploadedImage ? "🔬" : MODE_CONFIG[mode].icon}</span>
-                    <span className="hidden sm:inline">{uploadedImage ? "Analyze" : MODE_CONFIG[mode].label}</span>
-                  </span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
                 )}
               </button>
             </div>
+
+            <p className="mt-2 text-[10px] text-muted text-center font-mono">
+              Claude · BM25 + semantic RAG · {mode === "standard" ? "streaming" : "structured"} · {isDmiMode ? "mechanism intelligence" : "literature synthesis"}
+            </p>
           </form>
         </div>
       </main>
