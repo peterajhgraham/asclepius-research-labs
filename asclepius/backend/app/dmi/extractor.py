@@ -15,16 +15,18 @@ from app.services.pubmed_service import PubMedArticle
 
 logger = logging.getLogger(__name__)
 
-_openai_client: Optional[Any] = None
+_anthropic_client: Optional[Any] = None
 
-if settings.openai_api_key:
+if settings.anthropic_api_key:
     try:
-        from openai import OpenAI
+        import anthropic as _anthropic_module
 
-        _openai_client = OpenAI(api_key=settings.openai_api_key)
-        logger.info("DMI extractor: OpenAI client initialised")
+        _anthropic_client = _anthropic_module.Anthropic(api_key=settings.anthropic_api_key)
+        logger.info("DMI extractor: Anthropic (Claude) client initialised")
     except ImportError:
-        logger.warning("openai package not installed — DMI extractor will use fallback mode")
+        logger.warning("anthropic package not installed — DMI extractor will use fallback mode")
+
+_DMI_EXTRACTION_MODEL = "claude-haiku-4-5-20251001"
 
 
 # ------------------------------------------------------------------
@@ -132,7 +134,7 @@ def extract_disease_mechanisms(
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
     """Extract structured disease mechanism data from articles."""
-    if _openai_client is None:
+    if _anthropic_client is None:
         return _fallback_disease_extraction(disease_name, vertical, articles)
 
     context = _build_literature_context(articles)
@@ -149,17 +151,14 @@ def extract_disease_mechanisms(
     )
 
     try:
-        response = _openai_client.chat.completions.create(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.2,
+        response = _anthropic_client.messages.create(
+            model=_DMI_EXTRACTION_MODEL,
             max_tokens=3000,
+            temperature=0.2,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
         )
-        raw = response.choices[0].message.content or "{}"
-        # Strip markdown fences if present
+        raw = response.content[0].text or "{}"
         raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
@@ -169,7 +168,7 @@ def extract_disease_mechanisms(
 
         return json.loads(raw)
     except Exception:
-        logger.warning("LLM extraction failed, using fallback", exc_info=True)
+        logger.warning("Claude extraction failed, using fallback", exc_info=True)
         return _fallback_disease_extraction(disease_name, vertical, articles)
 
 
@@ -215,7 +214,7 @@ def extract_target_assessment(
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
     """Extract target risk assessment data from articles."""
-    if _openai_client is None:
+    if _anthropic_client is None:
         return _fallback_target_extraction(disease_name, target_name, vertical, articles)
 
     context = _build_literature_context(articles)
@@ -233,16 +232,14 @@ def extract_target_assessment(
     )
 
     try:
-        response = _openai_client.chat.completions.create(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.2,
+        response = _anthropic_client.messages.create(
+            model=_DMI_EXTRACTION_MODEL,
             max_tokens=2000,
+            temperature=0.2,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
         )
-        raw = response.choices[0].message.content or "{}"
+        raw = response.content[0].text or "{}"
         raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
@@ -252,7 +249,7 @@ def extract_target_assessment(
 
         return json.loads(raw)
     except Exception:
-        logger.warning("LLM target extraction failed, using fallback", exc_info=True)
+        logger.warning("Claude target extraction failed, using fallback", exc_info=True)
         return _fallback_target_extraction(disease_name, target_name, vertical, articles)
 
 

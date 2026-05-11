@@ -18,16 +18,29 @@ def fetch_disease_literature(
 ) -> list[PubMedArticle]:
     """Fetch mechanism/pathway/target/trial literature for a disease.
 
-    Query: "{disease_name} AND (mechanism OR pathway OR target OR trial)"
+    First tries a specific mechanistic query; falls back to a broad search
+    on the disease name alone if no results are returned.
     """
-    query = (
+    specific_query = (
         f'("{disease_name}") AND '
-        f"(mechanism OR pathway OR target OR clinical trial)"
+        f"(mechanism OR pathway OR target OR therapy OR treatment)"
     )
-    articles = _pubmed.search(query, max_results=max_results, sort="relevance")
+    articles = _pubmed.search(specific_query, max_results=max_results, sort="relevance")
     logger.info(
-        "PubMed: fetched %d articles for disease=%r", len(articles), disease_name
+        "PubMed: fetched %d articles (specific query) for disease=%r",
+        len(articles),
+        disease_name,
     )
+
+    if not articles:
+        broad_query = f'"{disease_name}"'
+        articles = _pubmed.search(broad_query, max_results=max_results, sort="relevance")
+        logger.info(
+            "PubMed: fetched %d articles (broad fallback) for disease=%r",
+            len(articles),
+            disease_name,
+        )
+
     return articles
 
 
@@ -36,16 +49,30 @@ def fetch_target_literature(
     target_name: str,
     max_results: int = 50,
 ) -> list[PubMedArticle]:
-    """Fetch literature specifically about a target in the context of a disease."""
-    query = (
+    """Fetch literature specifically about a target in the context of a disease.
+
+    Falls back to a broader query when the specific one returns no results.
+    """
+    specific_query = (
         f'("{disease_name}") AND ("{target_name}") AND '
-        f"(mechanism OR pathway OR target OR trial OR failure)"
+        f"(mechanism OR pathway OR therapy OR trial OR failure)"
     )
-    articles = _pubmed.search(query, max_results=max_results, sort="relevance")
+    articles = _pubmed.search(specific_query, max_results=max_results, sort="relevance")
     logger.info(
-        "PubMed: fetched %d articles for disease=%r target=%r",
+        "PubMed: fetched %d articles (specific) for disease=%r target=%r",
         len(articles),
         disease_name,
         target_name,
     )
+
+    if not articles:
+        broad_query = f'"{disease_name}" AND "{target_name}"'
+        articles = _pubmed.search(broad_query, max_results=max_results, sort="relevance")
+        logger.info(
+            "PubMed: fetched %d articles (broad fallback) for disease=%r target=%r",
+            len(articles),
+            disease_name,
+            target_name,
+        )
+
     return articles

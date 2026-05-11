@@ -813,18 +813,17 @@ export default function HomePage() {
       />
 
       <main className="flex flex-1 min-w-0 flex-col">
-        {/* Top bar */}
-        <header className="sticky top-0 z-20 border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
+        {/* Mobile top bar — only renders when sidebar toggle or auth is needed */}
+        <header className="sticky top-0 z-20 lg:hidden border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
           <div className="flex items-center justify-between px-4 py-2.5 sm:px-5">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition lg:hidden"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
-            <div className="hidden lg:block" />
             <AuthHeader />
           </div>
         </header>
