@@ -1,17 +1,29 @@
-# Asclepius Research Labs — Web Application
+# Asclepius — Web Application
 
-Domain-agnostic scientific research intelligence platform. Query any field — immunology, oncology, neuroscience, climate science, ML, or any scientific domain. Hybrid BM25 + dense retrieval pipeline, 4-tier LLM routing, SSE streaming, causal knowledge graph propagation, and structured scientific reasoning. Domain is a runtime parameter; no hardcoded domain focus.
+> Production-grade scientific research intelligence: proposition-level hybrid retrieval, causal graph integration, 3-tier confidence-gated inference routing, and real-time SSE streaming.
+
+---
+
+## Overview
+
+This directory contains the deployable web application. The backend is a FastAPI service exposing 15+ REST endpoints, including an SSE streaming endpoint that delivers inference tokens and citations concurrently. The frontend is a Next.js 15 App Router application that proxies all inference traffic server-side to avoid exposing API keys to the browser.
+
+The system is domain-agnostic — the `vertical` parameter is a free-text string passed at query time. No source changes are required to switch from immunology to oncology, neuroscience, or any other scientific domain.
+
+---
 
 ## Stack
 
-| Layer       | Technology |
-|-------------|------------|
-| Backend     | Python · FastAPI · Pydantic · Uvicorn |
-| Retrieval   | BM25 (rank-bm25) + FAISS (sentence-transformers/all-MiniLM-L6-v2) + RRF k=60 + CrossEncoder (ms-marco-MiniLM-L-6-v2) |
-| LLM Routing | Anthropic (Haiku → Sonnet → Opus auto-escalation) · OpenAI fallback |
-| Graph       | Causal propagation (decay=0.85) · Intervention ranking |
-| Frontend    | Next.js 15 (App Router) · TypeScript · TailwindCSS · Framer Motion · react-markdown |
-| Deployment  | Railway (backend) · Vercel (frontend) |
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python · FastAPI · Pydantic v2 · Uvicorn · asyncio |
+| Retrieval | BM25 (BM25Okapi) + FAISS (all-MiniLM-L6-v2) + RRF k=60 + CrossEncoder (ms-marco-MiniLM-L-6-v2) |
+| Inference Routing | 3-tier hierarchy with heuristic confidence estimation and daily budget cap |
+| Graph | Causal belief propagation (decay=0.85) + intervention ranking |
+| Observability | structlog JSON + Prometheus counters/histograms + JSONL cost audit |
+| Persistence | SQLAlchemy async ORM + aiosqlite (PostgreSQL-compatible via URL) |
+| Frontend | Next.js 15 (App Router) · TypeScript · TailwindCSS · Framer Motion · react-markdown |
+| Deployment | Railway (backend) · Vercel (frontend) |
 
 ---
 
@@ -21,150 +33,115 @@ Domain-agnostic scientific research intelligence platform. Query any field — i
 asclepius/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                         # FastAPI app + retrieval warm-up on startup
+│   │   ├── main.py                         # FastAPI app + background retrieval warm-up
 │   │   ├── api/
-│   │   │   └── routes.py                   # 15+ endpoints + GET /query/stream (SSE)
+│   │   │   └── routes.py                   # 15+ endpoints + SSE streaming
 │   │   ├── core/
-│   │   │   └── config.py                   # Settings: ANTHROPIC_API_KEY, DAILY_BUDGET_USD, DATABASE_URL
+│   │   │   └── config.py                   # Pydantic-settings: API keys, budget cap, DB URL
 │   │   ├── retrieval/
-│   │   │   ├── bm25_index.py               # BM25Okapi lexical index
+│   │   │   ├── bm25_index.py               # BM25Okapi in-memory lexical index
 │   │   │   ├── dense_index.py              # FAISS IndexFlatIP + sentence-transformers
 │   │   │   ├── fusion.py                   # Reciprocal Rank Fusion (k=60)
 │   │   │   ├── reranker.py                 # CrossEncoder ms-marco-MiniLM-L-6-v2
-│   │   │   └── pipeline.py                 # Unified hybrid pipeline
+│   │   │   └── pipeline.py                 # Unified hybrid pipeline singleton
 │   │   ├── chunking/
-│   │   │   ├── document_parser.py          # PyMuPDF PDF → text blocks + image blocks
-│   │   │   ├── image_captioner.py          # Haiku vision → figure caption propositions
-│   │   │   ├── proposition_extractor.py    # Claude Haiku atomic claim extraction
-│   │   │   └── sliding_window.py           # Word-level chunker with overlap
+│   │   │   ├── document_parser.py          # PyMuPDF → text blocks + image blocks
+│   │   │   ├── image_captioner.py          # Vision model → figure caption propositions
+│   │   │   ├── proposition_extractor.py    # Atomic claim extraction from raw text
+│   │   │   └── sliding_window.py           # Word-level chunker (no-API fallback)
 │   │   ├── routing/
-│   │   │   ├── classifier.py               # Query complexity → starting tier
-│   │   │   ├── cost_tracker.py             # JSONL audit log + daily budget cap
-│   │   │   └── router.py                   # 4-tier Anthropic routing + streaming
+│   │   │   ├── classifier.py               # Query complexity → starting inference tier
+│   │   │   ├── cost_tracker.py             # JSONL audit log + daily budget enforcement
+│   │   │   └── router.py                   # 3-tier routing + streaming with metadata sentinel
 │   │   ├── observability/
-│   │   │   ├── metrics.py                  # Prometheus counters/histograms
-│   │   │   └── logging.py                  # structlog JSON output
+│   │   │   ├── metrics.py                  # Prometheus counters and histograms
+│   │   │   └── logging.py                  # structlog JSON structured output
 │   │   ├── db/
 │   │   │   ├── models.py                   # SQLAlchemy async ORM (Proposition, Paper)
-│   │   │   └── store.py                    # Async SQLite CRUD (aiosqlite)
+│   │   │   └── store.py                    # Async CRUD operations (aiosqlite)
 │   │   ├── services/
-│   │   │   ├── retrieval_service.py        # Pipeline singleton, KB + dataset indexing
-│   │   │   ├── llm_service.py              # Anthropic routing → OpenAI fallback → local
+│   │   │   ├── retrieval_service.py        # Pipeline singleton; KB + dataset indexing at startup
+│   │   │   ├── llm_service.py              # Orchestration: retrieval → routing → response
 │   │   │   ├── query_engine.py             # Structured keyword search across indexed datasets
-│   │   │   ├── pubmed_service.py           # Live NCBI E-utilities search
+│   │   │   ├── pubmed_service.py           # NCBI E-utilities search + interaction extraction
 │   │   │   ├── graph_service.py            # Causal propagation + intervention ranking
-│   │   │   ├── comparative_service.py      # Topic vs topic comparison
-│   │   │   ├── hypothesis_service.py       # Testable hypothesis generation
-│   │   │   ├── dossier_service.py          # Persistent research workspaces
-│   │   │   └── ingestion_service.py        # PDF ingestion orchestration (parse → chunk → caption → index)
+│   │   │   ├── comparative_service.py      # Multi-dimensional topic comparison
+│   │   │   ├── hypothesis_service.py       # 5-strategy testable hypothesis generation
+│   │   │   ├── dossier_service.py          # Persistent research workspace CRUD
+│   │   │   └── ingestion_service.py        # PDF ingestion: parse → chunk → caption → index
 │   │   ├── data/
-│   │   │   ├── knowledge_base.py           # Curated KB entries (domain-specific data loaded here)
-│   │   │   └── ingestion.py                # JSON dataset loaders (edges, pathways, entities, therapeutics)
-│   │   ├── dmi/                            # Mechanism Intelligence module (domain = runtime param)
-│   │   │   ├── disease_report.py           # Structured mechanism reports
-│   │   │   └── target_risk.py              # Target druggability + risk scoring
+│   │   │   ├── knowledge_base.py           # Curated KB entries (domain-configurable)
+│   │   │   └── ingestion.py                # JSON dataset loaders
+│   │   ├── dmi/                            # Disease/Mechanism Intelligence module
+│   │   │   ├── disease_report.py           #   Structured mechanism reports (domain = runtime param)
+│   │   │   └── target_risk.py              #   Target druggability + risk scoring
 │   │   └── models/
-│   │       └── schema.py                   # Pydantic request/response schemas
+│   │       └── schema.py                   # Pydantic schemas for all request/response types
 │   ├── tests/
-│   │   └── test_retrieval.py               # 33 tests covering BM25, RRF, chunking, routing, costs
+│   │   └── test_retrieval.py               # 33 tests: BM25, FAISS, RRF, reranking, routing, cost
+│   ├── scripts/
+│   │   └── setup_dev.sh                    # One-shot venv + deps + .env bootstrap
 │   └── requirements.txt
 └── frontend/
     ├── app/
-    │   ├── page.tsx                        # Main UI: streaming mode, citation panel, session mgmt
-    │   ├── layout.tsx                      # ClerkProvider (optional), Inter font
-    │   └── api/
-    │       ├── query/stream/route.ts       # SSE proxy → FastAPI /query/stream
-    │       └── ...                         # Other Next.js API proxy routes
+    │   ├── page.tsx                         # Main UI: 5 modes, SSE streaming, citation panel
+    │   ├── layout.tsx                       # Root layout + optional auth provider
+    │   └── api/                             # Next.js server-side proxy routes
+    │       ├── query/stream/route.ts        #   SSE proxy → backend /query/stream
+    │       └── ...                          #   One route per backend endpoint
     ├── components/
-    │   ├── StreamingResponse.tsx           # Token-by-token streaming display + markdown
-    │   ├── CitationPanel.tsx               # Sliding citation panel (retrieved propositions)
-    │   ├── ResponseCard.tsx                # Structured reasoning display (cells, cytokines, pathways)
-    │   ├── CompareCard.tsx                 # Side-by-side disease comparison
-    │   ├── HypothesisCard.tsx              # Testable hypothesis cards
-    │   ├── DiseaseReportCard.tsx           # Disease Mechanism Intelligence report
-    │   └── TargetRiskCard.tsx              # Target risk assessment
+    │   ├── StreamingResponse.tsx            # Token-by-token streaming + markdown rendering
+    │   ├── CitationPanel.tsx                # Sliding citation panel (retrieved propositions)
+    │   ├── ResponseCard.tsx                 # Structured reasoning: entities, pathways, targets
+    │   ├── CompareCard.tsx                  # Side-by-side topic comparison layout
+    │   ├── HypothesisCard.tsx               # Testable hypothesis cards with experimental designs
+    │   ├── DiseaseReportCard.tsx            # DMI mechanism report structured display
+    │   └── TargetRiskCard.tsx               # Target risk assessment display
     ├── hooks/
-    │   └── useStreamingQuery.ts            # SSE streaming hook (AbortController, event parsing)
+    │   └── useStreamingQuery.ts             # SSE hook: AbortController + event type parsing
     └── lib/
-        ├── api.ts                          # Typed API functions + StructuredReasoning (domain-agnostic fields)
-        ├── backend.ts                      # Backend URL resolver + proxy helpers
-        └── dmi-api.ts                      # DMI API functions (domain is a free-text string)
+        ├── api.ts                           # Typed API client (domain-agnostic field names)
+        ├── backend.ts                       # URL resolver + server-side proxy helpers
+        └── dmi-api.ts                       # DMI endpoint client (domain as free-text string)
 ```
-
----
-
-## Domain Configuration
-
-The `domain` (called `vertical` in the API) is a **runtime parameter** — pass any string:
-
-```json
-// Disease/Mechanism Report
-{ "disease_name": "Alzheimer's disease", "vertical": "neuroscience" }
-
-// Target Risk
-{ "disease_name": "Non-small cell lung cancer", "target_name": "EGFR", "vertical": "oncology" }
-
-// Standard query — domain inferred from question
-{ "question": "How does tau aggregation drive neurodegeneration?" }
-```
-
-Built-in domain focus templates: `immunology`, `oncology`, `neuroscience`. Any other value uses a general scientific extraction prompt.
-
----
-
-## Environment Variables
-
-### Backend (Railway)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | ✅ | — | Haiku/Sonnet/Opus routing |
-| `DAILY_BUDGET_USD` | | `10.00` | Hard daily spend cap |
-| `DATABASE_URL` | | `sqlite+aiosqlite:///./data/asclepius.db` | Async SQLite for proposition store |
-| `OPENAI_API_KEY` | | — | Fallback if no Anthropic key |
-| `NCBI_API_KEY` | | — | Boosts PubMed rate limits |
-
-### Frontend (Vercel)
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | | Clerk auth (optional) |
-| `CLERK_SECRET_KEY` | | Clerk auth (optional) |
-| `API_URL` | ✅ | Railway backend URL |
 
 ---
 
 ## Retrieval Pipeline
 
-Every query flows through:
+Every query passes through the following stages:
 
 ```
-Query → BM25 (rank-bm25)     ─┐
-        Dense (FAISS/MiniLM)  ─┼→ RRF(k=60) → CrossEncoder reranker → top-8 propositions
-                                ┘
-             ↓
-        Structured KB search (cytokines, pathways, diseases, therapeutics)
-             ↓
-        Causal graph propagation (decay=0.85, 1-hop subgraph)
-             ↓
-        LLM Router: Haiku → Sonnet → Opus (escalates if confidence < 0.60)
-             ↓
-        SSE stream to frontend / JSON response
+Query ──► BM25 (BM25Okapi)            ──┐
+          Dense (FAISS / all-MiniLM)  ──┴──► RRF(k=60) ──► CrossEncoder ──► top-8 propositions
+                                                                                    │
+                                    Structured KB search (entities, pathways, therapeutics)
+                                                                                    │
+                                          Causal graph (1-hop subgraph, signed edges)
+                                                                                    │
+                                   Inference Router: Tier I → Tier II → Tier III
+                                   (escalates when confidence heuristic < 0.60)
+                                                                                    │
+                                         SSE stream / structured JSON response
 ```
 
-The retrieval pipeline indexes ~1,000+ documents from the configured knowledge base and datasets at startup (warm-up runs in a background thread, ~30s on cold start with ML model downloads). Index content is domain-agnostic — swap in datasets for any scientific field.
+BM25 and FAISS execute in parallel. RRF merges ranked lists without score normalization — ordinal rank is invariant to score distribution shape. The CrossEncoder reranks the merged set to produce the final eight propositions passed as grounded context.
 
 ---
 
-## LLM Routing
+## Inference Routing
 
-| Tier | Model | Input $/M | Output $/M | Use case |
-|------|-------|-----------|------------|----------|
-| 1 | claude-haiku-4-5-20251001 | $0.80 | $4.00 | Default, streaming |
-| 2 | claude-sonnet-4-6 | $3.00 | $15.00 | Escalated (confidence < 0.60) |
-| 3 | claude-opus-4-7 | $15.00 | $75.00 | Maximum quality |
+Streaming always uses Tier I for minimum latency. Non-streaming endpoints apply full confidence-gated escalation.
 
-Cost per query is logged to `data/routing_logs/YYYY-MM-DD.jsonl`. Daily budget cap enforced before each LLM call.
+| Tier | Latency profile | Cost profile | Escalation trigger |
+|------|-----------------|--------------|--------------------|
+| I — Rapid | Lowest | Lowest | Default for all queries |
+| II — Balanced | Moderate | ~4× Tier I | Response confidence < 0.60 |
+| III — Deep | Highest | ~19× Tier I | Response confidence < 0.60 after Tier II |
+
+The confidence heuristic is intentionally simple: responses shorter than 150 characters score 0.30; responses containing uncertainty phrases score 0.40; all others score 0.85. Threshold is 0.60. A daily budget cap (`DAILY_BUDGET_USD`, default $10.00) is enforced as a pre-call check before every inference request. All spend is written to `data/routing_logs/YYYY-MM-DD.jsonl`.
+
+The streaming endpoint emits a terminal metadata sentinel as the last generator item — `{"_done": true, "model": "...", "cost": 0.000xx}` — which the route handler consumes to populate the SSE `done` event with the actual model ID and precise cost, rather than a hardcoded placeholder.
 
 ---
 
@@ -172,53 +149,106 @@ Cost per query is logged to `data/routing_logs/YYYY-MM-DD.jsonl`. Daily budget c
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations in real-time |
-| `POST` | `/query` | Standard JSON query response |
-| `POST` | `/ingest/document` | Upload a PDF — extracts text + figures, captions via Haiku vision, indexes into BM25+FAISS pipeline |
-| `POST` | `/compare` | Side-by-side topic comparison |
-| `POST` | `/hypotheses` | Testable hypothesis generation |
-| `POST` | `/pubmed/search` | Live PubMed article search |
+| `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations delivered in real-time |
+| `POST` | `/query` | Standard structured JSON response |
+| `POST` | `/query/images` | Multimodal — base64 image + question, KB-grounded visual analysis |
+| `POST` | `/ingest/document` | PDF upload — text extraction + chunking + figure captioning + index rebuild |
+| `POST` | `/compare` | Multi-dimensional side-by-side topic comparison |
+| `POST` | `/hypotheses` | Testable hypothesis generation (5 strategies) |
+| `POST` | `/pubmed/search` | Live PubMed search + molecular interaction extraction |
 | `GET` | `/graph/stats` | Knowledge graph statistics |
-| `POST` | `/graph/subgraph` | Extract subgraph around seed nodes |
-| `POST` | `/graph/propagate` | Run causal signal propagation |
-| `POST` | `/graph/interventions` | Rank upstream intervention targets |
-| `GET` | `/metrics` | Cost + pipeline health |
-| `GET` | `/health` | Service health + retrieval status |
-| `POST/GET` | `/dossiers/*` | Research dossier CRUD |
-| `POST` | `/dmi/disease-report` | Structured mechanism report (domain = runtime param) |
-| `POST` | `/dmi/target-risk` | Target risk scoring (domain = runtime param) |
+| `POST` | `/graph/subgraph` | 1-hop subgraph extraction around seed nodes |
+| `GET` | `/graph/hubs` | Highest-degree nodes in the graph |
+| `POST` | `/graph/propagate` | Causal signal propagation (configurable decay, direction) |
+| `POST` | `/graph/interventions` | Rank upstream intervention candidates by predicted phenotypic impact |
+| `POST` | `/dmi/disease-report` | Structured mechanism report (domain = runtime parameter) |
+| `POST` | `/dmi/target-risk` | Target druggability and risk scoring (domain = runtime parameter) |
+| `GET` | `/metrics` | Cost tracking + pipeline health (Prometheus exposition format) |
+| `GET` | `/health` | Service health + retrieval index status |
+| `POST/GET/PUT/DELETE` | `/dossiers/*` | Research dossier CRUD |
+
+### SSE Event Schema
+
+```
+start:     {"type": "start",     "question": "..."}
+citations: {"type": "citations", "data": [{text, score, rerank_score, type, pmid, source}, ...]}
+token:     {"type": "token",     "text": "..."}
+done:      {"type": "done",      "model": "...", "cost": 0.00042, "sources": [...]}
+error:     {"type": "error",     "message": "..."}
+```
+
+Citations are emitted before the first token, allowing the frontend to populate the citation panel while the answer is still generating.
+
+---
+
+## Domain Configuration
+
+Pass any string as `vertical`. No source changes required.
+
+```json
+{ "disease_name": "Alzheimer's disease", "vertical": "neuroscience" }
+{ "disease_name": "Non-small cell lung cancer", "target_name": "EGFR", "vertical": "oncology" }
+{ "question": "How does tau aggregation drive neurodegeneration?" }
+```
+
+Built-in prompt templates are available for `immunology`, `oncology`, and `neuroscience`. Any other value resolves to a general scientific extraction prompt.
+
+---
+
+## Environment Variables
+
+### Backend
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | ✅ | — | Primary inference key — 3-tier routing |
+| `DAILY_BUDGET_USD` | | `10.00` | Hard spend cap; enforced before each inference call |
+| `DATABASE_URL` | | `sqlite+aiosqlite:///./data/asclepius.db` | Async proposition store; swap URL for PostgreSQL |
+| `OPENAI_API_KEY` | | — | Fallback inference provider |
+| `NCBI_API_KEY` | | — | Raises PubMed rate limit from 3 to 10 req/s |
+
+### Frontend
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `API_URL` | ✅ | Backend base URL (used server-side only; never exposed to browser) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | | Clerk auth (optional) |
+| `CLERK_SECRET_KEY` | | Clerk auth (optional) |
 
 ---
 
 ## Development
 
-> **macOS venv note**: the shell alias `python` may resolve to system Python 3.9
-> even inside an activated virtualenv. Always use `venv/bin/python` and
-> `venv/bin/uvicorn` explicitly, or run `scripts/setup_dev.sh` which handles
-> this automatically.
+> **macOS venv note:** `python` may resolve to system Python 3.9 even inside an activated virtualenv. Use `venv/bin/python` and `venv/bin/uvicorn` explicitly, or rely on `scripts/setup_dev.sh`.
 
 ```bash
-# One-shot setup (creates venv, installs deps, copies .env.example → .env)
-bash scripts/setup_dev.sh
-
-# Backend (from asclepius/backend/)
-cp .env.example .env          # fill in ANTHROPIC_API_KEY etc.
+# Backend
+cd asclepius/backend
+bash scripts/setup_dev.sh                    # creates venv, installs deps, copies .env.example
+cp .env.example .env                         # add ANTHROPIC_API_KEY
 venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 
 # Tests
 venv/bin/pytest tests/test_retrieval.py -v
 
-# Frontend
+# Frontend (separate terminal)
 cd asclepius/frontend
-cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL if needed
-npm install
-npm run dev
+cp .env.local.example .env.local             # set API_URL=http://localhost:8000
+npm install && npm run dev
 ```
+
+Swagger UI: `http://localhost:8000/docs` · Frontend: `http://localhost:3000`
 
 ---
 
 ## Deployment
 
-- **Backend**: Railway, `nixpacks.toml` at repo root  
-- **Frontend**: Vercel, `vercel.json` in `frontend/`
-- Cold start note: sentence-transformers downloads `all-MiniLM-L6-v2` (~90MB) on first deploy. Subsequent starts use Railway's volume cache.
+### Railway (backend)
+
+Set *Root Directory* = `asclepius/backend`. Railway auto-detects Python via `requirements.txt` and `.python-version`, resolves the `Procfile` (`web: uvicorn app.main:app --host 0.0.0.0 --port $PORT`), and starts the service.
+
+Cold-start note: `all-MiniLM-L6-v2` (~90 MB) downloads on first deploy. Subsequent starts use Railway's volume cache, reducing warm-up from ~30s to ~5s.
+
+### Vercel (frontend)
+
+Set *Root Directory* = `asclepius/frontend`. Vercel auto-detects Next.js 15, applies App Router build conventions, and manages the serverless function routes automatically.

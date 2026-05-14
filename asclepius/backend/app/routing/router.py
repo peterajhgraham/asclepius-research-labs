@@ -129,8 +129,18 @@ def stream_with_routing(
     query_preview: str,
     max_tokens: int = 2000,
     temperature: float = 0.3,
-) -> Generator[str, None, None]:
-    """Stream response tokens from Haiku (streaming uses a single tier)."""
+) -> Generator[str | dict[str, Any], None, None]:
+    """Stream response tokens, then yield a terminal metadata dict.
+
+    Yields:
+        str: Response tokens as they arrive from the model.
+        dict: ``{"_done": True, "model": model_id, "cost": cost_usd}`` as the
+              final item. Callers must check ``isinstance(item, dict)`` to
+              distinguish tokens from the completion sentinel.
+
+    Streaming is always served from Tier I (fastest latency). The terminal
+    dict lets callers report the exact model and audit cost without guessing.
+    """
     client = _anthropic_client()
     if client is None:
         return
@@ -150,13 +160,13 @@ def stream_with_routing(
         ) as stream:
             for text in stream.text_stream:
                 yield text
-            # Record usage after stream completes
             final = stream.get_final_message()
-            record_query(
+            cost = record_query(
                 model=model,
                 query=query_preview,
                 input_tokens=final.usage.input_tokens,
                 output_tokens=final.usage.output_tokens,
             )
+        yield {"_done": True, "model": model, "cost": cost}
     except Exception:
         logger.warning("Streaming failed for model=%s", model, exc_info=True)
