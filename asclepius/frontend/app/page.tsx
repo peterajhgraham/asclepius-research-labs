@@ -163,14 +163,14 @@ function pmidToUrl(pmid: string): string {
   return `https://pubmed.ncbi.nlm.nih.gov/${pmid}`;
 }
 function modelDisplayName(model: string): string {
-  if (model.includes("haiku")) return "Claude Haiku";
-  if (model.includes("sonnet")) return "Claude Sonnet";
-  if (model.includes("opus")) return "Claude Opus";
-  return "Claude";
+  if (model.includes("haiku")) return "Rapid · Tier I";
+  if (model.includes("sonnet")) return "Balanced · Tier II";
+  if (model.includes("opus")) return "Deep · Tier III";
+  return "Asclepius Engine";
 }
 
 // ------------------------------------------------------------------
-// Claude attribution badge
+// Engine badge — shows inference tier without exposing provider
 // ------------------------------------------------------------------
 function ClaudeBadge({
   model,
@@ -183,13 +183,14 @@ function ClaudeBadge({
   isStreaming?: boolean;
   sourceCount?: number;
 }) {
-  const name = model ? modelDisplayName(model) : "Claude";
+  const tier = model ? modelDisplayName(model) : null;
   return (
     <div className="flex items-center gap-2 text-[11px] text-muted-light">
-      {/* Anthropic-style mark */}
       <div className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 font-medium">
         <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
-        <span className="font-mono tracking-tight">{isStreaming ? "Claude" : name}</span>
+        <span className="font-mono tracking-tight">
+          {isStreaming ? "Asclepius" : (tier ?? "Asclepius Engine")}
+        </span>
         {!isStreaming && cost != null && cost > 0 && (
           <span className="text-muted font-mono opacity-70 ml-0.5">${cost.toFixed(5)}</span>
         )}
@@ -473,7 +474,7 @@ const HOW_IT_WORKS = [
       </svg>
     ),
     title: "Synthesize",
-    desc: "Claude grounds answers in retrieved propositions from primary literature",
+    desc: "Answers are grounded in retrieved propositions, with citations traced back to primary literature",
   },
   {
     icon: (
@@ -843,13 +844,15 @@ export default function HomePage() {
                 Asclepius Research Labs
               </h1>
               <p className="mt-2.5 text-center text-sm text-muted max-w-md leading-relaxed">
-                Scientific research intelligence powered by Claude. Query any domain: mechanism mapping, target risk assessment, hypothesis generation.
+                Proposition-level hybrid retrieval with causal graph reasoning. Query any domain: mechanism mapping, target risk assessment, hypothesis generation.
               </p>
 
-              {/* Powered by Claude badge */}
               <div className="mt-5 flex items-center gap-2">
-                <ClaudeBadge />
-                <span className="text-xs text-muted">· Multimodal Hybrid RAG · Live PubMed</span>
+                <div className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 text-[11px] font-medium text-muted-light">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
+                  <span className="font-mono tracking-tight">Asclepius Engine</span>
+                </div>
+                <span className="text-xs text-muted">· Hybrid RAG · Causal Graph · Live PubMed</span>
               </div>
 
               {/* Mode switcher */}
@@ -1007,22 +1010,22 @@ export default function HomePage() {
                       )}
 
                       {entry.diseaseReportResponse && (
-                        <AiResponseWrapper label="Mechanism report via Claude">
+                        <AiResponseWrapper label="Mechanism Report · DMI Engine">
                           <DiseaseReportCard data={entry.diseaseReportResponse} />
                         </AiResponseWrapper>
                       )}
                       {entry.targetRiskResponse && (
-                        <AiResponseWrapper label="Target risk via Claude">
+                        <AiResponseWrapper label="Target Risk Assessment · DMI Engine">
                           <TargetRiskCard data={entry.targetRiskResponse} />
                         </AiResponseWrapper>
                       )}
                       {entry.compareResponse && (
-                        <AiResponseWrapper label="Comparative analysis via Claude">
+                        <AiResponseWrapper label="Comparative Analysis · RAG Pipeline">
                           <CompareCard data={entry.compareResponse} />
                         </AiResponseWrapper>
                       )}
                       {entry.hypothesisResponse && (
-                        <AiResponseWrapper label="Hypothesis generation via Claude">
+                        <AiResponseWrapper label="Hypothesis Generation · RAG Pipeline">
                           <HypothesisCard data={entry.hypothesisResponse} />
                         </AiResponseWrapper>
                       )}
@@ -1115,7 +1118,7 @@ export default function HomePage() {
                       </svg>
                     )}
                     <span className="font-mono truncate max-w-[200px]">{uploadedPdf.fileName}</span>
-                    {uploadedPdf.status === "indexing" && <span className="text-muted">Indexing with Claude…</span>}
+                    {uploadedPdf.status === "indexing" && <span className="text-muted">Extracting &amp; indexing propositions…</span>}
                     {uploadedPdf.message && <span className="text-muted">{uploadedPdf.message}</span>}
                     <button
                       type="button"
@@ -1158,7 +1161,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <p className="text-[11px] text-gray-300 font-medium font-mono truncate max-w-[180px]">{uploadedImage.fileName}</p>
-                    <p className="text-[10px] text-muted">Claude Vision · multimodal RAG</p>
+                    <p className="text-[10px] text-muted">Multimodal Vision · RAG Pipeline</p>
                   </div>
                 </motion.div>
               )}
@@ -1177,7 +1180,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
-                  title="Attach image for Claude Vision analysis"
+                  title="Attach scientific image for multimodal analysis"
                   className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
                     uploadedImage
                       ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
@@ -1191,7 +1194,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => pdfInputRef.current?.click()}
-                  title="Upload PDF — Claude captions figures and indexes propositions for RAG"
+                  title="Upload PDF — figures are captioned and propositions indexed into the RAG pipeline"
                   className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
                     uploadedPdf
                       ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
@@ -1263,7 +1266,7 @@ export default function HomePage() {
             </div>
 
             <p className="mt-2 text-[10px] text-muted text-center font-mono">
-              Claude · BM25 + semantic RAG · {mode === "standard" ? "streaming" : "structured"} · {isDmiMode ? "mechanism intelligence" : "literature synthesis"}
+              Asclepius · Hybrid RAG · {mode === "standard" ? "streaming" : "structured"} · {isDmiMode ? "mechanism intelligence" : "literature synthesis"}
             </p>
           </form>
         </div>

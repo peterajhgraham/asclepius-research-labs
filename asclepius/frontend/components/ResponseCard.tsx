@@ -135,10 +135,10 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
             <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-surface-3 text-[10px] text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
               <span className="font-mono">
-                {data.model_used?.includes("haiku") ? "Haiku"
-                  : data.model_used?.includes("sonnet") ? "Sonnet"
-                  : data.model_used?.includes("opus") ? "Opus"
-                  : data.model_used || "Local"}
+                {data.model_used?.includes("haiku") ? "Tier I"
+                  : data.model_used?.includes("sonnet") ? "Tier II"
+                  : data.model_used?.includes("opus") ? "Tier III"
+                  : data.model_used ? "Engine" : "Local"}
               </span>
               {(data.cost_usd ?? 0) > 0 && (
                 <><span className="text-surface-4">·</span><span className="font-mono">${data.cost_usd!.toFixed(5)}</span></>

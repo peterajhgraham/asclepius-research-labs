@@ -207,13 +207,16 @@ async def query_stream(
             if settings.anthropic_api_key:
                 from app.routing.router import stream_with_routing
 
-                for token in stream_with_routing(
+                for item in stream_with_routing(
                     messages=messages,
                     system=system,
                     query_preview=question[:100],
                 ):
-                    yield sse({"type": "token", "text": token})
-                model_used = "claude-haiku-4-5-20251001"
+                    if isinstance(item, dict) and item.get("_done"):
+                        model_used = item.get("model", model_used)
+                        cost = item.get("cost", 0.0)
+                    else:
+                        yield sse({"type": "token", "text": item})
             else:
                 # Fallback: use non-streaming call and emit answer as a single chunk
                 from app.routing.router import call_with_routing

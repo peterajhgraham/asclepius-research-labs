@@ -37,10 +37,10 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 function modelDisplayName(model: string): string {
-  if (model.includes("haiku")) return "Claude Haiku";
-  if (model.includes("sonnet")) return "Claude Sonnet";
-  if (model.includes("opus")) return "Claude Opus";
-  return "Claude";
+  if (model.includes("haiku")) return "Rapid · Tier I";
+  if (model.includes("sonnet")) return "Balanced · Tier II";
+  if (model.includes("opus")) return "Deep · Tier III";
+  return "Asclepius Engine";
 }
 
 export default function StreamingResponse({ state, onShowCitations }: Props) {
@@ -67,7 +67,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
         <div className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 text-[11px] font-medium text-muted-light">
           <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
           <span className="font-mono tracking-tight">
-            {done ? modelDisplayName(done.model) : "Claude"}
+            {done ? modelDisplayName(done.model) : "Asclepius"}
           </span>
           {done?.cost != null && done.cost > 0 && (
             <span className="text-muted font-mono opacity-70 ml-0.5">${done.cost.toFixed(5)}</span>
