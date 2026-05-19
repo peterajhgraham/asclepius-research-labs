@@ -25,8 +25,8 @@ interface Props {
   onClearImage: () => void;
   uploadedPdf: UploadedPdf | null;
   onClearPdf: () => void;
-  imageInputRef: RefObject<HTMLInputElement | null>;
-  pdfInputRef: RefObject<HTMLInputElement | null>;
+  imageInputRef: RefObject<HTMLInputElement>;
+  pdfInputRef: RefObject<HTMLInputElement>;
   onImageFileSelected: (file: File) => void;
   onPdfFileSelected: (file: File) => void;
   isLoading: boolean;
