@@ -185,7 +185,7 @@ class UpdateNotesRequest(BaseModel):
 
 class DocumentIngestResponse(BaseModel):
     filename: str
-    propositions_added: int
-    figures_captioned: int
+    propositions_indexed: int
+    images_captioned: int
     pages: int
     message: str = ""

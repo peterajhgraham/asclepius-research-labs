@@ -125,8 +125,11 @@ class LLMService:
                 image_analysis=None,
             )
 
+        _VISION_MODEL = "claude-sonnet-4-6"
         try:
             import anthropic as _anthropic
+            from app.routing.cost_tracker import record_query
+
             client = _anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
             image_prompt = (
@@ -141,7 +144,7 @@ class LLMService:
             )
 
             response = client.messages.create(
-                model="claude-sonnet-4-5",
+                model=_VISION_MODEL,
                 max_tokens=2500,
                 system=_SYSTEM_PROMPT,
                 messages=[{
@@ -181,7 +184,12 @@ class LLMService:
                 image_analysis = obs or None
 
             usage = response.usage
-            cost = (usage.input_tokens * 3 + usage.output_tokens * 15) / 1_000_000
+            cost = record_query(
+                model=_VISION_MODEL,
+                query=question[:100],
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+            )
 
             return QueryResponse(
                 answer=main_answer,
@@ -190,7 +198,7 @@ class LLMService:
                 pubmed_articles=pubmed_articles,
                 graph_context=graph_context,
                 retrieved_propositions=propositions,
-                model_used="claude-sonnet-4-5",
+                model_used=_VISION_MODEL,
                 cost_usd=round(cost, 6),
                 image_analysis=image_analysis,
             )

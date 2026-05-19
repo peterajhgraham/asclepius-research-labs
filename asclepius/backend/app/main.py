@@ -1,5 +1,6 @@
 import logging
 import logging.config
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +19,15 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.services.retrieval_service import warm_up
+    warm_up()
+    logger.info("Retrieval pipeline warm-up initiated")
+    yield
+
+
 app = FastAPI(
     title=settings.app_name,
     description=(
@@ -25,6 +35,7 @@ app = FastAPI(
         "and hypothesis generation across any scientific domain from primary literature."
     ),
     version="3.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -34,16 +45,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+if settings.cors_origins == ["*"] and settings.app_env != "development":
+    logger.warning("CORS is set to wildcard (*) in a non-development environment")
+
 app.include_router(router)
 app.include_router(dmi_router)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Kick off retrieval pipeline warm-up in the background."""
-    from app.services.retrieval_service import warm_up
-    warm_up()
-    logger.info("Retrieval pipeline warm-up initiated")
 
 
 @app.get("/health")

@@ -45,11 +45,16 @@ class TestTokenize:
 class TestBM25Index:
     def _make_index(self) -> BM25Index:
         idx = BM25Index()
+        # Corpus must have enough documents so query terms appear in fewer than
+        # half of them — otherwise ATIRE BM25 IDF = log(1) = 0 and all scores
+        # are zero.  TNF-alpha/rheumatoid/arthritis appear in docs 0 & 2 only.
         docs = [
             ("Rheumatoid arthritis involves TNF-alpha and IL-6 signaling.", {"type": "disease"}),
             ("JAK-STAT pathway dysregulation drives autoimmune inflammation.", {"type": "pathway"}),
             ("Adalimumab targets TNF-alpha in rheumatoid arthritis.", {"type": "therapeutic"}),
             ("Multiple sclerosis involves demyelination and T cell infiltration.", {"type": "disease"}),
+            ("CRISPR base editing corrects point mutations in haematopoietic cells.", {"type": "method"}),
+            ("Gut microbiome diversity correlates with metabolic syndrome markers.", {"type": "research"}),
         ]
         for text, meta in docs:
             idx.add(text, meta)
@@ -81,7 +86,7 @@ class TestBM25Index:
 
     def test_size(self):
         idx = self._make_index()
-        assert idx.size == 4
+        assert idx.size == 6
 
     def test_get_doc(self):
         idx = self._make_index()

@@ -71,8 +71,8 @@ async def ingest_document(
         logger.info("Live index rebuilt after ingesting %s", filename)
 
     return {
-        "propositions_added": len(text_props),
-        "figures_captioned": len(image_props),
+        "propositions_indexed": len(text_props),
+        "images_captioned": len(image_props),
         "pages": len(set(b.page for b in text_blocks)),
         "filename": filename,
     }

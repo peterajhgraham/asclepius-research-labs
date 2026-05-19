@@ -1,10 +1,10 @@
 import json
 import logging
-import time
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.models.schema import (
@@ -35,9 +35,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-def get_llm_service() -> LLMService:
-    return LLMService()
+_llm_service = LLMService()
 
 
 # ------------------------------------------------------------------
@@ -45,11 +43,11 @@ def get_llm_service() -> LLMService:
 # ------------------------------------------------------------------
 
 @router.post("/query", response_model=QueryResponse)
-def query(request: QueryRequest, service: LLMService = Depends(get_llm_service)) -> QueryResponse:
+def query(request: QueryRequest) -> QueryResponse:
     """Accept a natural language question and return a structured AI-generated answer."""
     log_query(request.question)
     try:
-        return service.query(
+        return _llm_service.query(
             request.question,
             include_pubmed=request.include_pubmed,
         )
@@ -66,11 +64,11 @@ def query(request: QueryRequest, service: LLMService = Depends(get_llm_service))
 # ------------------------------------------------------------------
 
 @router.post("/query/images", response_model=QueryResponse)
-def query_with_image(request: ImageQueryRequest, service: LLMService = Depends(get_llm_service)) -> QueryResponse:
+def query_with_image(request: ImageQueryRequest) -> QueryResponse:
     """Accept a research question + base64 image and return a vision-grounded answer."""
     log_query(f"IMAGE: {request.question}")
     try:
-        return service.query_with_image(
+        return _llm_service.query_with_image(
             question=request.question,
             image_base64=request.image_base64,
             media_type=request.media_type,
@@ -107,7 +105,7 @@ async def ingest_document_endpoint(
     result = await ingest_document(pdf_bytes, file.filename or "upload.pdf")
     return DocumentIngestResponse(
         **result,
-        message=f"Indexed {result['propositions_added']} text propositions and {result['figures_captioned']} figure captions.",
+        message=f"Indexed {result['propositions_indexed']} text propositions and {result['images_captioned']} figure captions.",
     )
 
 
@@ -137,19 +135,14 @@ async def query_stream(
             log_query(question)
             yield sse({"type": "start", "question": question})
 
-            # Run retrieval and structured search synchronously in the event loop
-            # (heavy ML already loaded; calls are CPU-bound but fast after warm-up)
             from app.services.retrieval_service import retrieve
             from app.services.query_engine import search_all
 
-            propositions = retrieve(question, top_k=8)
-            sr = search_all(question)
+            # Run CPU-bound ML retrieval off the async event loop
+            propositions = await run_in_threadpool(lambda: retrieve(question, top_k=8))
+            sr = await run_in_threadpool(lambda: search_all(question))
 
-            # PubMed (skip for streaming to keep latency low)
             pubmed_articles: list[PubMedResult] = []
-
-            # Graph context
-            service = LLMService()
             graph_context = LLMService._get_graph_context(sr)
 
             # Send citations immediately — frontend shows the panel while answer streams
