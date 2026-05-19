@@ -25,6 +25,7 @@ export default function ModeSwitcher({ mode, onModeChange }: Props) {
         return (
           <div key={m} className="relative group shrink-0">
             <button
+              type="button"
               onClick={() => onModeChange(m)}
               aria-label={MODE_CONFIG[m].description}
               className={`
