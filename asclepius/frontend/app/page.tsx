@@ -287,7 +287,21 @@ export default function HomePage() {
   function handleSelectSession(sessionId: string) {
     const session = selectSession(sessionId);
     if (!session) return;
-    setEntries(session.entries as ConversationEntry[]);
+    streaming.reset();
+    setStreamingEntryId(null);
+    setLoading(false);
+    setQuestion("");
+    setDiseaseB("");
+    setTargetName("");
+    setUploadedImage(null);
+    setUploadedPdf(null);
+    setShowCitationPanel(false);
+    // Sanitise any entries that were saved mid-request — they'd show a
+    // permanent loading spinner otherwise.
+    const sanitised = (session.entries as ConversationEntry[]).map((e) =>
+      e.loading ? { ...e, loading: false, error: "Query did not complete." } : e,
+    );
+    setEntries(sanitised);
     setMode(session.mode);
     setSidebarOpen(false);
   }
@@ -474,7 +488,10 @@ export default function HomePage() {
         setLoading(false);
       }
     },
-    [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, streaming],
+    // streaming.stream / streaming.reset are stable useCallback refs — including
+    // the entire streaming object would recreate handleSubmit on every SSE token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, streaming.stream, streaming.reset],
   );
 
   function handleShowCitations(citations: Citation[]) {
