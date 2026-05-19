@@ -102,7 +102,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
 
               return (
                 <div
-                  key={i}
+                  key={`${i}-${c.pmid || c.text.slice(0, 20)}`}
                   className={`rounded-lg border p-3 transition ${colorClass}`}
                 >
                   {/* Type badge + rank */}

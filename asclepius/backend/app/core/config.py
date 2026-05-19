@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Cost control
-    daily_budget_usd: str = "10.00"
+    daily_budget_usd: float = 10.0
 
     # Async database
     database_url: str = "sqlite+aiosqlite:///./data/asclepius.db"

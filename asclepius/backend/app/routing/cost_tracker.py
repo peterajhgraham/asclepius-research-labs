@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import date
 from pathlib import Path
 from threading import Lock
@@ -95,10 +94,10 @@ def get_daily_total() -> float:
 
 def check_budget(budget_override: float | None = None) -> bool:
     """Return True if spend is under the daily budget cap."""
-    budget = budget_override if budget_override is not None else float(
-        os.environ.get("DAILY_BUDGET_USD", "10.00")
-    )
-    return _daily_total < budget
+    if budget_override is not None:
+        return _daily_total < budget_override
+    from app.core.config import settings
+    return _daily_total < settings.daily_budget_usd
 
 
 def _load_daily_total(day: str) -> float:
