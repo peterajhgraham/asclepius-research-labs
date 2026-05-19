@@ -1,8 +1,8 @@
 "use client";
 
-import { type FormEvent, type DragEvent, type RefObject } from "react";
+import { type FormEvent, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import ModeSwitcher, { MODE_CONFIG } from "@/components/ModeSwitcher";
+import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 
 const INPUT_CLS =

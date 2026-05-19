@@ -31,7 +31,7 @@ import { useStreamingQuery, type Citation } from "@/hooks/useStreamingQuery";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 import { genId, PROSE_CLS, pmidToUrl } from "@/lib/utils";
-import { MODE_CONFIG } from "@/components/ModeSwitcher";
+import ModeSwitcher, { MODE_CONFIG } from "@/components/ModeSwitcher";
 
 import AuthHeader from "@/components/AuthHeader";
 import CitationPanel from "@/components/CitationPanel";
@@ -477,6 +477,11 @@ export default function HomePage() {
     [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, streaming],
   );
 
+  function handleShowCitations(citations: Citation[]) {
+    setPanelCitations(citations);
+    setShowCitationPanel(true);
+  }
+
   const isEmpty = entries.length === 0;
   const examples = EXAMPLE_PROMPTS[mode];
   const isLoading = loading || streaming.isStreaming;
@@ -578,8 +583,13 @@ export default function HomePage() {
                 <span className="text-xs text-muted">· Hybrid RAG · Causal Graph · Live PubMed</span>
               </div>
 
+              {/* Mode switcher */}
+              <div className="mt-8">
+                <ModeSwitcher mode={mode} onModeChange={setMode} />
+              </div>
+
               {/* Example chips */}
-              <div className="mt-8 flex flex-wrap gap-2 justify-center">
+              <div className="mt-5 flex flex-wrap gap-2 justify-center">
                 {examples.map((example) => (
                   <motion.button
                     key={example}
@@ -786,9 +796,4 @@ export default function HomePage() {
       />
     </div>
   );
-
-  function handleShowCitations(citations: Citation[]) {
-    setPanelCitations(citations);
-    setShowCitationPanel(true);
-  }
 }
