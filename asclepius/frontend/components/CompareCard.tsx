@@ -220,7 +220,7 @@ export default function CompareCard({ data }: CompareCardProps) {
       <div className="rounded-xl border border-surface-3 overflow-hidden">
         <div className="border-b border-surface-3 bg-surface-2 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Overlap Analysis</p>
-          <div className="flex gap-0.5 overflow-x-auto pb-0.5">
+          <div className="flex flex-wrap gap-0.5">
             {OVERLAP_TABS.map((tab) => (
               <button
                 key={tab.key}

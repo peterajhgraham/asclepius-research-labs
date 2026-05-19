@@ -19,7 +19,7 @@ interface Props {
 
 export default function ModeSwitcher({ mode, onModeChange }: Props) {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-surface-3 bg-surface-1 p-0.5 overflow-x-auto scrollbar-none">
+    <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-surface-3 bg-surface-1 p-0.5">
       {ALL_MODES.map((m) => {
         const active = mode === m;
         return (
