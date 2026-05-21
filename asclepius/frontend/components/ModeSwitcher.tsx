@@ -6,11 +6,12 @@ export const MODE_CONFIG: Record<Mode, { label: string; description: string; gro
   "disease-report": { label: "Mechanism Report", description: "Map disease biology from literature",        group: "dmi" },
   "target-risk":    { label: "Target Risk",       description: "Score therapeutic target tractability",     group: "dmi" },
   standard:         { label: "Analyze",           description: "Real-time scientific reasoning",            group: "legacy" },
+  research:         { label: "Research Agent",    description: "Multi-hop agent: retriever + PubMed + graph as tools (slower)", group: "legacy" },
   compare:          { label: "Compare",           description: "Side-by-side biological comparison",        group: "legacy" },
   hypothesis:       { label: "Hypothesize",       description: "Generate testable experimental hypotheses", group: "legacy" },
 };
 
-export const ALL_MODES: Mode[] = ["disease-report", "target-risk", "standard", "compare", "hypothesis"];
+export const ALL_MODES: Mode[] = ["disease-report", "target-risk", "standard", "research", "compare", "hypothesis"];
 
 interface Props {
   mode: Mode;

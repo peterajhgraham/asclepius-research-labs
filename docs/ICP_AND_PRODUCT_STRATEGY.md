@@ -21,7 +21,9 @@ with causal propagation, and persistent research workspaces.
 - Research engine infrastructure (graph construction, causal propagation, intervention ranking, active learning)
 
 ### Current Weaknesses / Next to Address
-- Keyword-based search (no vector/semantic retrieval yet)
+- ~~Keyword-based search (no vector/semantic retrieval yet)~~ — **shipped**: three-leg hybrid retrieval (BM25 + dense MiniLM + CLIP cross-modal) with RRF fusion and CrossEncoder reranking
+- ~~No multimodal indexing of figures or tables~~ — **shipped**: PDFs decompose into text + figures (CLIP-embedded, disk-stored, dedup'd) + tables (pdfplumber, markdown + raster). Retrieved figures attach to the LLM call as native vision blocks; opt-in figure-grounded verification marks unsupported claims `[unverified]`
+- ~~Single-shot only, no multi-hop / agentic path~~ — **shipped**: opt-in `mode="research"` dispatches a tool-using Sonnet 4.6 planner with the retriever, PubMed, the causal graph, and the comparator as native tools
 - No preprint sources (bioRxiv/medRxiv)
 - No user data upload (CSV/TSV gene lists, CRISPR screens)
 - Session persistence is client-side only (localStorage, no cloud accounts)

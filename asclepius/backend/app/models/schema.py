@@ -8,8 +8,9 @@ from typing import Any, Optional
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language research question")
-    mode: str = Field("standard", description="Query mode: standard, hypothesis, compare")
+    mode: str = Field("standard", description="Query mode: standard | research (agent) | hypothesis | compare")
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
+    verify: bool = Field(False, description="Run figure-grounded verification pass after generation (multimodal trust check)")
 
 
 class ImageQueryRequest(BaseModel):
@@ -25,6 +26,10 @@ class RetrievedPropositionSchema(BaseModel):
     score: float = Field(0.0, description="RRF fusion score")
     rerank_score: float = Field(0.0, description="CrossEncoder reranking score")
     metadata: dict[str, Any] = Field(default_factory=dict)
+    content_type: str = Field("text", description="text | image | table")
+    image_hash: Optional[str] = Field(None, description="Content-addressed hash for retrieving the image via /images/{hash}")
+    image_url: Optional[str] = Field(None, description="Convenience URL for the frontend to render the figure")
+    table_markdown: Optional[str] = Field(None, description="Markdown rendering of the table, if content_type == 'table'")
 
 
 class StructuredReasoning(BaseModel):
@@ -73,6 +78,11 @@ class QueryResponse(BaseModel):
     model_used: str = Field("", description="LLM model that generated the answer")
     cost_usd: float = Field(0.0, description="Estimated cost of this query in USD")
     image_analysis: Optional[str] = Field(None, description="Claude vision observations extracted from an uploaded image")
+    verification: Optional[dict[str, Any]] = Field(
+        None,
+        description="Figure-grounded verification result when verify=True: "
+                    "{verdict, confidence, notes, revised_answer, images_inspected, cost_usd}",
+    )
 
 
 # ------------------------------------------------------------------
@@ -187,5 +197,6 @@ class DocumentIngestResponse(BaseModel):
     filename: str
     propositions_indexed: int
     images_captioned: int
+    tables_indexed: int = 0
     pages: int
     message: str = ""

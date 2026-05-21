@@ -28,11 +28,13 @@ import {
   type TargetRiskResponse,
 } from "@/lib/dmi-api";
 import { useStreamingQuery, type Citation } from "@/hooks/useStreamingQuery";
+import { useAgentStream } from "@/hooks/useAgentStream";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 import { genId, PROSE_CLS, pmidToUrl } from "@/lib/utils";
 import ModeSwitcher, { MODE_CONFIG } from "@/components/ModeSwitcher";
 
+import AgentTrace from "@/components/AgentTrace";
 import AuthHeader from "@/components/AuthHeader";
 import CitationPanel from "@/components/CitationPanel";
 import ClaudeBadge from "@/components/ClaudeBadge";
@@ -74,6 +76,12 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
     "Gut microbiome and metabolic syndrome",
     "Neuroinflammation in Parkinson's disease",
     "Climate change effects on vector-borne diseases",
+  ],
+  research: [
+    "Compare TNF blockade vs IL-17 blockade in psoriatic arthritis across efficacy, safety, and biomarkers",
+    "What downstream targets of JAK1 have published 2024–2025 trial data?",
+    "Map upstream interventions to suppress STAT3 in tumor microenvironments, then cross-reference with approved drugs",
+    "How does anti-amyloid therapy compare to anti-tau across mechanism, trial endpoints, and adverse events?",
   ],
   compare: [
     "Alzheimer's disease vs Parkinson's disease",
@@ -205,6 +213,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("disease-report");
   const [includePubmed, setIncludePubmed] = useState(false);
+  const [verify, setVerify] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [panelCitations, setPanelCitations] = useState<Citation[]>([]);
@@ -217,7 +226,9 @@ export default function HomePage() {
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const streaming = useStreamingQuery();
+  const agent = useAgentStream();
   const [streamingEntryId, setStreamingEntryId] = useState<string | null>(null);
+  const [agentEntryId, setAgentEntryId] = useState<string | null>(null);
 
   const { sessions, activeSessionId, selectSession, deleteSession, newSession } =
     useSessionManager(entries, mode);
@@ -225,7 +236,7 @@ export default function HomePage() {
   // Scroll to bottom on new content
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries, streaming.text]);
+  }, [entries, streaming.text, agent.steps.length, agent.toolCalls.length, agent.finalAnswer]);
 
   // Freeze streaming entry when stream completes
   useEffect(() => {
@@ -264,12 +275,41 @@ export default function HomePage() {
     }
   }, [streaming.error, streamingEntryId]);
 
+  // Freeze agent entry when its stream completes
+  useEffect(() => {
+    if (agentEntryId && agent.done) {
+      const snapshot = { ...agent };
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === agentEntryId ? { ...e, loading: false, agentState: snapshot } : e,
+        ),
+      );
+      setAgentEntryId(null);
+      setLoading(false);
+    }
+  }, [agent.done, agentEntryId]);
+
+  // Propagate agent error to entry
+  useEffect(() => {
+    if (agentEntryId && agent.error) {
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === agentEntryId ? { ...e, loading: false, error: agent.error } : e,
+        ),
+      );
+      setAgentEntryId(null);
+      setLoading(false);
+    }
+  }, [agent.error, agentEntryId]);
+
   // ------------------------------------------------------------------
   // Session management
   // ------------------------------------------------------------------
   function handleNewSession() {
     streaming.reset();
+    agent.reset();
     setStreamingEntryId(null);
+    setAgentEntryId(null);
     setEntries([]);
     newSession();
     setQuestion("");
@@ -288,7 +328,9 @@ export default function HomePage() {
     const session = selectSession(sessionId);
     if (!session) return;
     streaming.reset();
+    agent.reset();
     setStreamingEntryId(null);
+    setAgentEntryId(null);
     setLoading(false);
     setQuestion("");
     setDiseaseB("");
@@ -436,6 +478,14 @@ export default function HomePage() {
           return;
         }
 
+        if (mode === "research") {
+          agent.reset();
+          setAgentEntryId(entry.id);
+          agent.stream(trimmed, verify);
+          // keep loading flag true — the agent freezing effect clears it on done/error
+          return;
+        }
+
         if (mode === "disease-report") {
           const result = await generateDiseaseReport({ disease_name: trimmed, vertical });
           setEntries((prev) =>
@@ -491,7 +541,7 @@ export default function HomePage() {
     // streaming.stream / streaming.reset are stable useCallback refs — including
     // the entire streaming object would recreate handleSubmit on every SSE token.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, streaming.stream, streaming.reset],
+    [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, verify, streaming.stream, streaming.reset, agent.stream, agent.reset],
   );
 
   function handleShowCitations(citations: Citation[]) {
@@ -501,7 +551,7 @@ export default function HomePage() {
 
   const isEmpty = entries.length === 0;
   const examples = EXAMPLE_PROMPTS[mode];
-  const isLoading = loading || streaming.isStreaming;
+  const isLoading = loading || streaming.isStreaming || agent.isStreaming;
 
   function handleExampleClick(example: string) {
     if (mode === "compare") {
@@ -712,7 +762,15 @@ export default function HomePage() {
                           />
                         )}
 
-                      {entry.loading && !isCurrentlyStreaming && (
+                      {/* Research agent: live stream or frozen replay */}
+                      {entry.id === agentEntryId && (
+                        <AgentTrace state={agent} question={entry.question} />
+                      )}
+                      {entry.id !== agentEntryId && entry.agentState && (
+                        <AgentTrace state={entry.agentState} question={entry.question} />
+                      )}
+
+                      {entry.loading && !isCurrentlyStreaming && entry.id !== agentEntryId && (
                         <div className="flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
                           <ClaudeBadge isStreaming />
                           <span className="text-xs text-muted">
@@ -793,6 +851,8 @@ export default function HomePage() {
           onVerticalChange={setVertical}
           includePubmed={includePubmed}
           onIncludePubmedChange={setIncludePubmed}
+          verify={verify}
+          onVerifyChange={setVerify}
           uploadedImage={uploadedImage}
           onClearImage={() => setUploadedImage(null)}
           uploadedPdf={uploadedPdf}

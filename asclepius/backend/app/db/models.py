@@ -7,7 +7,7 @@ from datetime import datetime
 
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, Integer, String, Text
+from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -24,8 +24,16 @@ class Proposition(Base):
     source_id: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     metadata_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     extraction: Mapped[str] = mapped_column(String(32), nullable=False, default="sliding_window")
+    # Legacy: base64-encoded image payload. Retained for backward compatibility,
+    # but new ingestions write to image_hash + image_store on disk instead.
     image_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     image_media_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, default=None)
+    # Multimodal extensions (added 2026-05).
+    content_type: Mapped[str] = mapped_column(String(16), nullable=False, default="text")  # text | image | table
+    image_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default=None, index=True)
+    clip_embedding: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True, default=None)
+    table_markdown: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    bbox_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     @property

@@ -1,8 +1,9 @@
 import type { Citation } from "@/hooks/useStreamingQuery";
+import type { AgentState } from "@/hooks/useAgentStream";
 import type { CompareResponse, HypothesisResponse, QueryResponse } from "@/lib/api";
 import type { DiseaseReportResponse, TargetRiskResponse } from "@/lib/dmi-api";
 
-export type Mode = "disease-report" | "target-risk" | "standard" | "compare" | "hypothesis";
+export type Mode = "disease-report" | "target-risk" | "standard" | "research" | "compare" | "hypothesis";
 
 export interface UploadedImage {
   base64: string;
@@ -32,6 +33,7 @@ export interface ConversationEntry {
   streamedSources?: string[];
   streamedModel?: string;
   streamedCost?: number;
+  agentState?: AgentState;
   imageAnalysis?: string;
   imagePreviewUrl?: string;
   loading: boolean;

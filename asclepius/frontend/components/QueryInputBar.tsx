@@ -21,6 +21,8 @@ interface Props {
   onVerticalChange: (v: string) => void;
   includePubmed: boolean;
   onIncludePubmedChange: (v: boolean) => void;
+  verify: boolean;
+  onVerifyChange: (v: boolean) => void;
   uploadedImage: UploadedImage | null;
   onClearImage: () => void;
   uploadedPdf: UploadedPdf | null;
@@ -40,6 +42,7 @@ export default function QueryInputBar({
   targetName, onTargetNameChange,
   vertical, onVerticalChange,
   includePubmed, onIncludePubmedChange,
+  verify, onVerifyChange,
   uploadedImage, onClearImage,
   uploadedPdf, onClearPdf,
   imageInputRef, pdfInputRef,
@@ -95,6 +98,30 @@ export default function QueryInputBar({
                   />
                 </div>
                 <span className="text-[11px] text-muted select-none font-mono">pubmed</span>
+              </label>
+            )}
+
+            {(mode === "standard" || mode === "research") && (
+              <label
+                className="flex items-center gap-2 cursor-pointer"
+                title="Re-check the generated answer against retrieved figures with Claude vision. Adds a verification pass after generation."
+              >
+                <div
+                  role="switch"
+                  aria-checked={verify}
+                  aria-label="Verify answer against retrieved figures"
+                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${
+                    verify ? "bg-accent-600" : "bg-surface-3"
+                  }`}
+                  onClick={() => onVerifyChange(!verify)}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                      verify ? "translate-x-3.5" : "translate-x-0.5"
+                    }`}
+                  />
+                </div>
+                <span className="text-[11px] text-muted select-none font-mono">verify</span>
               </label>
             )}
           </div>
@@ -308,6 +335,8 @@ export default function QueryInputBar({
                   ? "Disease or condition name…"
                   : mode === "hypothesis"
                   ? "Research topic…"
+                  : mode === "research"
+                  ? "Multi-part question — the agent will decompose & dispatch…"
                   : "Ask about any mechanism, pathway, or target…"
               }
               disabled={isLoading}

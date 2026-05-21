@@ -22,6 +22,8 @@ const TYPE_LABELS: Record<string, string> = {
   disease_gene:  "Disease Gene",
   therapeutic:   "Therapeutic",
   kb_entry:      "Knowledge Base",
+  figure:        "Figure",
+  table:         "Table",
 };
 
 function ScoreBar({ score }: { score: number }) {
@@ -74,7 +76,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
           <div>
             <h3 className="text-sm font-semibold text-gray-100">Retrieved Evidence</h3>
             <p className="text-[10px] text-muted mt-0.5">
-              {citations.length} proposition{citations.length !== 1 ? "s" : ""} · hybrid BM25 + dense
+              {citations.length} proposition{citations.length !== 1 ? "s" : ""} · multimodal hybrid
             </p>
           </div>
           <button
@@ -94,21 +96,24 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
             <p className="text-xs text-muted text-center py-8">No citations retrieved.</p>
           ) : (
             citations.map((c, i) => {
-              const colorClass = TYPE_COLORS[c.type] ?? TYPE_COLORS.default;
-              const label = TYPE_LABELS[c.type] ?? c.type;
+              const isImage = c.content_type === "image" && c.image_hash;
+              const isTable = c.content_type === "table";
+              const effectiveType = isImage ? "figure" : isTable ? "table" : c.type;
+              const colorClass = TYPE_COLORS[effectiveType] ?? TYPE_COLORS.default;
+              const label = TYPE_LABELS[effectiveType] ?? effectiveType;
               const relevancePct = c.rerank_score > 0
                 ? c.rerank_score
-                : c.score * 15; // scale RRF score for display
+                : c.score * 15;
 
               return (
                 <div
-                  key={`${i}-${c.pmid || c.text.slice(0, 20)}`}
+                  key={`${i}-${c.image_hash || c.pmid || c.text.slice(0, 20)}`}
                   className={`rounded-lg border p-3 transition ${colorClass}`}
                 >
                   {/* Type badge + rank */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
-                      {label}
+                      {label}{c.page ? ` · p.${c.page}` : ""}
                     </span>
                     <span className="text-[10px] font-mono text-muted">
                       #{i + 1}
@@ -120,6 +125,31 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                     <p className="text-[11px] font-medium text-current opacity-70 mb-1 truncate">
                       {c.source}
                     </p>
+                  )}
+
+                  {/* Figure thumbnail */}
+                  {isImage && (
+                    <a
+                      href={`/api/images/${c.image_hash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block mb-2 overflow-hidden rounded border border-surface-3 bg-surface-2 hover:opacity-90 transition"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/images/${c.image_hash}`}
+                        alt={c.text.slice(0, 80)}
+                        loading="lazy"
+                        className="w-full h-32 object-contain bg-black/20"
+                      />
+                    </a>
+                  )}
+
+                  {/* Table markdown rendering */}
+                  {isTable && c.table_markdown && (
+                    <pre className="mb-2 max-h-40 overflow-auto rounded border border-surface-3 bg-surface-2 p-2 text-[10px] font-mono text-gray-300 whitespace-pre">
+                      {c.table_markdown}
+                    </pre>
                   )}
 
                   {/* Proposition text */}
@@ -163,7 +193,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
         {/* Footer */}
         <div className="border-t border-surface-3 px-4 py-2.5">
           <p className="text-[10px] text-muted text-center">
-            BM25 + FAISS · RRF k=60 · CrossEncoder reranked
+            BM25 + Dense + CLIP · RRF k=60 · CrossEncoder reranked
           </p>
         </div>
       </aside>

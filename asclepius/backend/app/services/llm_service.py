@@ -62,8 +62,9 @@ class LLMService:
         self,
         question: str,
         include_pubmed: bool = False,
+        verify: bool = False,
     ) -> QueryResponse:
-        logger.info("LLMService.query: %r pubmed=%s", question, include_pubmed)
+        logger.info("LLMService.query: %r pubmed=%s verify=%s", question, include_pubmed, verify)
 
         # 1. Hybrid retrieval (proposition-level)
         propositions = self._retrieve_propositions(question)
@@ -91,14 +92,37 @@ class LLMService:
 
         # 5. Route to LLM
         if settings.anthropic_api_key:
-            return self._anthropic_answer(
+            response = self._anthropic_answer(
                 question, propositions, sr, pubmed_articles, graph_context
             )
-        if _openai_client is not None:
-            return self._openai_answer(
+        elif _openai_client is not None:
+            response = self._openai_answer(
                 question, propositions, sr, pubmed_articles, graph_context
             )
-        return self._local_answer(question, propositions, sr, pubmed_articles, graph_context)
+        else:
+            response = self._local_answer(question, propositions, sr, pubmed_articles, graph_context)
+
+        # 6. Optional figure-grounded verification pass
+        if verify and response.answer:
+            self._attach_verification(response, propositions)
+
+        return response
+
+    @staticmethod
+    def _attach_verification(
+        response: QueryResponse,
+        propositions: list[RetrievedPropositionSchema],
+    ) -> None:
+        try:
+            from app.services.verification_service import verify_against_figures
+            image_hashes = [p.image_hash for p in propositions if p.image_hash]
+            result = verify_against_figures(response.answer, image_hashes)
+            response.verification = result.to_dict()
+            # If anything was actually flagged, surface the revised answer to the user
+            if result.verdict in ("partially_supported", "unsupported") and result.revised_answer:
+                response.answer = result.revised_answer
+        except Exception:
+            logger.warning("Verification pass failed", exc_info=True)
 
     def query_with_image(
         self,
@@ -110,7 +134,14 @@ class LLMService:
         """Answer a research question about an uploaded image using Claude vision."""
         logger.info("LLMService.query_with_image: %r", question)
 
-        propositions = self._retrieve_propositions(question)
+        # CLIP image→image retrieval: find figures in the indexed corpus
+        # that look like the user's uploaded probe image.
+        import base64 as _b64
+        try:
+            probe_bytes = _b64.b64decode(image_base64)
+        except Exception:
+            probe_bytes = None
+        propositions = self._retrieve_propositions(question, query_image_bytes=probe_bytes)
         sr = search_all(question)
         pubmed_articles: list[PubMedResult] = []
         if include_pubmed:
@@ -143,31 +174,41 @@ class LLMService:
                 "Mechanistic Interpretation, Implications."
             )
 
+            # Also attach top retrieved figures from the indexed corpus so
+            # the model can compare the user's probe against similar
+            # archival images returned by CLIP image→image retrieval.
+            retrieved_vision = self._vision_blocks_from_retrieved(propositions, max_images=3)
+
+            content_blocks: list[dict[str, Any]] = [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": image_base64,
+                    },
+                },
+            ]
+            if retrieved_vision:
+                content_blocks.append({
+                    "type": "text",
+                    "text": "Similar figures retrieved from the indexed corpus (for comparison):",
+                })
+                content_blocks.extend(retrieved_vision)
+            content_blocks.append({
+                "type": "text",
+                "text": (
+                    f"Knowledge base context:\n{context}\n\n"
+                    f"Research Question: {question}\n\n"
+                    f"{image_prompt}"
+                ),
+            })
+
             response = client.messages.create(
                 model=_VISION_MODEL,
                 max_tokens=2500,
                 system=_SYSTEM_PROMPT,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_base64,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": (
-                                f"Knowledge base context:\n{context}\n\n"
-                                f"Research Question: {question}\n\n"
-                                f"{image_prompt}"
-                            ),
-                        },
-                    ],
-                }],
+                messages=[{"role": "user", "content": content_blocks}],
             )
 
             full_text = response.content[0].text if response.content else ""
@@ -212,12 +253,15 @@ class LLMService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _retrieve_propositions(question: str) -> list[RetrievedPropositionSchema]:
+    def _retrieve_propositions(
+        question: str,
+        query_image_bytes: bytes | None = None,
+    ) -> list[RetrievedPropositionSchema]:
         try:
-            from app.services.retrieval_service import retrieve
             from app.observability.metrics import observe_hits
+            from app.services.retrieval_service import retrieve
 
-            hits = retrieve(question, top_k=8)
+            hits = retrieve(question, top_k=8, query_image_bytes=query_image_bytes)
             observe_hits(len(hits))
             return [
                 RetrievedPropositionSchema(
@@ -225,6 +269,10 @@ class LLMService:
                     score=round(h.score, 6),
                     rerank_score=round(h.rerank_score, 6),
                     metadata=h.metadata,
+                    content_type=h.content_type,
+                    image_hash=h.image_hash,
+                    image_url=f"/images/{h.image_hash}" if h.image_hash else None,
+                    table_markdown=h.metadata.get("table_markdown") if h.content_type == "table" else None,
                 )
                 for h in hits
             ]
@@ -312,13 +360,26 @@ class LLMService:
         blocks: list[str] = []
         sources: list[str] = []
 
-        # Retrieved propositions (highest priority — most semantically relevant)
+        # Retrieved propositions (highest priority — most semantically relevant).
+        # Tables get rendered as their full markdown so the LLM can read cells
+        # directly; figures get their caption text plus a marker that the
+        # actual image is attached as a vision block below.
         if propositions:
-            prop_lines = "\n".join(
-                f"- [{p.metadata.get('type', 'knowledge')}] {p.text}"
-                for p in propositions[:8]
-            )
-            blocks.append(f"### Retrieved Evidence\n{prop_lines}")
+            prop_lines: list[str] = []
+            for p in propositions[:8]:
+                ctype = p.content_type
+                if ctype == "table" and p.table_markdown:
+                    prop_lines.append(
+                        f"- [table p.{p.metadata.get('page', '?')}]\n{p.table_markdown}"
+                    )
+                elif ctype == "image":
+                    prop_lines.append(
+                        f"- [figure p.{p.metadata.get('page', '?')}] {p.text} (image attached)"
+                    )
+                else:
+                    label = p.metadata.get("type", "knowledge")
+                    prop_lines.append(f"- [{label}] {p.text}")
+            blocks.append("### Retrieved Evidence\n" + "\n".join(prop_lines))
             for p in propositions:
                 pmid = p.metadata.get("pmid", "")
                 if pmid:
@@ -493,6 +554,46 @@ class LLMService:
         )
 
     # ------------------------------------------------------------------
+    # Multimodal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _vision_blocks_from_retrieved(
+        propositions: list[RetrievedPropositionSchema],
+        max_images: int = 4,
+    ) -> list[dict[str, Any]]:
+        """Build Anthropic vision content blocks for retrieved figures/tables.
+
+        Only the top-N image/table propositions (by rerank_score) are
+        attached so we stay well under the per-request size budget — each
+        image costs ~250-1000 input tokens of vision encoding.
+        """
+        import base64
+        from app.storage.image_store import get_image_store
+
+        store = get_image_store()
+        ranked = sorted(
+            [p for p in propositions if p.image_hash and p.content_type in ("image", "table")],
+            key=lambda p: p.rerank_score if p.rerank_score else p.score,
+            reverse=True,
+        )
+        blocks: list[dict[str, Any]] = []
+        for p in ranked[:max_images]:
+            loaded = store.read(p.image_hash or "")
+            if loaded is None:
+                continue
+            img_bytes, media_type = loaded
+            blocks.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": base64.b64encode(img_bytes).decode(),
+                },
+            })
+        return blocks
+
+    # ------------------------------------------------------------------
     # Anthropic answer (primary)
     # ------------------------------------------------------------------
 
@@ -509,16 +610,34 @@ class LLMService:
         context, sources = LLMService._build_context(
             propositions, sr, pubmed_articles, graph_context
         )
-        messages = [
-            {
+
+        # If retrieval surfaced relevant figures or tables, attach them as
+        # native vision content so the model can read what the captions only
+        # gestured at — band intensities, axis values, table cell colors, etc.
+        vision_blocks = LLMService._vision_blocks_from_retrieved(propositions)
+
+        text_block = {
+            "type": "text",
+            "text": (
+                f"Context:\n{context}\n\n"
+                f"Question: {question}\n\n"
+                "Provide a detailed, structured answer with sections appropriate to the query domain. "
+                "When the retrieved figures or tables are relevant, ground specific quantitative claims "
+                "in what you can see in them."
+            ),
+        }
+
+        if vision_blocks:
+            messages = [{
                 "role": "user",
-                "content": (
-                    f"Context:\n{context}\n\n"
-                    f"Question: {question}\n\n"
-                    "Provide a detailed, structured answer with sections appropriate to the query domain."
-                ),
-            }
-        ]
+                "content": [
+                    {"type": "text", "text": "Retrieved figures and tables from the indexed corpus:"},
+                    *vision_blocks,
+                    text_block,
+                ],
+            }]
+        else:
+            messages = [{"role": "user", "content": text_block["text"]}]
 
         answer, model_used, cost = call_with_routing(
             messages=messages,

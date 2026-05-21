@@ -9,6 +9,11 @@ export interface Citation {
   type: string;
   pmid: string;
   source: string;
+  content_type?: "text" | "image" | "table";
+  image_hash?: string | null;
+  image_url?: string | null;
+  page?: number | null;
+  table_markdown?: string | null;
 }
 
 export interface StreamDonePayload {
