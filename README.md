@@ -260,17 +260,23 @@ asclepius-research-labs/
 │   │   └── requirements.txt
 │   └── frontend/
 │       ├── app/
-│       │   ├── page.tsx                   # Main UI: 5 modes, SSE streaming, citation panel
+│       │   ├── page.tsx                   # Main UI: 6 modes, dual SSE (stream + agent), citation panel
 │       │   └── api/                       # Next.js API proxy routes → FastAPI
+│       │       ├── query/stream/          #   SSE proxy for /query/stream
+│       │       ├── query/agent/           #   SSE proxy for /query/agent (research agent)
+│       │       └── images/[hash]/         #   Proxy for /images/{hash} figure streaming
 │       ├── components/
 │       │   ├── StreamingResponse.tsx      # Token-by-token streaming display + markdown
-│       │   ├── CitationPanel.tsx          # Sliding citation panel (retrieved propositions)
+│       │   ├── AgentTrace.tsx             # Live planner-step / tool-call / final / verification trace
+│       │   ├── CitationPanel.tsx          # Sliding citation panel — renders figure thumbs + table previews
 │       │   ├── ResponseCard.tsx           # Structured reasoning: entities, pathways, targets
 │       │   ├── CompareCard.tsx            # Side-by-side topic comparison
 │       │   ├── HypothesisCard.tsx         # Testable hypothesis cards with experimental designs
 │       │   ├── DiseaseReportCard.tsx      # DMI mechanism report display
 │       │   └── TargetRiskCard.tsx         # Target risk assessment display
-│       ├── hooks/useStreamingQuery.ts     # SSE hook: AbortController + event parsing
+│       ├── hooks/
+│       │   ├── useStreamingQuery.ts       # SSE hook for /query/stream
+│       │   └── useAgentStream.ts          # SSE hook for /query/agent
 │       └── lib/
 │           ├── api.ts                     # Typed API client (domain-agnostic field names)
 │           ├── backend.ts                 # URL resolver + server-side proxy helpers
@@ -459,6 +465,26 @@ The image store lives at `./data/images/` (sharded by 2-char SHA-256 prefix). Mo
 
 ---
 
+## Frontend Modes & Toggles
+
+The composer in `app/page.tsx` exposes six modes via `ModeSwitcher`:
+
+| Mode | Path | Notes |
+|------|------|-------|
+| **Mechanism Report** | `POST /dmi/disease-report` | Structured DMI mechanism report (domain = runtime string) |
+| **Target Risk** | `POST /dmi/target-risk` | Druggability + clinical/genetic risk scoring |
+| **Analyze** | `GET /query/stream` (SSE) | Single-shot RAG — fast, token-streaming, citations + figure thumbnails appear before the first token |
+| **Research Agent** | `GET /query/agent` (SSE) | Tool-using planner. The `AgentTrace` component shows live planner steps, tool dispatches (`search_knowledge_base`, `search_pubmed`, `causal_propagate`, `rank_interventions`, `compare_topics`), and tool result previews — so the user sees reasoning happening rather than a silent spinner |
+| **Compare** | `POST /compare` | Side-by-side disease comparison with similarity scoring |
+| **Hypothesize** | `POST /hypotheses` | 5-strategy testable hypothesis generator |
+
+Two toggles next to the mode switcher (only when Analyze or Research is active):
+
+- **pubmed** — for Analyze mode; includes live PubMed in the retrieval context.
+- **verify** — for Analyze or Research; runs the figure-grounded verification pass after generation. A coloured banner in the citation panel / agent trace reports verdict (`supported` / `partially_supported` / `unsupported` / `no_images`), confidence, image count, and the verifier's notes; the answer is rewritten inline with `[unverified]` and `[uncertain]` markers when the verifier dissents.
+
+---
+
 ## Completed Capabilities
 
 - Domain-agnostic platform with domain as a runtime string parameter
@@ -471,7 +497,8 @@ The image store lives at `./data/images/` (sharded by 2-char SHA-256 prefix). Mo
 - **Figure-grounded verification pass** (`verify=true`) — Sonnet vision re-checks cited figures and tags unsupported claims `[unverified]` inline
 - **Content-addressed image API** — `/images/{hash}` streams stored figures with `Cache-Control: immutable`; frontend renders thumbnails inline in the citation panel
 - 3-tier confidence-gated inference routing with daily budget enforcement
-- SSE streaming for both single-shot RAG (`/query/stream`) and the agent (`/query/agent`)
+- SSE streaming for both single-shot RAG (`/query/stream`) and the agent (`/query/agent`), with a dedicated `AgentTrace` UI that surfaces planner steps and tool dispatches live
+- **Research Agent mode** in the composer plus a **verify** toggle that wires the figure-grounded verification pass into both Analyze and Research modes
 - Prometheus observability and structlog JSON logging
 - Async SQLite proposition store (aiosqlite + SQLAlchemy ORM) with backward-compatible `ALTER TABLE` migrations for the multimodal columns
 - Disease/Mechanism Intelligence (DMI) module — mechanism reports and target risk scoring

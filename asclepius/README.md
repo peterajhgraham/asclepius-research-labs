@@ -97,21 +97,26 @@ asclepius/
 │   └── requirements.txt
 └── frontend/
     ├── app/
-    │   ├── page.tsx                         # Main UI: 5 modes, SSE streaming, citation panel
+    │   ├── page.tsx                         # Main UI: 6 modes (incl. Research Agent), dual SSE, citation panel
     │   ├── layout.tsx                       # Root layout + optional auth provider
     │   └── api/                             # Next.js server-side proxy routes
     │       ├── query/stream/route.ts        #   SSE proxy → backend /query/stream
+    │       ├── query/agent/route.ts         #   SSE proxy → backend /query/agent (research agent)
+    │       ├── images/[hash]/route.ts       #   Streams figure rasters from /images/{hash}
     │       └── ...                          #   One route per backend endpoint
     ├── components/
     │   ├── StreamingResponse.tsx            # Token-by-token streaming + markdown rendering
-    │   ├── CitationPanel.tsx                # Sliding citation panel (retrieved propositions)
+    │   ├── AgentTrace.tsx                   # Research-agent planner-step / tool-call / verification trace
+    │   ├── CitationPanel.tsx                # Sliding citation panel — renders figure thumbs + table previews
+    │   ├── QueryInputBar.tsx                # Composer with mode switcher + pubmed/verify toggles
     │   ├── ResponseCard.tsx                 # Structured reasoning: entities, pathways, targets
     │   ├── CompareCard.tsx                  # Side-by-side topic comparison layout
     │   ├── HypothesisCard.tsx               # Testable hypothesis cards with experimental designs
     │   ├── DiseaseReportCard.tsx            # DMI mechanism report structured display
     │   └── TargetRiskCard.tsx               # Target risk assessment display
     ├── hooks/
-    │   └── useStreamingQuery.ts             # SSE hook: AbortController + event type parsing
+    │   ├── useStreamingQuery.ts             # SSE hook for /query/stream
+    │   └── useAgentStream.ts                # SSE hook for /query/agent (planner steps, tool calls, verification)
     └── lib/
         ├── api.ts                           # Typed API client (domain-agnostic field names)
         ├── backend.ts                       # URL resolver + server-side proxy helpers
