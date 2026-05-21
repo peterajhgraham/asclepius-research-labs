@@ -638,8 +638,9 @@ export default function HomePage() {
                 Asclepius Research Labs
               </h1>
               <p className="mt-2.5 text-center text-sm text-muted max-w-md leading-relaxed">
-                Proposition-level hybrid retrieval with causal graph reasoning. Query any domain:
-                mechanism mapping, target risk assessment, hypothesis generation.
+                Biomedical Research Intelligence: a multimodal hybrid RAG system over PubMed
+                for mechanism mapping, target risk, and hypothesis generation — combining dense
+                retrieval, knowledge graphs, and VLMs.
               </p>
 
               <div className="mt-5 flex items-center gap-2">

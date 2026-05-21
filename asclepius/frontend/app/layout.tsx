@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Asclepius Research Labs",
-  description: "Scientific research intelligence — mechanism mapping, hypothesis generation, and literature synthesis from primary research.",
+  description: "Biomedical Research Intelligence: a multimodal hybrid RAG system over PubMed for mechanism mapping, target risk, and hypothesis generation — combining dense retrieval, knowledge graphs, and VLMs.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
