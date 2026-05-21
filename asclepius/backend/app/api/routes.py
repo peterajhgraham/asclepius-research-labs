@@ -3,7 +3,7 @@ import logging
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -105,7 +105,39 @@ async def ingest_document_endpoint(
     result = await ingest_document(pdf_bytes, file.filename or "upload.pdf")
     return DocumentIngestResponse(
         **result,
-        message=f"Indexed {result['propositions_indexed']} text propositions and {result['images_captioned']} figure captions.",
+        message=(
+            f"Indexed {result['propositions_indexed']} text propositions, "
+            f"{result['images_captioned']} figure captions, "
+            f"and {result.get('tables_indexed', 0)} tables across {result['pages']} pages."
+        ),
+    )
+
+
+# ------------------------------------------------------------------
+# Multimodal asset serving — content-addressed image retrieval
+# ------------------------------------------------------------------
+
+@router.get("/images/{image_hash}")
+def get_image(image_hash: str) -> Response:
+    """Serve a stored figure or table raster by SHA-256 hash.
+
+    The hash is opaque to the client; it comes back inside the
+    `retrieved_propositions[].image_hash` field of a query response.
+    """
+    from app.storage.image_store import get_image_store
+
+    # Defensive: hashes are 64 hex chars
+    if not (16 <= len(image_hash) <= 128) or any(c not in "0123456789abcdef" for c in image_hash.lower()):
+        raise HTTPException(status_code=400, detail="Invalid image hash")
+
+    loaded = get_image_store().read(image_hash)
+    if loaded is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    data, media_type = loaded
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
 
 
@@ -157,7 +189,14 @@ async def query_stream(
                         or p.metadata.get("disease_name")
                         or p.metadata.get("pathway_name")
                         or p.metadata.get("topic")
-                        or "",
+                        or p.metadata.get("filename", ""),
+                    "content_type": p.content_type,
+                    "image_hash": p.image_hash,
+                    "image_url": f"/images/{p.image_hash}" if p.image_hash else None,
+                    "page": p.metadata.get("page"),
+                    "table_markdown": (
+                        p.metadata.get("table_markdown") if p.content_type == "table" else None
+                    ),
                 }
                 for p in propositions
             ]
@@ -170,6 +209,12 @@ async def query_stream(
                     score=p.score,
                     rerank_score=p.rerank_score,
                     metadata=p.metadata,
+                    content_type=p.content_type,
+                    image_hash=p.image_hash,
+                    image_url=f"/images/{p.image_hash}" if p.image_hash else None,
+                    table_markdown=(
+                        p.metadata.get("table_markdown") if p.content_type == "table" else None
+                    ),
                 )
                 for p in propositions
             ]

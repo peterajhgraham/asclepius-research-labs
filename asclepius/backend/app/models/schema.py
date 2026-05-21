@@ -25,6 +25,10 @@ class RetrievedPropositionSchema(BaseModel):
     score: float = Field(0.0, description="RRF fusion score")
     rerank_score: float = Field(0.0, description="CrossEncoder reranking score")
     metadata: dict[str, Any] = Field(default_factory=dict)
+    content_type: str = Field("text", description="text | image | table")
+    image_hash: Optional[str] = Field(None, description="Content-addressed hash for retrieving the image via /images/{hash}")
+    image_url: Optional[str] = Field(None, description="Convenience URL for the frontend to render the figure")
+    table_markdown: Optional[str] = Field(None, description="Markdown rendering of the table, if content_type == 'table'")
 
 
 class StructuredReasoning(BaseModel):
@@ -187,5 +191,6 @@ class DocumentIngestResponse(BaseModel):
     filename: str
     propositions_indexed: int
     images_captioned: int
+    tables_indexed: int = 0
     pages: int
     message: str = ""

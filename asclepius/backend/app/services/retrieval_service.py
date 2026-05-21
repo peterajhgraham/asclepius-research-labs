@@ -61,27 +61,38 @@ def _build_pipeline() -> RetrievalPipeline:
 # ------------------------------------------------------------------
 
 def _index_from_db(pipeline: RetrievalPipeline) -> int:
-    """Load propositions from SQLite via stdlib sqlite3.
+    """Load propositions (text + image + table) from SQLite into the pipeline.
 
-    Returns the number of documents indexed (0 when DB is unavailable or empty).
-    Uses sqlite3 directly to avoid async event-loop complications in the
-    background warmup thread.
+    Each row is replayed with its `content_type`, `image_hash` and the
+    persisted CLIP embedding (if any). We do *not* recompute embeddings on
+    load — that would balloon startup time for large corpora — but we will
+    re-embed on next ingest if a row is missing one.
     """
     try:
+        import numpy as np
         from app.core.config import settings
+        from app.storage.image_store import get_image_store
 
         url = settings.database_url
         if "sqlite" not in url:
             return 0
 
-        # sqlite+aiosqlite:///./path/to/db  →  ./path/to/db
         db_path = url.split("///", 1)[-1]
         if not Path(db_path).exists():
             return 0
 
         conn = sqlite3.connect(db_path)
         try:
-            cursor = conn.execute("SELECT text, metadata_json FROM propositions")
+            # Defensive column probing — older DBs may not have multimodal columns
+            cols = [row[1] for row in conn.execute("PRAGMA table_info(propositions)").fetchall()]
+            has_mm = {"content_type", "image_hash", "clip_embedding"}.issubset(cols)
+            if has_mm:
+                cursor = conn.execute(
+                    "SELECT text, metadata_json, content_type, image_hash, clip_embedding "
+                    "FROM propositions"
+                )
+            else:
+                cursor = conn.execute("SELECT text, metadata_json FROM propositions")
             rows = cursor.fetchall()
         finally:
             conn.close()
@@ -89,10 +100,40 @@ def _index_from_db(pipeline: RetrievalPipeline) -> int:
         if not rows:
             return 0
 
-        for text, meta_json in rows:
+        image_store = get_image_store()
+        for row in rows:
+            if has_mm:
+                text, meta_json, content_type, image_hash, clip_blob = row
+                content_type = content_type or "text"
+            else:
+                text, meta_json = row
+                content_type, image_hash, clip_blob = "text", None, None
+
             meta: dict = json.loads(meta_json) if meta_json else {}
-            meta["domain"] = "general"
-            pipeline.add_document(text, meta)
+            meta["domain"] = meta.get("domain") or "general"
+
+            clip_emb = None
+            image_bytes = None
+            if content_type in ("image", "table") and clip_blob:
+                try:
+                    clip_emb = np.frombuffer(clip_blob, dtype=np.float32).copy()
+                except Exception:
+                    clip_emb = None
+            # Only load image bytes if we don't have a cached embedding —
+            # otherwise the CLIP index just uses the precomputed vector.
+            if content_type == "image" and clip_emb is None and image_hash:
+                loaded = image_store.read(image_hash)
+                if loaded is not None:
+                    image_bytes = loaded[0]
+
+            pipeline.add_document(
+                text=text,
+                metadata=meta,
+                content_type=content_type,
+                image_hash=image_hash,
+                image_bytes=image_bytes,
+                clip_embedding=clip_emb,
+            )
         return len(rows)
     except Exception:
         logger.warning("DB load failed — will use bundled datasets", exc_info=True)
@@ -209,12 +250,20 @@ def _index_json_datasets(pipeline: RetrievalPipeline) -> None:
 # Public API
 # ------------------------------------------------------------------
 
-def retrieve(query: str, top_k: int = 8) -> list[RetrievedProposition]:
-    """Retrieve top-k propositions for a query using the hybrid pipeline."""
+def retrieve(
+    query: str,
+    top_k: int = 8,
+    query_image_bytes: bytes | None = None,
+) -> list[RetrievedProposition]:
+    """Retrieve top-k propositions for a query using the hybrid pipeline.
+
+    Pass `query_image_bytes` to enable image→image retrieval via CLIP
+    (used when the user uploads a probe figure with their question).
+    """
     pipeline = get_pipeline()
     if not pipeline.is_ready:
         return []
-    results = pipeline.retrieve(query, top_k=top_k)
+    results = pipeline.retrieve(query, top_k=top_k, query_image_bytes=query_image_bytes)
     logger.debug("Retrieved %d propositions for query: %s", len(results), query[:60])
     return results
 
