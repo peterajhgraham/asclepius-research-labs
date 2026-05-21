@@ -8,8 +8,9 @@ from typing import Any, Optional
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language research question")
-    mode: str = Field("standard", description="Query mode: standard, hypothesis, compare")
+    mode: str = Field("standard", description="Query mode: standard | research (agent) | hypothesis | compare")
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
+    verify: bool = Field(False, description="Run figure-grounded verification pass after generation (multimodal trust check)")
 
 
 class ImageQueryRequest(BaseModel):
@@ -77,6 +78,11 @@ class QueryResponse(BaseModel):
     model_used: str = Field("", description="LLM model that generated the answer")
     cost_usd: float = Field(0.0, description="Estimated cost of this query in USD")
     image_analysis: Optional[str] = Field(None, description="Claude vision observations extracted from an uploaded image")
+    verification: Optional[dict[str, Any]] = Field(
+        None,
+        description="Figure-grounded verification result when verify=True: "
+                    "{verdict, confidence, notes, revised_answer, images_inspected, cost_usd}",
+    )
 
 
 # ------------------------------------------------------------------

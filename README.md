@@ -1,12 +1,14 @@
 # Asclepius Research Labs
 
-> A domain-agnostic scientific research intelligence platform combining proposition-level hybrid retrieval, causal graph reasoning, and confidence-gated multi-tier inference routing.
+> A domain-agnostic scientific research intelligence platform combining **truly multimodal** proposition-level retrieval (text + figures + tables fused in a shared CLIP space), causal graph reasoning, a tool-using research agent, figure-grounded verification, and confidence-gated multi-tier inference routing.
 
 ---
 
 ## Overview
 
-Scientific literature synthesis is bottlenecked by two compounding problems: retrieval systems that treat documents as monolithic units lose precision at query time, and general-purpose language models hallucinate when their training distribution diverges from specialized scientific corpora. Asclepius addresses both by decomposing documents into atomic, self-contained propositions before indexing, fusing lexical and semantic retrieval with rank-based fusion, and routing each query through a cost-tiered inference hierarchy that escalates only when a confidence heuristic signals insufficient response quality.
+Scientific literature synthesis is bottlenecked by three compounding problems: retrieval systems that treat documents as monolithic units lose precision at query time; text-only retrievers strip away the figures, tables, and quantitative panels where most of a paper's signal actually lives; and general-purpose language models hallucinate when their training distribution diverges from specialized scientific corpora.
+
+Asclepius addresses all three. Documents are decomposed into atomic propositions before indexing — for figures and tables, propositions carry a content-addressed `image_hash` and a CLIP image embedding so a textual query can directly retrieve the relevant *visual* evidence, not just a captioned paraphrase. Lexical (BM25), semantic (MiniLM), and cross-modal (CLIP) retrieval are fused via Reciprocal Rank Fusion, then cross-encoder reranked. The single-shot RAG path stays fast for simple questions; an opt-in **tool-using research agent** handles multi-hop comparisons and orchestrates the retriever, PubMed, and the causal graph as native tools. An opt-in **figure-grounded verification** pass re-examines the actual cited images with Claude vision to mark unsupported quantitative claims `[unverified]` before the answer reaches the user.
 
 The platform is domain-agnostic by design. Domain context (`vertical`) is a runtime string parameter — the retrieval pipeline and causal graph operate identically across immunology, oncology, neuroscience, or any scientific field. The primary built-in knowledge base covers immunological signaling (JAK-STAT, NF-κB, TNF pathways, cytokine networks), with architecture designed to accommodate any structured dataset.
 
@@ -14,20 +16,22 @@ The platform is domain-agnostic by design. Domain context (`vertical`) is a runt
 
 ## System Architecture
 
-### Retrieval and Reasoning Pipeline
+### Multimodal Retrieval & Reasoning Pipeline
 
 ```
-                  ┌─────────────────────────────────────────────────────────┐
-  Query           │                   Hybrid Retrieval                       │
-  ──────────────► │  BM25 (BM25Okapi)  ──────────────────────┐              │
-                  │  Dense (FAISS/all-MiniLM-L6-v2)  ─────────┤  RRF k=60   │
-                  │                                            └──────────── │──► CrossEncoder
-                  └─────────────────────────────────────────────────────────┘    reranker
-                                                                                      │
-                                                                               top-8 propositions
-                                                                                      │
-                                              ┌───────────────────────────────────────┘
-                                              │
+                  ┌────────────────────────────────────────────────────────────────────┐
+                  │                       Three-Leg Hybrid Retrieval                    │
+  Query  ───────► │  BM25 (BM25Okapi) ───────────────────────────────────┐             │
+  (+ probe image) │  Dense (FAISS / all-MiniLM-L6-v2) ────────────────────┤             │
+                  │  CLIP text→image (FAISS / ViT-B/32, shared space) ────┤  RRF k=60   │
+                  │  CLIP image→image  (only when probe image supplied) ──┤             │
+                  │                                                       └─────────────│──► CrossEncoder
+                  └────────────────────────────────────────────────────────────────────┘    reranker
+                                                                                                 │
+                                                                                          top-8 propositions
+                                                                                  (text · figure · table)
+                                                                                                 │
+                                              ┌──────────────────────────────────────────────────┘
                                               ▼
                                    Structured KB search
                            (cytokines · pathways · diseases · therapeutics)
@@ -41,30 +45,64 @@ The platform is domain-agnostic by design. Domain context (`vertical`) is a runt
                               │    Inference Router        │
                               │  Tier I → Tier II → Tier III
                               │  (escalates if conf < 0.60)│
+                              │  Retrieved figures + tables│
+                              │  attached as vision blocks │
                               └───────────────────────────┘
                                               │
-                              ┌───────────────┴──────────────┐
-                              │                              │
-                        SSE token stream          Structured JSON response
+                              ┌───────────────┼────────────────────────────┐
+                              ▼               ▼                            ▼
+                        SSE token stream    Structured JSON       Figure-grounded
+                                            response               verification
+                                                                   (opt-in `verify=True`)
 ```
 
-BM25 and FAISS execute in parallel. Their ranked lists are merged via Reciprocal Rank Fusion (rank-based, no score normalization required), then a CrossEncoder reranker produces a final ordered set of eight propositions, which are concatenated as grounded context for the language model.
+BM25, dense MiniLM, and the CLIP cross-modal leg execute in parallel. Their ranked lists are merged via Reciprocal Rank Fusion (rank-based, no score normalization required), then a CrossEncoder reranker produces the final ordered set of eight propositions. When the top results include figures or tables, their PNG rasters are attached to the LLM call as native Anthropic vision content blocks — so the model can ground quantitative claims in actual image pixels, not just captions.
 
-### Multimodal Path
+### Ingestion Pipeline (PDF → multimodal propositions)
 
 ```
-  Base64 image + question
-         │
-         ▼
-  KB context retrieval  ← same hybrid pipeline above
-         │
-         ▼
-  Vision model — image observations extracted,
-  then grounded against retrieved propositions
-         │
-         ▼
-  QueryResponse { image_analysis, answer, sources }
+  PDF bytes
+       │
+       ├── PyMuPDF (reading-order text blocks)
+       │      └── layout-aware sentence-bounded chunker (~1800 chars, page-bounded)
+       │            └── Haiku proposition extractor → atomic text propositions
+       │
+       ├── PyMuPDF (embedded images, SHA-256 deduped, min 120×120 / 4KB)
+       │      └── content-addressed disk store (./data/images/<shard>/<hash>.<ext>)
+       │      └── CLIP ViT-B/32 image embedding (persisted as float32 blob)
+       │      └── Haiku-vision caption → atomic figure propositions
+       │
+       └── pdfplumber (table detector → markdown + raw rows + bbox)
+              └── PyMuPDF region raster (2× zoom PNG, for vision context)
+              └── CLIP image embedding of the raster
+              └── markdown indexed as text proposition; raster carried for the LLM
+
+  → SQLite (propositions table) with content_type, image_hash, clip_embedding,
+    table_markdown, bbox_json — backward-compatible ALTER TABLE migrations.
 ```
+
+### Research Agent Path (opt-in via `mode="research"`)
+
+```
+  Question
+     │
+     ▼
+  Planner (Sonnet 4.6 + Anthropic tool-use)
+     │
+     ├── tool: search_knowledge_base   ── hybrid retriever (text + figure + table)
+     ├── tool: search_pubmed           ── NCBI E-utilities (live literature)
+     ├── tool: causal_propagate         ── signed-edge propagation on the KG
+     ├── tool: rank_interventions       ── upstream target ranking
+     ├── tool: compare_topics           ── side-by-side topic comparison
+     │
+     ▼  (max 5 iterations, 90s wall-clock budget, daily cost cap enforced)
+  final_answer tool call ──► SSE stream of planner_step / tool_call / tool_result / final events
+                                                │
+                                                ▼
+                                  Optional figure-grounded verification
+```
+
+The agent is gated behind `mode="research"` so the latency (3–10× single-shot) and cost (5–20×) only apply when callers explicitly opt in. The retriever is invoked *as a tool* — agents go on top of the retriever, not instead of it; replacing strong hybrid retrieval with LLM-driven search is strictly worse on every published benchmark.
 
 ### Research Engine Modules
 
@@ -106,10 +144,15 @@ suggestions = suggester.suggest_experiments("STAT3", edge_list, budget=3)
 |-------|-----------|-----------|
 | Frontend | Next.js 15 (App Router) · TypeScript · TailwindCSS · Framer Motion | SSE-native streaming; App Router enables server-side proxy without a separate API gateway |
 | Backend | FastAPI · Pydantic v2 · Uvicorn · asyncio | Async-first; Pydantic enforces strict IO contracts at every boundary |
-| Retrieval | BM25Okapi + FAISS IndexFlatIP + RRF (k=60) + CrossEncoder | Hybrid outperforms either alone on biomedical corpora; see design rationale below |
-| Embeddings | sentence-transformers/all-MiniLM-L6-v2 | 90MB; strong performance on STS benchmarks; fits Railway free tier |
+| Retrieval | BM25Okapi + FAISS IndexFlatIP (×2 — dense + CLIP) + RRF (k=60) + CrossEncoder | Three-leg hybrid (lexical + semantic text + cross-modal) outperforms any subset on biomedical corpora; see design rationale below |
+| Text embeddings | sentence-transformers/all-MiniLM-L6-v2 | 90 MB; strong STS performance; fits Railway free tier |
+| Multimodal embeddings | sentence-transformers/clip-ViT-B-32 | 600 MB; CPU-only inference; embeds text and images into a shared 512-d space — no external embedding API at index time |
 | Reranker | cross-encoder/ms-marco-MiniLM-L-6-v2 | Listwise reranking without label data requirement |
-| Chunking | PyMuPDF (text/image blocks) + proposition extraction + vision captioning | Proposition-level precision; per-figure captions indexed as first-class propositions |
+| PDF parsing | PyMuPDF (text + embedded images, reading-order sorted, SHA-256 deduped) + pdfplumber (tables → markdown + bbox) + region rasterization | Three parallel streams; image / table propositions are first-class retrieval citizens |
+| Chunking | Layout-aware sentence-bounded packer (~1800 chars, page-bounded, 1-sentence overlap) + Haiku proposition extraction | 5-10× fewer chunks than the prior sliding window with no recall loss; chunks never straddle pages or sections |
+| Image storage | Content-addressed disk store (`./data/images/<shard>/<sha256>.<ext>`) | Dedupes recurring figures; images stream over HTTP with `Cache-Control: immutable`; DB stays slim |
+| Research agent | Anthropic native tool-use loop (Sonnet 4.6 planner) | Multi-hop decomposition, PubMed + retriever + graph + comparator as tools; bounded by iterations + wall-clock + budget |
+| Verification | Claude Sonnet vision against cited figures | Re-examines the actual image pixels, marks unsupported quantitative claims `[unverified]` |
 | Inference Routing | 3-tier hierarchy with heuristic confidence estimation | Cost-aware; escalates only when necessary |
 | Observability | structlog JSON + Prometheus counters/histograms + JSONL cost audit | Full auditability of spend and retrieval quality |
 | Persistence | SQLAlchemy async ORM + aiosqlite | Non-blocking IO; drops to PostgreSQL via a single URL swap |
@@ -120,17 +163,29 @@ suggestions = suggester.suggest_experiments("STAT3", edge_list, budget=3)
 
 ## Design Rationale
 
-### Hybrid BM25 + FAISS Retrieval
+### Three-Leg Hybrid Retrieval (BM25 + Dense + CLIP)
 
-Biomedical queries exhibit two failure modes. BM25 excels at exact token matching for gene symbols (JAK1, STAT3, IL-6), drug names, and pathway identifiers — rare vocabulary where dense embedding models have limited discriminative power. Dense retrieval with all-MiniLM-L6-v2 captures semantic paraphrase: "how does tofacitinib work" retrieves JAK inhibitor documents without lexical overlap. Neither retriever alone achieves adequate recall across this vocabulary distribution. BEIR benchmark results consistently show hybrid approaches outperforming either retriever in isolation on biomedical corpora.
+Biomedical queries exhibit three failure modes. BM25 excels at exact token matching for gene symbols (JAK1, STAT3, IL-6), drug names, and pathway identifiers — rare vocabulary where dense embedding models have limited discriminative power. Dense retrieval with all-MiniLM-L6-v2 captures semantic paraphrase: "how does tofacitinib work" retrieves JAK inhibitor documents without lexical overlap. **Neither leg can retrieve a figure that the captioner missed, paraphrased badly, or that contains a quantitative pattern (a Kaplan-Meier curve, a dose-response, a heatmap) the caption never named.** The CLIP leg closes that gap: image and short-text representations land in a shared 512-d space, so a textual query like "Kaplan-Meier survival curve for arm B at 24 months" directly retrieves the matching figure regardless of caption phrasing. The three legs are complementary, not redundant — BEIR-style ablations consistently show hybrid > any subset on biomedical corpora, and the cross-modal addition is what makes the system *truly* multimodal rather than text-only with optional image side-loading.
+
+### Why CLIP (and not a hosted multimodal embedder)
+
+We index with `sentence-transformers/clip-ViT-B-32` rather than a hosted API (Voyage multimodal-3, OpenAI image embeddings) for three reasons: no external dependency at ingestion time (Railway-friendly), zero per-call cost at index or query time, and deterministic embeddings across runs (important for reproducible retrieval benchmarks). CLIP embeddings are precomputed at ingestion and persisted as float32 blobs in SQLite so restart never re-encodes; the CLIP model itself loads lazily on first query.
 
 ### RRF for Score Fusion
 
-Learned score fusion requires labelled query-document relevance pairs that are unavailable for this corpus. Score interpolation between BM25 and FAISS is unreliable because their score distributions are structurally incompatible — BM25 TF-IDF scores scale with corpus statistics; cosine similarity is bounded to [−1, 1]. Reciprocal Rank Fusion operates on ordinal ranks rather than scores (`1/(k + rank)`), making it insensitive to score distribution shape. The k=60 parameter follows Cormack et al. (SIGIR 2009) and provides stable fusion without any tuning data.
+Learned score fusion requires labelled query-document relevance pairs that are unavailable for this corpus. Score interpolation between BM25, dense cosine similarity, and CLIP cosine similarity is unreliable because their score distributions are structurally incompatible — BM25 TF-IDF scores scale with corpus statistics; cosine similarities are bounded to [−1, 1] but with different practical ranges per modality. Reciprocal Rank Fusion operates on ordinal ranks rather than scores (`1/(k + rank)`), making it insensitive to score distribution shape. The k=60 parameter follows Cormack et al. (SIGIR 2009) and provides stable fusion without any tuning data, even as we added a third (and conditionally fourth — image→image) leg.
 
-### Proposition-Level Chunking
+### Layout-Aware Chunking
 
-Sliding-window chunking bisects at fixed token boundaries regardless of semantic structure — a single abstract can assert three independent facts, which a window conflates into one noisy retrieval unit. Proposition extraction decomposes each passage into atomic, self-contained declarative sentences. Each indexed unit expresses exactly one verifiable claim, improving both retrieval precision (smaller chunks reduce noise) and citation quality (each citation maps to one specific assertion). A sliding-window fallback activates when no inference API key is configured.
+The earlier sliding-window chunker bisected at fixed word boundaries regardless of semantic or page structure — a single abstract could assert three independent facts that a window conflated into one noisy retrieval unit, and chunks straddling unrelated sections poisoned both BM25 term overlap and dense embeddings. The current layout chunker groups text blocks by page, sentence-splits each page, then greedy-packs into ~1800-character chunks with a 1-sentence overlap. This produces 5–10× fewer chunks per document with the same recall, never cuts mid-sentence, and never glues two sections together. A Haiku proposition extractor then decomposes each chunk into atomic declarative claims; a sliding-window fallback activates when no inference API key is configured.
+
+### Tool-Using Research Agent (opt-in)
+
+Single-shot RAG is the right answer for simple factual questions — fast, cheap, deterministic, easy to debug. It is structurally inadequate for multi-hop questions ("compare X vs Y across efficacy, safety, biomarkers" is three retrievals), for queries that need to route between live PubMed and the indexed corpus, and for cases where the first retrieval misses key terms and needs reformulation. The research agent (gated behind `mode="research"`) handles those: a Sonnet 4.6 planner iteratively calls `search_knowledge_base`, `search_pubmed`, `causal_propagate`, `rank_interventions`, or `compare_topics` until it has enough evidence to emit `final_answer`. The loop is bounded by 5 iterations, a 90-second wall-clock, and the same daily budget cap as the single-shot path. Crucially, the retriever is invoked *as a tool* — agents go on top of the strong hybrid retriever, not in place of it.
+
+### Figure-Grounded Verification (opt-in)
+
+Even with grounded retrieval, the LLM can confidently fabricate a quantitative claim that the cited figure does not actually show — the captioner can paraphrase a panel inaccurately, or the model can interpolate beyond what the image supports. The verification pass (gated behind `verify=True`) addresses this by re-fetching every figure / table raster cited in the retrieval results and asking Sonnet vision to mark each claim in the generated answer as supported, unclear, or unsupported. Unsupported claims are tagged inline as `[unverified]` before the answer reaches the user. This is the single highest-leverage trust pass for a scientific RAG tool, and only applies when the caller opts in — neither latency nor cost is paid on the 80% of queries that don't need it.
 
 ### Confidence-Gated Inference Routing
 
@@ -158,14 +213,19 @@ asclepius-research-labs/
 │   │   │   ├── retrieval/
 │   │   │   │   ├── bm25_index.py       #   BM25Okapi lexical index (in-memory)
 │   │   │   │   ├── dense_index.py      #   FAISS IndexFlatIP + sentence-transformers
+│   │   │   │   ├── clip_index.py       #   CLIP ViT-B/32 text↔image FAISS index
 │   │   │   │   ├── fusion.py           #   Reciprocal Rank Fusion (k=60)
 │   │   │   │   ├── reranker.py         #   CrossEncoder ms-marco-MiniLM-L-6-v2
-│   │   │   │   └── pipeline.py         #   Unified hybrid pipeline singleton
+│   │   │   │   └── pipeline.py         #   3-leg hybrid pipeline (BM25 + dense + CLIP)
 │   │   │   ├── chunking/
-│   │   │   │   ├── document_parser.py  #   PyMuPDF → text blocks + image blocks
-│   │   │   │   ├── image_captioner.py  #   Vision model → figure caption propositions
+│   │   │   │   ├── document_parser.py  #   PyMuPDF text + image blocks (dedup, reading-order)
+│   │   │   │   ├── table_extractor.py  #   pdfplumber tables → markdown + bbox + raster
+│   │   │   │   ├── layout_chunker.py   #   Sentence-bounded, page-aware chunk packer
+│   │   │   │   ├── image_captioner.py  #   Haiku vision → caption + CLIP embedding
 │   │   │   │   ├── proposition_extractor.py  # Atomic claim extraction
 │   │   │   │   └── sliding_window.py   #   Word-level chunker (no-API fallback)
+│   │   │   ├── storage/
+│   │   │   │   └── image_store.py      #   Content-addressed disk store (SHA-256 sharded)
 │   │   │   ├── routing/
 │   │   │   │   ├── classifier.py       #   Query complexity → starting tier
 │   │   │   │   ├── cost_tracker.py     #   JSONL audit log + daily budget enforcement
@@ -180,15 +240,17 @@ asclepius-research-labs/
 │   │   │   │   ├── disease_report.py   #     Structured mechanism reports
 │   │   │   │   └── target_risk.py      #     Target druggability + risk scoring
 │   │   │   ├── services/
-│   │   │   │   ├── retrieval_service.py   # Pipeline singleton, KB + dataset indexing
+│   │   │   │   ├── retrieval_service.py   # Pipeline singleton, KB + dataset + DB indexing
 │   │   │   │   ├── llm_service.py         # Orchestration: retrieval → routing → response
+│   │   │   │   ├── agent_service.py       # Tool-using research agent (mode="research")
+│   │   │   │   ├── verification_service.py# Figure-grounded answer verification (verify=True)
 │   │   │   │   ├── query_engine.py        # Structured keyword search across datasets
 │   │   │   │   ├── pubmed_service.py      # NCBI E-utilities + interaction extraction
 │   │   │   │   ├── graph_service.py       # Causal propagation + intervention ranking
 │   │   │   │   ├── comparative_service.py # Multi-dimensional topic comparison
 │   │   │   │   ├── hypothesis_service.py  # 5-strategy testable hypothesis generation
 │   │   │   │   ├── dossier_service.py     # Persistent research workspace CRUD
-│   │   │   │   └── ingestion_service.py   # PDF ingestion orchestration
+│   │   │   │   └── ingestion_service.py   # PDF → text+figures+tables, multimodal indexing
 │   │   │   ├── data/
 │   │   │   │   ├── knowledge_base.py      # Curated KB entries (domain-configurable)
 │   │   │   │   └── ingestion.py           # JSON dataset loaders
@@ -254,10 +316,12 @@ asclepius-research-labs/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations delivered in real-time |
-| `POST` | `/query` | Standard structured JSON response |
-| `POST` | `/query/images` | Multimodal — base64 image + question, KB-grounded visual analysis |
-| `POST` | `/ingest/document` | PDF upload — text extraction + proposition chunking + figure captioning + index rebuild |
+| `GET` | `/query/stream?question=...` | **SSE streaming** — tokens + citations (text · figures · tables) delivered in real-time |
+| `POST` | `/query` | Standard structured JSON response. `mode="research"` dispatches the tool-using agent; `verify=true` runs figure-grounded verification |
+| `GET` | `/query/agent?question=...&verify=...` | **SSE streaming** — tool-using research agent: emits `planner_step`, `tool_call`, `tool_result`, `final`, `verification`, `done` events |
+| `POST` | `/query/images` | Multimodal — base64 probe image + question; CLIP image→image retrieval surfaces similar archival figures, all attached to vision call |
+| `POST` | `/ingest/document` | PDF upload — text + figures (CLIP-embedded, disk-stored) + tables (pdfplumber, markdown + raster), all indexed for retrieval |
+| `GET` | `/images/{image_hash}` | Stream a stored figure or table raster by SHA-256 hash. Used by the frontend to render retrieved figures inline |
 | `POST` | `/compare` | Multi-dimensional side-by-side topic comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation (5 strategies with experimental designs) |
 | `POST` | `/pubmed/search` | Live PubMed search + molecular interaction extraction |
@@ -276,13 +340,32 @@ asclepius-research-labs/
 
 ```
 start:     {"type": "start", "question": "..."}
-citations: {"type": "citations", "data": [{text, score, rerank_score, type, pmid, source}, ...]}
+citations: {"type": "citations", "data": [
+              {text, score, rerank_score, type, pmid, source,
+               content_type ("text"|"image"|"table"),
+               image_hash, image_url, page, table_markdown}, ...]}
 token:     {"type": "token", "text": "..."}
 done:      {"type": "done", "model": "...", "cost": 0.00042, "sources": [...]}
 error:     {"type": "error", "message": "..."}
 ```
 
-Citations are emitted before the first token — the frontend renders the citation panel while the answer streams.
+Citations are emitted before the first token — the frontend renders the citation panel (with figure thumbnails and table previews inline) while the answer streams.
+
+#### SSE Event Schema (`GET /query/agent`)
+
+```
+start:        {"type": "start", "question": "..."}
+planner_step: {"type": "planner_step", "iteration": N, "thinking": "...", "tool_calls": ["..."]}
+tool_call:    {"type": "tool_call", "iteration": N, "tool": "...", "args": {...}}
+tool_result:  {"type": "tool_result", "iteration": N, "tool": "...", "result_preview": "..."}
+final:        {"type": "final", "answer": "...", "image_hashes": ["..."]}
+verification: {"type": "verification", "verdict": "...", "confidence": 0.x, "notes": "...",
+               "revised_answer": "...", "images_inspected": N}
+done:         {"type": "done", "iterations": N, "model": "...", "cost_usd": 0.x}
+error:        {"type": "error", "message": "..."}
+```
+
+The agent emits live reasoning progress so the UI can show planner steps and tool dispatches rather than a 15-second silent spinner.
 
 #### Domain Configuration
 
@@ -370,22 +453,29 @@ Set *Root Directory* = `asclepius/frontend`. Vercel auto-detects Next.js 15, app
 
 Set *Root Directory* = `asclepius/backend`. Railway auto-detects Python via `requirements.txt` + `.python-version`, resolves the Procfile, and starts Uvicorn.
 
-Cold-start note: `all-MiniLM-L6-v2` (~90 MB) is downloaded on first deploy. Subsequent starts use Railway's volume cache, reducing cold start from ~30s to ~5s.
+Cold-start note: `all-MiniLM-L6-v2` (~90 MB) and `clip-ViT-B-32` (~600 MB) are downloaded on first deploy. The CLIP model loads lazily on the first query that exercises the multimodal leg, so initial startup is unchanged. Subsequent starts use Railway's volume cache.
+
+The image store lives at `./data/images/` (sharded by 2-char SHA-256 prefix). Mount a persistent Railway volume there if you want figures to survive container restarts.
 
 ---
 
 ## Completed Capabilities
 
 - Domain-agnostic platform with domain as a runtime string parameter
-- Hybrid BM25 + FAISS retrieval with RRF fusion and CrossEncoder reranking
-- Proposition-level document chunking with vision-based figure captioning
+- **Truly multimodal retrieval** — three-leg hybrid: BM25 (lexical) + dense MiniLM (semantic text) + CLIP ViT-B/32 (cross-modal text↔image), fused via RRF and CrossEncoder-reranked
+- **First-class figure and table propositions** — figures dedup'd by SHA-256 and stored on disk; tables extracted via pdfplumber as markdown + raw rows + bbox, with the table region rasterized for vision context
+- **Retrieved figures auto-attached to the LLM** as native Anthropic vision content blocks, so the model grounds quantitative claims in actual image pixels
+- **Layout-aware sentence-bounded chunker** — page-bounded, never cuts mid-sentence, 5–10× fewer chunks than the prior sliding window
+- **CLIP image→image retrieval** when the user uploads a probe figure (`/query/images`)
+- **Tool-using research agent** (`mode="research"`) — Sonnet 4.6 planner with hybrid retriever, PubMed, causal graph, and topic comparator as native tools; bounded by iterations + wall-clock + daily budget
+- **Figure-grounded verification pass** (`verify=true`) — Sonnet vision re-checks cited figures and tags unsupported claims `[unverified]` inline
+- **Content-addressed image API** — `/images/{hash}` streams stored figures with `Cache-Control: immutable`; frontend renders thumbnails inline in the citation panel
 - 3-tier confidence-gated inference routing with daily budget enforcement
-- SSE streaming with citations emitted before the first response token
+- SSE streaming for both single-shot RAG (`/query/stream`) and the agent (`/query/agent`)
 - Prometheus observability and structlog JSON logging
-- Async SQLite proposition store (aiosqlite + SQLAlchemy ORM)
+- Async SQLite proposition store (aiosqlite + SQLAlchemy ORM) with backward-compatible `ALTER TABLE` migrations for the multimodal columns
 - Disease/Mechanism Intelligence (DMI) module — mechanism reports and target risk scoring
-- Multimodal image query grounded against retrieved KB propositions
-- PDF ingestion pipeline: text extraction → proposition chunking → figure captioning → index rebuild
+- PDF ingestion pipeline: text + figures + tables → multimodal propositions with CLIP embeddings persisted as float32 blobs
 - Comparative analysis across multiple indexed dimensions
 - 5-strategy testable hypothesis generation with experimental designs
 - Disease dossier system — persistent research workspaces with CRUD

@@ -44,12 +44,21 @@ _llm_service = LLMService()
 
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest) -> QueryResponse:
-    """Accept a natural language question and return a structured AI-generated answer."""
+    """Accept a natural language question and return a structured AI-generated answer.
+
+    `mode="research"` dispatches to the tool-using agent (multi-step retrieval +
+    PubMed + graph). `verify=True` runs a figure-grounded verification pass after
+    generation, attaching a `verification` block to the response with claim-level
+    annotations.
+    """
     log_query(request.question)
     try:
+        if (request.mode or "").lower() == "research":
+            return _run_agent_to_query_response(request.question, verify=request.verify)
         return _llm_service.query(
             request.question,
             include_pubmed=request.include_pubmed,
+            verify=request.verify,
         )
     except Exception as exc:
         logger.exception("Unhandled error in /query")
@@ -57,6 +66,119 @@ def query(request: QueryRequest) -> QueryResponse:
             status_code=500,
             detail="Internal server error — check server logs for details",
         ) from exc
+
+
+def _run_agent_to_query_response(question: str, verify: bool = False) -> QueryResponse:
+    """Drain the agent's event stream into a non-streaming QueryResponse."""
+    from app.services.agent_service import run_agent
+
+    final_answer = ""
+    image_hashes: list[str] = []
+    model_used = "agent:claude-sonnet-4-6"
+    cost = 0.0
+    iterations = 0
+    trace: list[dict] = []
+
+    for evt in run_agent(question):
+        if evt.type == "tool_call":
+            trace.append({"tool": evt.data.get("tool"), "args": evt.data.get("args")})
+        elif evt.type == "final":
+            final_answer = evt.data.get("answer", "")
+            image_hashes = list(evt.data.get("image_hashes") or [])
+        elif evt.type == "done":
+            iterations = evt.data.get("iterations", 0)
+            cost = evt.data.get("cost_usd", 0.0)
+        elif evt.type == "error":
+            final_answer = final_answer or f"Agent error: {evt.data.get('message')}"
+
+    response = QueryResponse(
+        answer=final_answer or "(agent produced no output)",
+        sources=[],
+        model_used=model_used,
+        cost_usd=cost,
+        retrieved_propositions=[],
+    )
+    # Stash the agent trace into graph_context for the frontend to render
+    response.graph_context = {"agent_trace": trace, "iterations": iterations}
+
+    if verify and final_answer and image_hashes:
+        from app.services.verification_service import verify_against_figures
+        try:
+            v = verify_against_figures(final_answer, image_hashes)
+            response.verification = v.to_dict()
+            if v.verdict in ("partially_supported", "unsupported") and v.revised_answer:
+                response.answer = v.revised_answer
+        except Exception:
+            logger.warning("Agent verification failed", exc_info=True)
+
+    return response
+
+
+# ------------------------------------------------------------------
+# Agent SSE streaming endpoint
+# ------------------------------------------------------------------
+
+@router.get("/query/agent")
+async def query_agent_stream(
+    question: str = Query(..., min_length=1),
+    verify: bool = Query(False),
+) -> StreamingResponse:
+    """Stream the tool-using research agent as Server-Sent Events.
+
+    Events:
+      planner_step: {"type":"planner_step","iteration":N,"thinking":"...","tool_calls":[...]}
+      tool_call:    {"type":"tool_call","iteration":N,"tool":"...","args":{...}}
+      tool_result:  {"type":"tool_result","iteration":N,"tool":"...","result_preview":"..."}
+      final:        {"type":"final","answer":"...","image_hashes":[...]}
+      verification: {"type":"verification","verdict":"...","confidence":0.x,"notes":"..."}
+      done:         {"type":"done","iterations":N,"model":"...","cost_usd":0.x}
+      error:        {"type":"error","message":"..."}
+    """
+    from app.services.agent_service import run_agent
+
+    async def event_gen() -> AsyncGenerator[str, None]:
+        def sse(payload: dict) -> str:
+            return f"data: {json.dumps(payload, default=str)}\n\n"
+
+        final_answer = ""
+        image_hashes: list[str] = []
+        try:
+            log_query(f"AGENT: {question}")
+            yield sse({"type": "start", "question": question})
+
+            # The agent loop is a sync generator; offload each next() so we don't
+            # block the event loop while waiting on Anthropic.
+            def _drain():
+                return list(run_agent(question))
+            events = await run_in_threadpool(_drain)
+
+            for evt in events:
+                d = evt.to_dict()
+                yield sse(d)
+                if evt.type == "final":
+                    final_answer = evt.data.get("answer", "")
+                    image_hashes = list(evt.data.get("image_hashes") or [])
+
+            if verify and final_answer and image_hashes:
+                from app.services.verification_service import verify_against_figures
+                v = await run_in_threadpool(
+                    lambda: verify_against_figures(final_answer, image_hashes)
+                )
+                yield sse({"type": "verification", **v.to_dict()})
+
+        except Exception:
+            logger.exception("Agent streaming error")
+            yield sse({"type": "error", "message": "Internal agent streaming error"})
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ------------------------------------------------------------------

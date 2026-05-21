@@ -62,8 +62,9 @@ class LLMService:
         self,
         question: str,
         include_pubmed: bool = False,
+        verify: bool = False,
     ) -> QueryResponse:
-        logger.info("LLMService.query: %r pubmed=%s", question, include_pubmed)
+        logger.info("LLMService.query: %r pubmed=%s verify=%s", question, include_pubmed, verify)
 
         # 1. Hybrid retrieval (proposition-level)
         propositions = self._retrieve_propositions(question)
@@ -91,14 +92,37 @@ class LLMService:
 
         # 5. Route to LLM
         if settings.anthropic_api_key:
-            return self._anthropic_answer(
+            response = self._anthropic_answer(
                 question, propositions, sr, pubmed_articles, graph_context
             )
-        if _openai_client is not None:
-            return self._openai_answer(
+        elif _openai_client is not None:
+            response = self._openai_answer(
                 question, propositions, sr, pubmed_articles, graph_context
             )
-        return self._local_answer(question, propositions, sr, pubmed_articles, graph_context)
+        else:
+            response = self._local_answer(question, propositions, sr, pubmed_articles, graph_context)
+
+        # 6. Optional figure-grounded verification pass
+        if verify and response.answer:
+            self._attach_verification(response, propositions)
+
+        return response
+
+    @staticmethod
+    def _attach_verification(
+        response: QueryResponse,
+        propositions: list[RetrievedPropositionSchema],
+    ) -> None:
+        try:
+            from app.services.verification_service import verify_against_figures
+            image_hashes = [p.image_hash for p in propositions if p.image_hash]
+            result = verify_against_figures(response.answer, image_hashes)
+            response.verification = result.to_dict()
+            # If anything was actually flagged, surface the revised answer to the user
+            if result.verdict in ("partially_supported", "unsupported") and result.revised_answer:
+                response.answer = result.revised_answer
+        except Exception:
+            logger.warning("Verification pass failed", exc_info=True)
 
     def query_with_image(
         self,
