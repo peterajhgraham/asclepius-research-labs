@@ -20,12 +20,12 @@ The platform is domain-agnostic by design. Domain context (`vertical`) is a runt
 
 ```
                   ┌────────────────────────────────────────────────────────────────────┐
-                  │                       Three-Leg Hybrid Retrieval                    │
+                  │                       Three-Leg Hybrid Retrieval                   │
   Query  ───────► │  BM25 (BM25Okapi) ───────────────────────────────────┐             │
-  (+ probe image) │  Dense (FAISS / all-MiniLM-L6-v2) ────────────────────┤             │
-                  │  CLIP text→image (FAISS / ViT-B/32, shared space) ────┤  RRF k=60   │
-                  │  CLIP image→image  (only when probe image supplied) ──┤             │
-                  │                                                       └─────────────│──► CrossEncoder
+  (+ probe image) │  Dense (FAISS / all-MiniLM-L6-v2) ────────────────────┤            │
+                  │  CLIP text→image (FAISS / ViT-B/32, shared space) ────┤  RRF k=60  │
+                  │  CLIP image→image  (only when probe image supplied) ──┤            │
+                  │                                                       └────────────│──► CrossEncoder
                   └────────────────────────────────────────────────────────────────────┘    reranker
                                                                                                  │
                                                                                           top-8 propositions
@@ -41,13 +41,13 @@ The platform is domain-agnostic by design. Domain context (`vertical`) is a runt
                              (signed edges · decay=0.85 · 1-hop subgraph)
                                               │
                                               ▼
-                              ┌───────────────────────────┐
+                              ┌────────────────────────────┐
                               │    Inference Router        │
-                              │  Tier I → Tier II → Tier III
-                              │  (escalates if conf < 0.60)│
-                              │  Retrieved figures + tables│
-                              │  attached as vision blocks │
-                              └───────────────────────────┘
+                              │ Tier I → Tier II → Tier III│
+                              │ (escalates if conf < 0.60  │
+                              │ Retrieved figures + tables │
+                              │ attached as vision blocks  │
+                              └────────────────────────────┘
                                               │
                               ┌───────────────┼────────────────────────────┐
                               ▼               ▼                            ▼
@@ -91,9 +91,9 @@ BM25, dense MiniLM, and the CLIP cross-modal leg execute in parallel. Their rank
      │
      ├── tool: search_knowledge_base   ── hybrid retriever (text + figure + table)
      ├── tool: search_pubmed           ── NCBI E-utilities (live literature)
-     ├── tool: causal_propagate         ── signed-edge propagation on the KG
-     ├── tool: rank_interventions       ── upstream target ranking
-     ├── tool: compare_topics           ── side-by-side topic comparison
+     ├── tool: causal_propagate        ── signed-edge propagation on the KG
+     ├── tool: rank_interventions      ── upstream target ranking
+     ├── tool: compare_topics          ── side-by-side topic comparison
      │
      ▼  (max 5 iterations, 90s wall-clock budget, daily cost cap enforced)
   final_answer tool call ──► SSE stream of planner_step / tool_call / tool_result / final events
