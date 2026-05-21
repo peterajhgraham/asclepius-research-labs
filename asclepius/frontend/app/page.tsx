@@ -638,9 +638,9 @@ export default function HomePage() {
                 Asclepius Research Labs
               </h1>
               <p className="mt-2.5 text-center text-sm text-muted max-w-md leading-relaxed">
-                Biomedical Research Intelligence: a multimodal hybrid RAG system over PubMed
-                for mechanism mapping, target risk, and hypothesis generation — combining dense
-                retrieval, knowledge graphs, and VLMs.
+                Biomedical Research Intelligence: a multimodal, agentic hybrid RAG system over
+                PubMed for mechanism mapping, target risk, and hypothesis generation — combining
+                a research agent with dense retrieval, knowledge graphs, and VLMs.
               </p>
 
               <div className="mt-5 flex items-center gap-2">
