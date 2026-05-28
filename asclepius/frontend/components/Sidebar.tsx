@@ -62,7 +62,6 @@ export default function Sidebar({
           <nav className="space-y-0.5">
             {ALL_MODES.map((m) => {
               const active = mode === m;
-              const isAgent = m === "research";
               return (
                 <button
                   key={m}
@@ -80,11 +79,6 @@ export default function Sidebar({
                     style={active ? { boxShadow: "0 0 8px var(--green)" } : undefined}
                   />
                   <span className="truncate">{MODE_CONFIG[m].label}</span>
-                  {isAgent && (
-                    <span className="ml-auto rounded bg-green-faint px-1.5 py-0.5 font-mono font-semibold text-green" style={{ fontSize: 8, letterSpacing: "0.1em" }}>
-                      NEW
-                    </span>
-                  )}
                 </button>
               );
             })}

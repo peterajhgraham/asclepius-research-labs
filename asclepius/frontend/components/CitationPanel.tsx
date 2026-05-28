@@ -15,36 +15,6 @@ const TYPE_LABELS: Record<string, string> = {
   table:         "Table",
 };
 
-// Synthetic thumbnail patterns: figure = diagonal hatch, table = grid,
-// text = horizontal rules. Placeholders until a real figure image loads.
-function SyntheticThumb({ kind }: { kind: "figure" | "table" | "text" }) {
-  const bg =
-    kind === "figure"
-      ? "repeating-linear-gradient(45deg, var(--line-2) 0 1px, transparent 1px 7px)"
-      : kind === "table"
-        ? "repeating-linear-gradient(0deg, var(--line-2) 0 1px, transparent 1px 9px), repeating-linear-gradient(90deg, var(--line-2) 0 1px, transparent 1px 12px)"
-        : "repeating-linear-gradient(0deg, var(--line-2) 0 1px, transparent 1px 6px)";
-  return (
-    <div
-      className="h-12 w-12 shrink-0 rounded border border-line bg-bg-4"
-      style={{ backgroundImage: bg }}
-      aria-hidden="true"
-    />
-  );
-}
-
-function ScoreBar({ score }: { score: number }) {
-  const pct = Math.min(Math.max(score * 100, 0), 100);
-  return (
-    <div className="h-1 w-full rounded-full bg-bg-3 overflow-hidden">
-      <div
-        className="h-full rounded-full bg-green transition-all duration-300"
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
 interface Props {
   citations: Citation[];
   isOpen: boolean;
@@ -106,7 +76,6 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
               const isTable = c.content_type === "table";
               const effectiveType = isImage ? "figure" : isTable ? "table" : c.type;
               const label = TYPE_LABELS[effectiveType] ?? effectiveType;
-              const relevancePct = c.rerank_score > 0 ? c.rerank_score : c.score * 15;
 
               return (
                 <div
@@ -114,12 +83,12 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                   id={`cite-${i + 1}`}
                   className="rounded-lg border border-line bg-bg-2 p-3 transition hover:bg-bg-3"
                 >
-                  {/* Ref number + thumbnail + meta */}
+                  {/* Ref number + figure thumbnail (images only) + meta */}
                   <div className="flex items-start gap-3">
                     <span className="font-display tabular-nums text-green leading-none" style={{ fontSize: 22, minWidth: 24 }}>
                       {i + 1}
                     </span>
-                    {isImage ? (
+                    {isImage && (
                       <a
                         href={`/api/images/${c.image_hash}`}
                         target="_blank"
@@ -134,8 +103,6 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                           className="h-full w-full object-cover"
                         />
                       </a>
-                    ) : (
-                      <SyntheticThumb kind={isTable ? "table" : "text"} />
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.12em" }}>
@@ -161,17 +128,6 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
 
                   {/* Proposition text: italic caption */}
                   <p className="mt-2 text-xs italic text-muted leading-relaxed line-clamp-4">{c.text}</p>
-
-                  {/* Relevance bar */}
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>RRF score</span>
-                      <span className="text-[10px] font-mono tabular-nums text-green">
-                        {(relevancePct * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <ScoreBar score={relevancePct} />
-                  </div>
 
                   {/* PMID link */}
                   {c.pmid && (

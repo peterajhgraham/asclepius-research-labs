@@ -105,7 +105,7 @@ const HERO_STATS: { value: string; label: string }[] = [
   { value: "18", label: "KB topics" },
 ];
 
-const WORKFLOWS: { mode: Mode; title: string; desc: string; isNew?: boolean }[] = [
+const WORKFLOWS: { mode: Mode; title: string; desc: string }[] = [
   {
     mode: "disease-report",
     title: "Mechanism Report",
@@ -120,7 +120,6 @@ const WORKFLOWS: { mode: Mode; title: string; desc: string; isNew?: boolean }[] 
     mode: "research",
     title: "Research Agent",
     desc: "A multi-hop agent plans, dispatches tools, and synthesizes a figure-grounded answer.",
-    isNew: true,
   },
 ];
 
@@ -641,9 +640,8 @@ export default function HomePage() {
               <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="hx-live" />
                     <span className="font-mono uppercase text-muted" style={{ fontSize: 11, letterSpacing: "0.18em" }}>
-                      Live · biomedical RAG · v2.0.0
+                      Biomedical RAG · v2.0.0
                     </span>
                   </div>
                   <h1 className="mt-5 font-display text-ink text-display-l sm:text-display-xl">
@@ -692,11 +690,6 @@ export default function HomePage() {
                         <span className="font-display text-muted text-display-m group-hover:text-ink">
                           {String(i + 1).padStart(2, "0")}
                         </span>
-                        {w.isNew && (
-                          <span className="rounded bg-green-faint px-1.5 py-0.5 font-mono font-semibold text-green" style={{ fontSize: 8, letterSpacing: "0.1em" }}>
-                            NEW
-                          </span>
-                        )}
                       </div>
                       <p className={`mt-3 text-sm font-semibold ${active ? "text-green" : "text-ink"}`}>{w.title}</p>
                       <p className="mt-1.5 text-xs leading-relaxed text-muted">{w.desc}</p>
