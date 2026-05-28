@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 /* ============================================================
-   HELIX design tokens — Asclepius Research Labs
+   HELIX design tokens: Asclepius Research Labs
    The entire UI is the neutral scale + one signature green.
-   Hierarchy comes from elevation (bg → bg-3) plus the green
-   accent. Amber/red are semantic only — never decorative.
+   Hierarchy comes from elevation (bg to bg-3) plus the green
+   accent. Amber/red are semantic only, never decorative.
    ============================================================ */
 
 :root {
@@ -32,7 +32,7 @@
   --green-deep:   #1a7a3a;
   --green-faint:  rgba(135, 240, 133, 0.10);
 
-  /* ---- Semantic (warnings only — never decorative) ---- */
+  /* ---- Semantic (warnings only, never decorative) ---- */
   --amber:     #f5c062;  /* watch / partial */
   --red:       #f08987;  /* risk / fail     */
 
@@ -63,7 +63,7 @@ body {
 
 ::selection { background: var(--green-faint); color: var(--green); }
 
-/* Scrollbar — thin, neutral */
+/* Scrollbar: thin, neutral */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
@@ -71,7 +71,7 @@ body {
 
 /* ---- Signature primitives ---- */
 
-/* Streaming cursor — append after the last token while streaming */
+/* Streaming cursor: append after the last token while streaming */
 .hx-cursor {
   display: inline-block; width: 2px; height: 1em;
   background: var(--green); vertical-align: -0.15em; margin-left: 2px;
@@ -80,13 +80,13 @@ body {
 }
 @keyframes hx-blink { 50% { opacity: 0.1; } }
 
-/* Live pulse dot — static green glow, no spin */
+/* Live pulse dot: static green glow, no spin */
 .hx-live {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--green); box-shadow: 0 0 8px var(--green);
 }
 
-/* Inline citation marker — superscript green chips */
+/* Inline citation marker: superscript green chips */
 .hx-cite-ref {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 16px; height: 16px; padding: 0 4px;
@@ -107,7 +107,7 @@ body {
   100%    { box-shadow: 0 0 0 1px transparent; }
 }
 
-/* Prose overrides — markdown answers */
+/* Prose overrides: markdown answers */
 .prose pre {
   background-color: var(--bg-3);
   border: 1px solid var(--line);

@@ -15,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
   table:         "Table",
 };
 
-// Synthetic thumbnail patterns — figure = diagonal hatch, table = grid,
+// Synthetic thumbnail patterns: figure = diagonal hatch, table = grid,
 // text = horizontal rules. Placeholders until a real figure image loads.
 function SyntheticThumb({ kind }: { kind: "figure" | "table" | "text" }) {
   const bg =
@@ -159,7 +159,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                     </pre>
                   )}
 
-                  {/* Proposition text — italic caption */}
+                  {/* Proposition text: italic caption */}
                   <p className="mt-2 text-xs italic text-muted leading-relaxed line-clamp-4">{c.text}</p>
 
                   {/* Relevance bar */}

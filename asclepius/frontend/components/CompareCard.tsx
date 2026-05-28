@@ -119,17 +119,17 @@ export default function CompareCard({ data }: CompareCardProps) {
                 <td className="px-3 py-2 text-center">
                   {row.shared > 0
                     ? <span className="inline-block rounded-full bg-accent-600/20 text-accent-400 px-2 py-0.5 text-[10px] font-bold">{row.shared}</span>
-                    : <span className="text-muted">—</span>}
+                    : <span className="text-muted">n/a</span>}
                 </td>
                 <td className="px-3 py-2 text-center">
                   {row.ua > 0
                     ? <span className="inline-block rounded-full bg-blue-500/15 text-blue-400 px-2 py-0.5 text-[10px] font-bold">{row.ua}</span>
-                    : <span className="text-muted">—</span>}
+                    : <span className="text-muted">n/a</span>}
                 </td>
                 <td className="px-3 py-2 text-center">
                   {row.ub > 0
                     ? <span className="inline-block rounded-full bg-purple-500/15 text-purple-400 px-2 py-0.5 text-[10px] font-bold">{row.ub}</span>
-                    : <span className="text-muted">—</span>}
+                    : <span className="text-muted">n/a</span>}
                 </td>
               </tr>
             ))}
@@ -137,7 +137,7 @@ export default function CompareCard({ data }: CompareCardProps) {
         </table>
       </div>
 
-      {/* Header — similarity score */}
+      {/* Header: similarity score */}
       <div className="rounded-xl border border-accent-500/25 overflow-hidden">
         <div className="px-5 py-4 bg-surface-1">
           <div className="flex items-center justify-between mb-3">
@@ -159,8 +159,8 @@ export default function CompareCard({ data }: CompareCardProps) {
             />
           </div>
           <div className="flex justify-between mt-1 text-[9px] text-muted">
-            <span>0% — No overlap</span>
-            <span>100% — Identical</span>
+            <span>0%: No overlap</span>
+            <span>100%: Identical</span>
           </div>
         </div>
       </div>
@@ -216,7 +216,7 @@ export default function CompareCard({ data }: CompareCardProps) {
         ))}
       </div>
 
-      {/* Overlap Analysis — tabbed */}
+      {/* Overlap Analysis: tabbed */}
       <div className="rounded-xl border border-surface-3 overflow-hidden">
         <div className="border-b border-surface-3 bg-surface-2 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Overlap Analysis</p>

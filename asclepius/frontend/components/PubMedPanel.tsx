@@ -32,7 +32,7 @@ export default function PubMedPanel({ articles }: PubMedPanelProps) {
                   {article.authors.slice(0, 3).join(", ")}
                   {article.authors.length > 3 && " et al."}
                   {article.year && ` (${article.year})`}
-                  {article.journal && ` — ${article.journal}`}
+                  {article.journal && `. ${article.journal}`}
                 </p>
                 {article.abstract && (
                   <p className="mt-1.5 text-xs text-gray-400 leading-relaxed line-clamp-2">
