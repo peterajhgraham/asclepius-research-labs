@@ -273,7 +273,7 @@ export default function QueryInputBar({
             </button>
             <button
               type="button"
-              aria-label="Upload PDF — figures are captioned and propositions indexed into the RAG pipeline"
+              aria-label="Upload PDF: figures are captioned and propositions indexed into the RAG pipeline"
               onClick={() => pdfInputRef.current?.click()}
               className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                 uploadedPdf
@@ -345,7 +345,7 @@ export default function QueryInputBar({
                   : mode === "hypothesis"
                   ? "Research topic…"
                   : mode === "research"
-                  ? "Multi-part question — the agent will decompose & dispatch…"
+                  ? "Multi-part question; the agent will decompose & dispatch…"
                   : "Ask about any mechanism, pathway, or target…"
               }
               disabled={isLoading}

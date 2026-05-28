@@ -56,7 +56,7 @@ const VERDICT_STYLE: Record<string, { label: string; cls: string }> = {
   supported: { label: "All claims supported", cls: "text-green border-green/30 bg-green-faint" },
   partially_supported: { label: "Some claims unverified", cls: "text-amber border-amber/30 bg-amber/5" },
   unsupported: { label: "Claims not supported by figures", cls: "text-risk border-risk/30 bg-risk/5" },
-  no_images: { label: "No figures cited — verification skipped", cls: "text-muted border-line bg-bg-3" },
+  no_images: { label: "No figures cited, verification skipped", cls: "text-muted border-line bg-bg-3" },
 };
 
 interface Props {

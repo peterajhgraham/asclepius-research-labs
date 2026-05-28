@@ -204,7 +204,7 @@ export default function DiseaseReportCard({ data }: { data: DiseaseReportRespons
         <CollapsibleSection
           icon="⚠️"
           label="Failed Targets"
-          subtitle="Targets that did not translate clinically — important for de-risking"
+          subtitle="Targets that did not translate clinically, important for de-risking"
           accentClass="text-red-400"
           borderClass="border-red-500/20"
           badgeCount={data.failed_targets.length}

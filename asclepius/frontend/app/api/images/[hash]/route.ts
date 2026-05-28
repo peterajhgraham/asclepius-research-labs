@@ -28,7 +28,7 @@ export async function GET(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: `Image proxy failed — ${message}` },
+      { error: `Image proxy failed: ${message}` },
       { status: 502 },
     );
   }

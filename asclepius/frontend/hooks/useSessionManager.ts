@@ -18,7 +18,7 @@ function persistSessions(sessions: SavedSession[]) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(sessions));
   } catch {
-    // QuotaExceededError — storage full, skip silently
+    // QuotaExceededError: storage full, skip silently
   }
 }
 

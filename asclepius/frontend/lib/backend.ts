@@ -26,7 +26,7 @@ export async function proxyPost(request: NextRequest, path: string) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: `Backend unreachable at ${BACKEND_URL}${path} — ${message}` },
+      { error: `Backend unreachable at ${BACKEND_URL}${path}: ${message}` },
       { status: 502 },
     );
   }
@@ -43,7 +43,7 @@ export async function proxyGet(path: string) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: `Backend unreachable at ${BACKEND_URL}${path} — ${message}` },
+      { error: `Backend unreachable at ${BACKEND_URL}${path}: ${message}` },
       { status: 502 },
     );
   }

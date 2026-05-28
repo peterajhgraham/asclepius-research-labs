@@ -54,7 +54,7 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Workspace — mode list */}
+        {/* Workspace: mode list */}
         <div className="px-3 pt-4 pb-2">
           <p className="px-1 mb-2 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
             Workspace
@@ -62,7 +62,6 @@ export default function Sidebar({
           <nav className="space-y-0.5">
             {ALL_MODES.map((m) => {
               const active = mode === m;
-              const isAgent = m === "research";
               return (
                 <button
                   key={m}
@@ -80,11 +79,6 @@ export default function Sidebar({
                     style={active ? { boxShadow: "0 0 8px var(--green)" } : undefined}
                   />
                   <span className="truncate">{MODE_CONFIG[m].label}</span>
-                  {isAgent && (
-                    <span className="ml-auto rounded bg-green-faint px-1.5 py-0.5 font-mono font-semibold text-green" style={{ fontSize: 8, letterSpacing: "0.1em" }}>
-                      NEW
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -137,27 +131,15 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Budget meter footer */}
-        <div className="border-t border-line px-4 py-3 space-y-2.5">
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.16em" }}>
-                Session budget
-              </span>
-              <span className="font-mono tabular-nums text-muted" style={{ fontSize: 10 }}>
-                $2.41 / $10.00
-              </span>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-bg-3 overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{ width: "24%", background: "linear-gradient(90deg, var(--green-deep), var(--green))" }}
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="hx-live" />
-            <span className="font-mono text-muted" style={{ fontSize: 10 }}>All systems nominal</span>
+        {/* Footer */}
+        <div className="border-t border-line px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.16em" }}>
+              Sessions stored locally
+            </span>
+            <span className="font-mono tabular-nums text-muted" style={{ fontSize: 10 }}>
+              {sessions.length}
+            </span>
           </div>
         </div>
       </aside>

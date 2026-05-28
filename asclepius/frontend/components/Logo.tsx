@@ -6,7 +6,7 @@ interface GlyphProps {
 }
 
 /**
- * Helix brand mark — a three-node graph triangle. Three propositions
+ * Helix brand mark: a three-node graph triangle. Three propositions
  * connected by inference, the smallest unit of the platform. The single
  * outline node is the retrieval target.
  */

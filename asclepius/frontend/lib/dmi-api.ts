@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // ------------------------------------------------------------------
-// Domain type — any scientific domain (e.g., immunology, oncology, neuroscience)
+// Domain type: any scientific domain (e.g., immunology, oncology, neuroscience)
 // ------------------------------------------------------------------
 export type Vertical = string;
 

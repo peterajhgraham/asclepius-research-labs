@@ -22,7 +22,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Asclepius Research Labs",
-  description: "Biomedical Research Intelligence: a multimodal, agentic hybrid RAG system over PubMed for mechanism mapping, target risk, and hypothesis generation — combining a research agent with dense retrieval, knowledge graphs, and VLMs.",
+  description: "Biomedical Research Intelligence: a multimodal, agentic hybrid RAG system over PubMed for mechanism mapping, target risk, and hypothesis generation, combining a research agent with dense retrieval, knowledge graphs, and VLMs.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

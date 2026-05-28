@@ -80,7 +80,7 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
   research: [
     "Compare TNF blockade vs IL-17 blockade in psoriatic arthritis across efficacy, safety, and biomarkers",
-    "What downstream targets of JAK1 have published 2024–2025 trial data?",
+    "What downstream targets of JAK1 have published 2024-2025 trial data?",
     "Map upstream interventions to suppress STAT3 in tumor microenvironments, then cross-reference with approved drugs",
     "How does anti-amyloid therapy compare to anti-tau across mechanism, trial endpoints, and adverse events?",
   ],
@@ -100,16 +100,16 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
 
 const HERO_STATS: { value: string; label: string }[] = [
   { value: "3", label: "leg hybrid" },
-  { value: "142k", label: "propositions" },
+  { value: "6", label: "modes" },
   { value: "5", label: "agent tools" },
-  { value: "0.91", label: "mean conf" },
+  { value: "18", label: "KB topics" },
 ];
 
-const WORKFLOWS: { mode: Mode; title: string; desc: string; isNew?: boolean }[] = [
+const WORKFLOWS: { mode: Mode; title: string; desc: string }[] = [
   {
     mode: "disease-report",
     title: "Mechanism Report",
-    desc: "Map disease biology — pathways, targets, and confidence — from the literature.",
+    desc: "Map disease biology (pathways, targets, and confidence) from the literature.",
   },
   {
     mode: "target-risk",
@@ -120,7 +120,6 @@ const WORKFLOWS: { mode: Mode; title: string; desc: string; isNew?: boolean }[] 
     mode: "research",
     title: "Research Agent",
     desc: "A multi-hop agent plans, dispatches tools, and synthesizes a figure-grounded answer.",
-    isNew: true,
   },
 ];
 
@@ -335,7 +334,7 @@ export default function HomePage() {
     setUploadedImage(null);
     setUploadedPdf(null);
     setShowCitationPanel(false);
-    // Sanitise any entries that were saved mid-request — they'd show a
+    // Sanitise any entries that were saved mid-request, they'd show a
     // permanent loading spinner otherwise.
     const sanitised = (session.entries as ConversationEntry[]).map((e) =>
       e.loading ? { ...e, loading: false, error: "Query did not complete." } : e,
@@ -479,7 +478,7 @@ export default function HomePage() {
           agent.reset();
           setAgentEntryId(entry.id);
           agent.stream(trimmed, verify);
-          // keep loading flag true — the agent freezing effect clears it on done/error
+          // keep loading flag true; the agent freezing effect clears it on done/error
           return;
         }
 
@@ -535,7 +534,7 @@ export default function HomePage() {
         setLoading(false);
       }
     },
-    // streaming.stream / streaming.reset are stable useCallback refs — including
+    // streaming.stream / streaming.reset are stable useCallback refs; including
     // the entire streaming object would recreate handleSubmit on every SSE token.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, verify, streaming.stream, streaming.reset, agent.stream, agent.reset],
@@ -641,9 +640,8 @@ export default function HomePage() {
               <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="hx-live" />
                     <span className="font-mono uppercase text-muted" style={{ fontSize: 11, letterSpacing: "0.18em" }}>
-                      Live · biomedical RAG · v2.4.1
+                      Biomedical RAG · v2.0.0
                     </span>
                   </div>
                   <h1 className="mt-5 font-display text-ink text-display-l sm:text-display-xl">
@@ -652,7 +650,7 @@ export default function HomePage() {
                     <em className="italic text-green">read carefully.</em>
                   </h1>
                   <p className="mt-5 max-w-lg text-ink-2 text-body-l">
-                    A multimodal, agentic hybrid RAG system over PubMed — for mechanism mapping,
+                    A multimodal, agentic hybrid RAG system over PubMed, for mechanism mapping,
                     target risk, and hypothesis generation, with every claim traced to primary
                     literature.
                   </p>
@@ -692,11 +690,6 @@ export default function HomePage() {
                         <span className="font-display text-muted text-display-m group-hover:text-ink">
                           {String(i + 1).padStart(2, "0")}
                         </span>
-                        {w.isNew && (
-                          <span className="rounded bg-green-faint px-1.5 py-0.5 font-mono font-semibold text-green" style={{ fontSize: 8, letterSpacing: "0.1em" }}>
-                            NEW
-                          </span>
-                        )}
                       </div>
                       <p className={`mt-3 text-sm font-semibold ${active ? "text-green" : "text-ink"}`}>{w.title}</p>
                       <p className="mt-1.5 text-xs leading-relaxed text-muted">{w.desc}</p>
