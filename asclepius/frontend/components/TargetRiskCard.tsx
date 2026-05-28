@@ -44,7 +44,7 @@ function RiskGauge({
           <p className="text-[10px] text-muted mt-0.5 leading-snug">{subtitle}</p>
         </div>
         <div className="text-right">
-          <span className={`text-2xl font-bold font-mono ${riskColor}`}>{score}</span>
+          <span className={`font-display tabular-nums ${riskColor}`} style={{ fontSize: 32 }}>{score}</span>
           <span className="text-muted text-xs">/100</span>
         </div>
       </div>
@@ -145,14 +145,14 @@ export default function TargetRiskCard({ data }: { data: TargetRiskResponse }) {
             🎯
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-gray-100">{data.target}</h3>
-            <p className="text-sm text-muted-light mt-0.5">
-              Therapeutic target risk assessment in <span className="text-gray-300 font-medium">{data.disease}</span>
+            <h3 className="font-display text-ink text-display-m">{data.target}</h3>
+            <p className="text-sm text-muted mt-0.5">
+              Therapeutic target risk assessment in <span className="text-ink-2 font-medium">{data.disease}</span>
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-muted mb-1 uppercase tracking-widest">Overall Risk</p>
-            <span className={`text-3xl font-bold font-mono ${data.overall_risk_score >= 60 ? "text-red-400" : data.overall_risk_score >= 30 ? "text-yellow-400" : "text-green-400"}`}>
+            <p className="font-mono uppercase text-faint mb-1" style={{ fontSize: 10, letterSpacing: "0.14em" }}>Overall Risk</p>
+            <span className={`font-display tabular-nums ${data.overall_risk_score >= 60 ? "text-risk" : data.overall_risk_score >= 30 ? "text-amber" : "text-green"}`} style={{ fontSize: 52, lineHeight: 1 }}>
               {data.overall_risk_score}
             </span>
             <span className="text-muted text-sm">/100</span>

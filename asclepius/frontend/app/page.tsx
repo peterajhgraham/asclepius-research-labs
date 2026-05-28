@@ -32,7 +32,7 @@ import { useAgentStream } from "@/hooks/useAgentStream";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 import { genId, PROSE_CLS, pmidToUrl } from "@/lib/utils";
-import ModeSwitcher, { MODE_CONFIG } from "@/components/ModeSwitcher";
+import { MODE_CONFIG } from "@/components/ModeSwitcher";
 
 import AgentTrace from "@/components/AgentTrace";
 import AuthHeader from "@/components/AuthHeader";
@@ -43,6 +43,7 @@ import DiseaseReportCard from "@/components/DiseaseReportCard";
 import FrozenStreamEntry from "@/components/FrozenStreamEntry";
 import HypothesisCard from "@/components/HypothesisCard";
 import ImageAnalysisCard from "@/components/ImageAnalysisCard";
+import { Logo } from "@/components/Logo";
 import QueryInputBar from "@/components/QueryInputBar";
 import ResponseCard from "@/components/ResponseCard";
 import Sidebar from "@/components/Sidebar";
@@ -97,33 +98,29 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const HOW_IT_WORKS = [
+const HERO_STATS: { value: string; label: string }[] = [
+  { value: "3", label: "leg hybrid" },
+  { value: "142k", label: "propositions" },
+  { value: "5", label: "agent tools" },
+  { value: "0.91", label: "mean conf" },
+];
+
+const WORKFLOWS: { mode: Mode; title: string; desc: string; isNew?: boolean }[] = [
   {
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-      </svg>
-    ),
-    title: "Retrieve",
-    desc: "BM25 + semantic search across curated knowledge bases and live PubMed",
+    mode: "disease-report",
+    title: "Mechanism Report",
+    desc: "Map disease biology — pathways, targets, and confidence — from the literature.",
   },
   {
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M12 2a10 10 0 1 0 10 10" /><path d="M12 6v6l4 2" />
-      </svg>
-    ),
-    title: "Synthesize",
-    desc: "Answers are grounded in retrieved propositions, with citations traced back to primary literature",
+    mode: "target-risk",
+    title: "Target Risk",
+    desc: "Score a therapeutic target across tractability, safety, and modality feasibility.",
   },
   {
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-      </svg>
-    ),
-    title: "Multimodal",
-    desc: "Upload images or PDFs — figures are captioned and indexed for retrieval",
+    mode: "research",
+    title: "Research Agent",
+    desc: "A multi-hop agent plans, dispatches tools, and synthesizes a figure-grounded answer.",
+    isNew: true,
   },
 ];
 
@@ -572,7 +569,7 @@ export default function HomePage() {
   // ------------------------------------------------------------------
   return (
     <div
-      className="flex h-screen bg-surface-0 overflow-hidden"
+      className="flex h-screen bg-bg overflow-hidden"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -584,11 +581,11 @@ export default function HomePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0/80 backdrop-blur-sm border-2 border-dashed border-accent-500/40"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm border-2 border-dashed border-green/40"
           >
             <div className="text-center">
-              <p className="text-lg font-semibold text-gray-200">Drop to attach</p>
-              <p className="text-sm text-muted mt-1">Images · PDF documents</p>
+              <p className="font-display text-2xl text-ink">Drop to attach</p>
+              <p className="text-sm text-muted mt-1 font-mono">Images · PDF documents</p>
             </div>
           </motion.div>
         )}
@@ -602,23 +599,29 @@ export default function HomePage() {
         onDeleteSession={handleDeleteSession}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        mode={mode}
+        onModeChange={setMode}
       />
 
       <main className="flex flex-1 min-w-0 flex-col">
         {/* Mobile header */}
-        <header className="sticky top-0 z-20 lg:hidden border-b border-surface-3 bg-surface-0/80 backdrop-blur-md">
+        <header className="sticky top-0 z-20 lg:hidden border-b border-line bg-bg/80 backdrop-blur-md">
           <div className="flex items-center justify-between px-4 py-2.5 sm:px-5">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label="Toggle sidebar"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                aria-label="Toggle sidebar"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-bg-3 hover:text-ink transition"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <Logo size={20} />
+              <span className="font-sans font-semibold text-ink text-sm tracking-tight">Asclepius</span>
+            </div>
             <AuthHeader />
           </div>
         </header>
@@ -632,67 +635,97 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="mx-auto flex max-w-2xl flex-col items-center px-6 pt-16 pb-10 sm:pt-20"
+              className="mx-auto w-full max-w-5xl px-6 pt-14 pb-10 sm:px-10 sm:pt-20"
             >
-              <h1 className="text-2xl font-semibold tracking-tight text-gray-100 sm:text-3xl text-center">
-                Asclepius Research Labs
-              </h1>
-              <p className="mt-2.5 text-center text-sm text-muted max-w-md leading-relaxed">
-                Biomedical Research Intelligence: a multimodal, agentic hybrid RAG system over
-                PubMed for mechanism mapping, target risk, and hypothesis generation — combining
-                a research agent with dense retrieval, knowledge graphs, and VLMs.
-              </p>
-
-              <div className="mt-5 flex items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-surface-1 px-2 py-1 text-[11px] font-medium text-muted-light">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
-                  <span className="font-mono tracking-tight">Asclepius Engine</span>
-                </div>
-                <span className="text-xs text-muted">· Hybrid RAG · Causal Graph · Live PubMed</span>
-              </div>
-
-              {/* Mode switcher */}
-              <div className="mt-8">
-                <ModeSwitcher mode={mode} onModeChange={setMode} />
-              </div>
-
-              {/* Example chips */}
-              <div className="mt-5 flex flex-wrap gap-2 justify-center">
-                {examples.map((example) => (
-                  <motion.button
-                    key={example}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleExampleClick(example)}
-                    className="rounded-md border border-surface-3 bg-surface-1 px-3.5 py-1.5 text-xs text-muted hover:border-surface-4 hover:bg-surface-2 hover:text-gray-300 transition"
-                  >
-                    {example}
-                  </motion.button>
-                ))}
-              </div>
-
-              {/* How it works */}
-              <div className="mt-12 w-full">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-px flex-1 bg-surface-3" />
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted font-mono">
-                    How it works
+              {/* Hero + stat panel */}
+              <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="hx-live" />
+                    <span className="font-mono uppercase text-muted" style={{ fontSize: 11, letterSpacing: "0.18em" }}>
+                      Live · biomedical RAG · v2.4.1
+                    </span>
+                  </div>
+                  <h1 className="mt-5 font-display text-ink text-display-l sm:text-display-xl">
+                    The literature,
+                    <br />
+                    <em className="italic text-green">read carefully.</em>
+                  </h1>
+                  <p className="mt-5 max-w-lg text-ink-2 text-body-l">
+                    A multimodal, agentic hybrid RAG system over PubMed — for mechanism mapping,
+                    target risk, and hypothesis generation, with every claim traced to primary
+                    literature.
                   </p>
-                  <div className="h-px flex-1 bg-surface-3" />
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {HOW_IT_WORKS.map((step, i) => (
-                    <motion.div
-                      key={step.title}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 + i * 0.07 }}
-                      className="rounded-lg border border-surface-3 bg-surface-1 p-4"
+
+                {/* Stat panel */}
+                <div className="w-full shrink-0 overflow-hidden rounded-xl border border-line bg-bg-2 shadow-card lg:w-[320px]">
+                  <div className="grid grid-cols-2">
+                    {HERO_STATS.map((s, i) => (
+                      <div
+                        key={s.label}
+                        className={`px-5 py-5 ${i % 2 === 0 ? "border-r border-line" : ""} ${i < 2 ? "border-b border-line" : ""}`}
+                      >
+                        <p className="font-display tabular-nums text-green text-display-l leading-none">{s.value}</p>
+                        <p className="mt-2 font-mono uppercase text-muted" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
+                          {s.label}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Workflow cards */}
+              <div className="mt-12 grid gap-3 sm:grid-cols-3">
+                {WORKFLOWS.map((w, i) => {
+                  const active = mode === w.mode;
+                  return (
+                    <button
+                      key={w.mode}
+                      onClick={() => setMode(w.mode)}
+                      className={`group rounded-xl border bg-bg-2 p-5 text-left transition hover:bg-bg-3 ${
+                        active ? "border-green/40 shadow-glow-green" : "border-line hover:border-line-2"
+                      }`}
                     >
-                      <div className="mb-2 text-accent-400">{step.icon}</div>
-                      <p className="text-xs font-semibold text-gray-200 mb-1">{step.title}</p>
-                      <p className="text-[11px] text-muted leading-relaxed">{step.desc}</p>
-                    </motion.div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-display text-muted text-display-m group-hover:text-ink">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        {w.isNew && (
+                          <span className="rounded bg-green-faint px-1.5 py-0.5 font-mono font-semibold text-green" style={{ fontSize: 8, letterSpacing: "0.1em" }}>
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      <p className={`mt-3 text-sm font-semibold ${active ? "text-green" : "text-ink"}`}>{w.title}</p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-muted">{w.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Example prompts */}
+              <div className="mt-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
+                    Try a prompt
+                  </p>
+                  <div className="h-px flex-1 bg-line" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  {examples.map((example, i) => (
+                    <motion.button
+                      key={example}
+                      whileTap={{ scale: 0.995 }}
+                      onClick={() => handleExampleClick(example)}
+                      className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-line hover:bg-bg-2"
+                    >
+                      <span className="font-display tabular-nums text-muted group-hover:text-green" style={{ fontSize: 18, minWidth: 22 }}>
+                        {i + 1}
+                      </span>
+                      <span className="text-sm text-ink-2 group-hover:text-ink">{example}</span>
+                    </motion.button>
                   ))}
                 </div>
               </div>
@@ -713,7 +746,7 @@ export default function HomePage() {
                   >
                     {/* User message */}
                     <div className="mb-4 flex items-start gap-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-2 text-xs font-semibold text-muted-light">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-bg-3 font-mono text-[11px] font-semibold text-muted">
                         {MODE_CONFIG[entry.mode]?.label.slice(0, 1)}
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
@@ -721,13 +754,13 @@ export default function HomePage() {
                           <img
                             src={entry.imagePreviewUrl}
                             alt="Uploaded"
-                            className="mb-2 h-16 w-16 rounded-md object-cover border border-surface-3"
+                            className="mb-2 h-16 w-16 rounded-md object-cover border border-line"
                           />
                         )}
-                        <p className="text-sm font-medium text-gray-100 leading-relaxed">
+                        <p className="font-display text-ink text-display-m leading-snug">
                           {entry.question}
                         </p>
-                        <p className="text-[10px] text-muted mt-0.5 font-mono">
+                        <p className="mt-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
                           {MODE_CONFIG[entry.mode]?.label} ·{" "}
                           {new Date(entry.timestamp).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -740,7 +773,7 @@ export default function HomePage() {
                     {/* Response */}
                     <div className="ml-10">
                       {entry.error && (
-                        <div className="rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-400">
+                        <div className="rounded-lg border border-risk/25 bg-risk/8 px-4 py-3 text-sm text-risk">
                           {entry.error}
                         </div>
                       )}
@@ -772,7 +805,7 @@ export default function HomePage() {
                       )}
 
                       {entry.loading && !isCurrentlyStreaming && entry.id !== agentEntryId && (
-                        <div className="flex items-center gap-3 rounded-lg border border-surface-3 bg-surface-1 px-4 py-3">
+                        <div className="flex items-center gap-3 rounded-xl border border-line bg-bg-2 px-4 py-3">
                           <ClaudeBadge isStreaming />
                           <span className="text-xs text-muted">
                             {entry.mode === "disease-report"

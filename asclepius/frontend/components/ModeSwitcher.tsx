@@ -20,7 +20,7 @@ interface Props {
 
 export default function ModeSwitcher({ mode, onModeChange }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-surface-3 bg-surface-1 p-0.5">
+    <div className="flex flex-wrap items-center gap-1">
       {ALL_MODES.map((m) => {
         const active = mode === m;
         return (
@@ -29,18 +29,16 @@ export default function ModeSwitcher({ mode, onModeChange }: Props) {
               type="button"
               onClick={() => onModeChange(m)}
               aria-label={MODE_CONFIG[m].description}
-              className={`
-                relative rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all
-                ${active
-                  ? "bg-surface-3 text-gray-100 shadow-sm"
-                  : "text-muted hover:text-gray-300"
-                }
-              `}
+              className={`relative rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap transition-all ${
+                active
+                  ? "border-green/40 bg-green-faint text-green"
+                  : "border-line bg-bg-2 text-muted hover:border-line-2 hover:text-ink-2"
+              }`}
             >
               {MODE_CONFIG[m].label}
             </button>
             <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-              <div className="rounded-md border border-surface-3 bg-surface-0 px-2.5 py-1.5 text-[11px] text-gray-400 whitespace-nowrap shadow-xl">
+              <div className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[11px] text-muted whitespace-nowrap shadow-xl">
                 {MODE_CONFIG[m].description}
               </div>
             </div>

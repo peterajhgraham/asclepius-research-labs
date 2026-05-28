@@ -53,10 +53,10 @@ const TOOL_ICONS: Record<string, JSX.Element> = {
 };
 
 const VERDICT_STYLE: Record<string, { label: string; cls: string }> = {
-  supported: { label: "All claims supported", cls: "text-emerald-400 border-emerald-500/30 bg-emerald-500/5" },
-  partially_supported: { label: "Some claims unverified", cls: "text-amber-400 border-amber-500/30 bg-amber-500/5" },
-  unsupported: { label: "Claims not supported by figures", cls: "text-red-400 border-red-500/30 bg-red-500/5" },
-  no_images: { label: "No figures cited — verification skipped", cls: "text-muted border-surface-3 bg-surface-2" },
+  supported: { label: "All claims supported", cls: "text-green border-green/30 bg-green-faint" },
+  partially_supported: { label: "Some claims unverified", cls: "text-amber border-amber/30 bg-amber/5" },
+  unsupported: { label: "Claims not supported by figures", cls: "text-risk border-risk/30 bg-risk/5" },
+  no_images: { label: "No figures cited — verification skipped", cls: "text-muted border-line bg-bg-3" },
 };
 
 interface Props {
@@ -87,24 +87,30 @@ export default function AgentTrace({ state }: Props) {
   const iters = [...groupedByIter.keys()].sort((a, b) => a - b);
 
   return (
-    <div className="mt-3 rounded-lg border border-surface-3 bg-surface-1 overflow-hidden">
+    <div className="mt-3 rounded-xl border border-line bg-bg-2 shadow-card overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-surface-3 px-4 py-2.5">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
         <ClaudeBadge model={state.done?.model ?? "claude-sonnet-4-6"} isStreaming={state.isStreaming} />
+        {state.isStreaming && (
+          <span className="flex items-center gap-1.5 text-[11px] text-green font-mono">
+            <span className="hx-live" />
+            Planning
+          </span>
+        )}
         <span className="text-[11px] text-muted font-mono">research agent</span>
         {state.done && (
-          <span className="text-[10px] text-muted ml-auto font-mono">
+          <span className="text-[10px] text-muted ml-auto font-mono tabular-nums">
             {state.done.iterations} iter · ${state.done.cost_usd.toFixed(4)}
           </span>
         )}
       </div>
 
       {/* Trace */}
-      <div className="border-b border-surface-3">
+      <div className="border-b border-line">
         <button
           type="button"
           onClick={() => setTraceOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-mono text-muted hover:bg-surface-2/40 transition"
+          className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-mono text-muted hover:bg-bg-3/40 transition"
         >
           <svg
             width="10"
@@ -117,7 +123,7 @@ export default function AgentTrace({ state }: Props) {
           >
             <polyline points="9 18 15 12 9 6" />
           </svg>
-          Reasoning trace ({iters.length} step{iters.length !== 1 ? "s" : ""})
+          Planner trace ({iters.length} step{iters.length !== 1 ? "s" : ""})
         </button>
 
         <AnimatePresence initial={false}>
@@ -129,57 +135,72 @@ export default function AgentTrace({ state }: Props) {
               transition={{ duration: 0.15 }}
               className="overflow-hidden"
             >
-              <div className="px-4 pb-3 space-y-2">
-                {iters.map((iter) => {
+              <div className="px-4 pb-4 pt-1">
+                {iters.map((iter, idx) => {
                   const g = groupedByIter.get(iter)!;
+                  const isLast = idx === iters.length - 1;
+                  const active = state.isStreaming && isLast;
                   return (
-                    <div
-                      key={iter}
-                      className="rounded-md border border-surface-3 bg-surface-0/40 px-3 py-2"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted font-mono">
-                          Step {iter}
-                        </span>
-                      </div>
-                      {g.step?.thinking && (
-                        <p className="text-[11px] text-gray-300 leading-relaxed mb-2 italic">
-                          {g.step.thinking}
-                        </p>
+                    <div key={iter} className="relative flex gap-3 pb-4 last:pb-0">
+                      {/* Connector line */}
+                      {!isLast && (
+                        <span className="absolute left-[15px] top-[30px] bottom-0 w-px bg-line" aria-hidden="true" />
                       )}
-                      {g.calls.map((c, i) => {
-                        const result = g.results.find((r) => r.tool === c.tool && r.iteration === c.iteration);
-                        return (
-                          <div key={`${iter}-${i}`} className="flex items-start gap-2 mb-1.5 last:mb-0">
-                            <div className="mt-0.5 shrink-0 text-accent-400">
-                              {TOOL_ICONS[c.tool] ?? TOOL_ICONS.search_knowledge_base}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-medium text-gray-200">
-                                {TOOL_LABELS[c.tool] ?? c.tool}
-                              </p>
-                              {c.tool !== "final_answer" && (
-                                <p className="text-[10px] text-muted font-mono truncate">
+                      {/* Serif numeral bullet */}
+                      <span
+                        className={`relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border bg-bg-2 font-display tabular-nums ${
+                          active ? "border-green text-green" : "border-line-2 text-muted"
+                        }`}
+                        style={active ? { boxShadow: "var(--glow-green)", fontSize: 15 } : { fontSize: 15 }}
+                      >
+                        {iter}
+                      </span>
+                      <div className="min-w-0 flex-1 pt-1">
+                        <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.14em" }}>
+                          Planner · iteration {iter}
+                        </p>
+                        {g.step?.thinking && (
+                          <p className="mt-1 text-[12px] italic text-ink-2 leading-relaxed">{g.step.thinking}</p>
+                        )}
+                        {g.calls.map((c, i) => {
+                          const result = g.results.find((r) => r.tool === c.tool && r.iteration === c.iteration);
+                          const isFinal = c.tool === "final_answer";
+                          return (
+                            <div key={`${iter}-${i}`} className="mt-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-md border border-green/30 bg-green-faint px-2 py-1 font-mono text-[11px] text-green">
+                                <span className="opacity-70">→</span>
+                                <span className="shrink-0">{TOOL_ICONS[c.tool] ?? TOOL_ICONS.search_knowledge_base}</span>
+                                {c.tool}
+                              </span>
+                              {!isFinal && Object.keys(c.args).length > 0 && (
+                                <p className="mt-1 text-[10px] text-muted font-mono truncate">
                                   {Object.entries(c.args)
                                     .map(([k, v]) => `${k}=${JSON.stringify(v).slice(0, 40)}`)
                                     .join(" · ")}
                                 </p>
                               )}
                               {result && (
-                                <p className="mt-0.5 text-[10px] text-muted-light leading-relaxed line-clamp-2">
-                                  {result.result_preview}
+                                <div className="mt-1.5 rounded-md border border-line bg-bg-3 px-3 py-2">
+                                  <p className="font-mono uppercase text-faint mb-1" style={{ fontSize: 9, letterSpacing: "0.12em" }}>result</p>
+                                  <p className="text-[11px] text-ink-2 leading-relaxed line-clamp-3">{result.result_preview}</p>
+                                </div>
+                              )}
+                              {isFinal && (
+                                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-green font-mono">
+                                  <span className="hx-live" />
+                                  Synthesizing final answer
                                 </p>
                               )}
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
 
                 {iters.length === 0 && state.isStreaming && (
-                  <p className="text-[11px] text-muted text-center py-2">Planner thinking…</p>
+                  <p className="text-[11px] text-muted text-center py-2 font-mono">Planner thinking…</p>
                 )}
               </div>
             </motion.div>
@@ -199,7 +220,7 @@ export default function AgentTrace({ state }: Props) {
       {/* Verification banner */}
       {state.verification && (
         <div
-          className={`border-t border-surface-3 px-4 py-2.5 text-[11px] ${
+          className={`border-t border-line px-4 py-2.5 text-[11px] ${
             VERDICT_STYLE[state.verification.verdict]?.cls ?? VERDICT_STYLE.no_images.cls
           }`}
         >
@@ -229,7 +250,7 @@ export default function AgentTrace({ state }: Props) {
       {state.isStreaming && !state.finalAnswer && (
         <div className="px-5 py-4">
           <div className="flex items-center gap-2 text-xs text-muted">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-accent-500" />
+            <span className="hx-live" />
             <span>Agent reasoning across the indexed corpus and live tools…</span>
           </div>
         </div>
@@ -237,7 +258,7 @@ export default function AgentTrace({ state }: Props) {
 
       {/* Error */}
       {state.error && (
-        <div className="border-t border-red-500/25 bg-red-500/8 px-4 py-2.5 text-xs text-red-400">
+        <div className="border-t border-risk/25 bg-risk/8 px-4 py-2.5 text-xs text-risk">
           {state.error}
         </div>
       )}

@@ -1,7 +1,8 @@
 "use client";
 
-import { MODE_CONFIG } from "@/components/ModeSwitcher";
-import type { SavedSession } from "@/lib/types";
+import { MODE_CONFIG, ALL_MODES } from "@/components/ModeSwitcher";
+import { BrandLockup } from "@/components/Logo";
+import type { Mode, SavedSession } from "@/lib/types";
 
 interface Props {
   sessions: SavedSession[];
@@ -11,6 +12,8 @@ interface Props {
   onDeleteSession: (id: string) => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  mode: Mode;
+  onModeChange: (m: Mode) => void;
 }
 
 export default function Sidebar({
@@ -21,6 +24,8 @@ export default function Sidebar({
   onDeleteSession,
   sidebarOpen,
   onToggleSidebar,
+  mode,
+  onModeChange,
 }: Props) {
   return (
     <>
@@ -28,24 +33,19 @@ export default function Sidebar({
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onToggleSidebar} />
       )}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-60 border-r border-surface-3 bg-surface-1 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-[220px] border-r border-line bg-bg-2 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3.5">
-          <button onClick={onNewSession} className="flex items-center gap-2 group">
-            <span className="text-sm font-semibold tracking-tight text-gray-100 group-hover:text-accent-400 transition">
-              Asclepius
-            </span>
-            <span className="rounded-md bg-accent-600/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-400 tracking-wide">
-              Research
-            </span>
+        {/* Brand lockup */}
+        <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
+          <button onClick={onNewSession} aria-label="New session" className="group">
+            <BrandLockup />
           </button>
           <button
             onClick={onNewSession}
             aria-label="New session"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-gray-300 transition"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-3 hover:text-ink transition"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -54,49 +54,111 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Session list */}
-        <div className="flex-1 overflow-y-auto py-1.5">
-          {sessions.length === 0 && (
-            <p className="px-4 py-8 text-center text-xs text-muted leading-relaxed">
-              No sessions yet.<br />Start a query to begin.
-            </p>
-          )}
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`Select session: ${session.title}`}
-              className={`group mx-2 mb-0.5 flex items-center gap-2 rounded-md px-3 py-2 cursor-pointer transition ${
-                activeSessionId === session.id
-                  ? "bg-surface-2 text-gray-200"
-                  : "text-muted hover:bg-surface-2/60 hover:text-gray-300"
-              }`}
-              onClick={() => onSelectSession(session.id)}
-              onKeyDown={(e) => e.key === "Enter" && onSelectSession(session.id)}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate leading-snug">{session.title}</p>
-                <p className="text-[10px] text-muted mt-0.5 font-mono">
-                  {MODE_CONFIG[session.mode]?.label} · {session.entries.length}q
-                </p>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
-                aria-label="Delete session"
-                className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/15 hover:text-red-400 transition"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          ))}
+        {/* Workspace — mode list */}
+        <div className="px-3 pt-4 pb-2">
+          <p className="px-1 mb-2 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
+            Workspace
+          </p>
+          <nav className="space-y-0.5">
+            {ALL_MODES.map((m) => {
+              const active = mode === m;
+              const isAgent = m === "research";
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => onModeChange(m)}
+                  aria-label={MODE_CONFIG[m].description}
+                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition ${
+                    active
+                      ? "bg-green-faint text-green font-medium"
+                      : "text-muted hover:bg-bg-3 hover:text-ink-2"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full shrink-0 ${active ? "bg-green" : "bg-line-2"}`}
+                    style={active ? { boxShadow: "0 0 8px var(--green)" } : undefined}
+                  />
+                  <span className="truncate">{MODE_CONFIG[m].label}</span>
+                  {isAgent && (
+                    <span className="ml-auto rounded bg-green-faint px-1.5 py-0.5 font-mono font-semibold text-green" style={{ fontSize: 8, letterSpacing: "0.1em" }}>
+                      NEW
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        <div className="border-t border-surface-3 px-4 py-2.5">
-          <p className="text-[10px] text-muted font-mono">sessions · local storage</p>
+        {/* Recent sessions */}
+        <div className="flex-1 overflow-y-auto px-3 pt-2 pb-1">
+          <p className="px-1 mb-2 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
+            Recent
+          </p>
+          {sessions.length === 0 && (
+            <p className="px-1 py-4 text-xs text-faint leading-relaxed">
+              No sessions yet. Start a query to begin.
+            </p>
+          )}
+          <div className="space-y-0.5">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select session: ${session.title}`}
+                className={`group flex items-center gap-2 rounded-md px-2.5 py-2 cursor-pointer transition ${
+                  activeSessionId === session.id
+                    ? "bg-bg-3 text-ink-2"
+                    : "text-muted hover:bg-bg-3/60 hover:text-ink-2"
+                }`}
+                onClick={() => onSelectSession(session.id)}
+                onKeyDown={(e) => e.key === "Enter" && onSelectSession(session.id)}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate leading-snug">{session.title}</p>
+                  <p className="mt-0.5 font-mono text-faint" style={{ fontSize: 10 }}>
+                    {MODE_CONFIG[session.mode]?.label} · {session.entries.length}q
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
+                  aria-label="Delete session"
+                  className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-risk/15 hover:text-risk transition"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Budget meter footer */}
+        <div className="border-t border-line px-4 py-3 space-y-2.5">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.16em" }}>
+                Session budget
+              </span>
+              <span className="font-mono tabular-nums text-muted" style={{ fontSize: 10 }}>
+                $2.41 / $10.00
+              </span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-bg-3 overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: "24%", background: "linear-gradient(90deg, var(--green-deep), var(--green))" }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="hx-live" />
+            <span className="font-mono text-muted" style={{ fontSize: 10 }}>All systems nominal</span>
+          </div>
         </div>
       </aside>
     </>
