@@ -2,49 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   HELIX design tokens — Asclepius Research Labs
+   The entire UI is the neutral scale + one signature green.
+   Hierarchy comes from elevation (bg → bg-3) plus the green
+   accent. Amber/red are semantic only — never decorative.
+   ============================================================ */
+
 :root {
-  --background: #09090f;
-  --foreground: #e5e7eb;
+  /* ---- Neutrals · cool dark scale ---- */
+  --bg:        #0c1014;  /* page background        */
+  --bg-2:      #131820;  /* card surface           */
+  --bg-3:      #1b2230;  /* nested surface         */
+  --bg-4:      #243042;  /* thumbnails / inputs    */
+  --line:      #232a36;  /* hairline divider       */
+  --line-2:    #2e3744;  /* strong divider         */
+
+  /* ---- Text ---- */
+  --ink:       #f3f6f8;  /* primary text / headings */
+  --ink-2:     #d3d8de;  /* body text               */
+  --muted:     #8a929e;  /* captions / meta         */
+  --faint:     #565e6b;  /* hints / disabled        */
+
+  /* ---- Signature · fluorophore green ----
+     Use ONLY for signal: live state, verified, key data,
+     the cited reference, primary action. */
+  --green:        #87f085;
+  --green-2:      #4dca60;
+  --green-deep:   #1a7a3a;
+  --green-faint:  rgba(135, 240, 133, 0.10);
+
+  /* ---- Semantic (warnings only — never decorative) ---- */
+  --amber:     #f5c062;  /* watch / partial */
+  --red:       #f08987;  /* risk / fail     */
+
+  /* ---- Radii ---- */
+  --r-sm:  6px;
+  --r-md:  8px;
+  --r-lg:  10px;
+  --r-xl:  14px;
+
+  /* ---- Elevation ---- */
+  --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --glow-green:  0 0 12px rgba(135, 240, 133, 0.18);
+
+  /* ---- Type families ---- */
+  --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-ui:      var(--font-inter), var(--font-geist-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-data:    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
+::selection { background: var(--green-faint); color: var(--green); }
+
+/* Scrollbar — thin, neutral */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3a4555; }
+
+/* ---- Signature primitives ---- */
+
+/* Streaming cursor — append after the last token while streaming */
+.hx-cursor {
+  display: inline-block; width: 2px; height: 1em;
+  background: var(--green); vertical-align: -0.15em; margin-left: 2px;
+  box-shadow: 0 0 8px var(--green);
+  animation: hx-blink 1.1s steps(2) infinite;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #1e2030;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #272940;
+@keyframes hx-blink { 50% { opacity: 0.1; } }
+
+/* Live pulse dot — static green glow, no spin */
+.hx-live {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px var(--green);
 }
 
-/* Selection */
-::selection {
-  background: rgba(13, 148, 136, 0.2);
-  color: #e5e7eb;
+/* Inline citation marker — superscript green chips */
+.hx-cite-ref {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--green-faint); color: var(--green);
+  border-radius: 4px; font-size: 0.62em; font-weight: 600;
+  vertical-align: super; margin: 0 1px; cursor: pointer;
+  font-family: var(--font-data); font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.hx-cite-ref:hover { background: rgba(135, 240, 133, 0.2); box-shadow: var(--glow-green); }
+
+/* Highlight pulse applied to a rail citation when its marker is clicked */
+.hx-cite-target {
+  animation: hx-highlight 1.4s ease-out;
+}
+@keyframes hx-highlight {
+  0%, 30% { box-shadow: 0 0 0 1px var(--green), var(--glow-green); }
+  100%    { box-shadow: 0 0 0 1px transparent; }
 }
 
-/* Prose overrides */
+/* Prose overrides — markdown answers */
 .prose pre {
-  background-color: #0f1018;
-  border: 1px solid #1e2030;
+  background-color: var(--bg-3);
+  border: 1px solid var(--line);
   border-radius: 0.5rem;
 }
+.prose code { font-family: var(--font-data); }
 
 /* Glass card effect */
 .glass {
-  background: rgba(15, 16, 24, 0.6);
+  background: rgba(19, 24, 32, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

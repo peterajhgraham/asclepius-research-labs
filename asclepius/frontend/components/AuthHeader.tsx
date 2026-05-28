@@ -11,7 +11,7 @@ export default function AuthHeader() {
     <div className="flex items-center gap-3">
       <SignedOut>
         <SignInButton mode="modal">
-          <button className="rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-accent-700">
+          <button className="rounded-lg bg-green px-3 py-1.5 text-xs font-semibold text-bg shadow-sm transition hover:brightness-110">
             Sign In
           </button>
         </SignInButton>

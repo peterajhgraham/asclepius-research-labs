@@ -141,20 +141,20 @@ export default function CompareCard({ data }: CompareCardProps) {
       <div className="rounded-xl border border-accent-500/25 overflow-hidden">
         <div className="px-5 py-4 bg-surface-1">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-bold text-gray-100">
-              <span className="text-blue-400">{a.disease_name}</span>
-              <span className="mx-3 text-muted font-normal">vs</span>
-              <span className="text-purple-400">{b.disease_name}</span>
+            <h3 className="font-display text-ink text-display-m">
+              <span>{a.disease_name}</span>
+              <span className="mx-3 text-muted font-mono text-sm">vs</span>
+              <span>{b.disease_name}</span>
             </h3>
             <div className="text-right">
-              <p className="text-[10px] text-muted uppercase tracking-widest">Similarity</p>
-              <span className="text-2xl font-bold font-mono text-accent-400">{pct}%</span>
+              <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.14em" }}>Similarity</p>
+              <span className="font-display tabular-nums text-green" style={{ fontSize: 32 }}>{pct}%</span>
             </div>
           </div>
           {/* Similarity bar */}
           <div className="h-3 rounded-full bg-surface-3 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-accent-700 to-accent-400 transition-all duration-700"
+              className="h-full rounded-full bg-green transition-all duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>

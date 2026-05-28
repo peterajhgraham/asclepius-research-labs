@@ -1,8 +1,24 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Newsreader, Inter } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Asclepius Research Labs",
@@ -24,8 +40,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const content = (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="min-h-screen bg-surface-0 text-gray-200 antialiased font-sans">
+    <html
+      lang="en"
+      className={`${newsreader.variable} ${inter.variable} ${GeistSans.variable} ${GeistMono.variable}`}
+    >
+      <body className="min-h-screen bg-bg text-ink-2 antialiased font-sans">
         {children}
       </body>
     </html>

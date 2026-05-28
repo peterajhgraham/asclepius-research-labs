@@ -6,7 +6,7 @@ import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 
 const INPUT_CLS =
-  "h-11 flex-1 min-w-0 rounded-lg border border-surface-3 bg-surface-1/80 px-3.5 text-sm text-gray-100 placeholder-muted outline-none transition focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 disabled:opacity-40 font-sans";
+  "h-11 flex-1 min-w-0 rounded-xl border border-line bg-bg-2 px-3.5 text-sm text-ink placeholder-faint outline-none transition focus:border-green focus:ring-4 focus:ring-green-faint disabled:opacity-40 font-sans";
 
 interface Props {
   mode: Mode;
@@ -59,23 +59,28 @@ export default function QueryInputBar({
     (mode === "target-risk" && !targetName.trim());
 
   return (
-    <div className="border-t border-surface-3 bg-surface-0/95 backdrop-blur-md">
+    <div className="border-t border-line bg-bg/95 backdrop-blur-md">
       <form onSubmit={onSubmit} className="mx-auto max-w-3xl px-4 py-3 sm:px-5">
 
         {/* Top row: mode switcher + options */}
         <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
-          <ModeSwitcher mode={mode} onModeChange={onModeChange} />
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
+              Mode
+            </span>
+            <ModeSwitcher mode={mode} onModeChange={onModeChange} />
+          </div>
 
           <div className="flex items-center gap-3 shrink-0">
             {isDmiMode && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted font-mono">domain:</span>
+                <span className="text-[11px] text-faint font-mono">domain:</span>
                 <input
                   type="text"
                   value={vertical}
                   onChange={(e) => onVerticalChange(e.target.value)}
                   placeholder="general"
-                  className="w-28 h-7 rounded-md border border-surface-3 bg-surface-1 px-2 text-[11px] text-gray-200 placeholder-muted outline-none transition focus:border-accent-500/50 font-mono"
+                  className="w-28 h-7 rounded-md border border-line bg-bg-2 px-2 text-[11px] text-ink-2 placeholder-faint outline-none transition focus:border-green font-mono"
                 />
               </div>
             )}
@@ -87,17 +92,17 @@ export default function QueryInputBar({
                   aria-checked={includePubmed}
                   aria-label="Include PubMed results"
                   className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${
-                    includePubmed ? "bg-accent-600" : "bg-surface-3"
+                    includePubmed ? "bg-green" : "bg-bg-4"
                   }`}
                   onClick={() => onIncludePubmedChange(!includePubmed)}
                 >
                   <span
-                    className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                      includePubmed ? "translate-x-3.5" : "translate-x-0.5"
+                    className={`inline-block h-3 w-3 rounded-full shadow transition-transform ${
+                      includePubmed ? "translate-x-3.5 bg-bg" : "translate-x-0.5 bg-muted"
                     }`}
                   />
                 </div>
-                <span className="text-[11px] text-muted select-none font-mono">pubmed</span>
+                <span className={`text-[11px] select-none font-mono ${includePubmed ? "text-green" : "text-muted"}`}>PubMed live</span>
               </label>
             )}
 
@@ -111,19 +116,23 @@ export default function QueryInputBar({
                   aria-checked={verify}
                   aria-label="Verify answer against retrieved figures"
                   className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${
-                    verify ? "bg-accent-600" : "bg-surface-3"
+                    verify ? "bg-green" : "bg-bg-4"
                   }`}
                   onClick={() => onVerifyChange(!verify)}
                 >
                   <span
-                    className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                      verify ? "translate-x-3.5" : "translate-x-0.5"
+                    className={`inline-block h-3 w-3 rounded-full shadow transition-transform ${
+                      verify ? "translate-x-3.5 bg-bg" : "translate-x-0.5 bg-muted"
                     }`}
                   />
                 </div>
-                <span className="text-[11px] text-muted select-none font-mono">verify</span>
+                <span className={`text-[11px] select-none font-mono ${verify ? "text-green" : "text-muted"}`}>Verify figures</span>
               </label>
             )}
+
+            <span className="hidden sm:inline font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
+              sonnet-4.6 · tier I
+            </span>
           </div>
         </div>
 
@@ -250,10 +259,10 @@ export default function QueryInputBar({
               type="button"
               aria-label="Attach scientific image for multimodal analysis"
               onClick={() => imageInputRef.current?.click()}
-              className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
+              className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                 uploadedImage
-                  ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
-                  : "border-surface-3 bg-surface-1 text-muted hover:border-surface-4 hover:text-gray-300"
+                  ? "border-green/50 bg-green-faint text-green"
+                  : "border-line bg-bg-2 text-muted hover:border-line-2 hover:text-ink-2"
               }`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -266,10 +275,10 @@ export default function QueryInputBar({
               type="button"
               aria-label="Upload PDF — figures are captioned and propositions indexed into the RAG pipeline"
               onClick={() => pdfInputRef.current?.click()}
-              className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
+              className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                 uploadedPdf
-                  ? "border-accent-500/50 bg-accent-600/15 text-accent-400"
-                  : "border-surface-3 bg-surface-1 text-muted hover:border-surface-4 hover:text-gray-300"
+                  ? "border-green/50 bg-green-faint text-green"
+                  : "border-line bg-bg-2 text-muted hover:border-line-2 hover:text-ink-2"
               }`}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -349,20 +358,24 @@ export default function QueryInputBar({
             type="submit"
             disabled={submitDisabled}
             aria-label="Submit query"
-            className="h-11 shrink-0 rounded-lg bg-accent-600 px-4 text-sm font-semibold text-white transition hover:bg-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-0 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-bg transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-green-faint disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: "linear-gradient(180deg, var(--green), var(--green-2))" }}
           >
             {isLoading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white block" />
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-bg/40 border-t-bg block" />
             ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
+              <>
+                <span>Run</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 10 4 15 9 20" />
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                </svg>
+              </>
             )}
           </button>
         </div>
 
-        <p className="mt-2 text-[10px] text-muted text-center font-mono">
+        <p className="mt-2 text-center font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
           Asclepius · Hybrid RAG ·{" "}
           {mode === "standard" ? "streaming" : "structured"} ·{" "}
           {isDmiMode ? "mechanism intelligence" : "literature synthesis"}
