@@ -24,10 +24,7 @@ export default function ClaudeBadge({ model, cost, isStreaming = false, sourceCo
         )}
       </div>
       {isStreaming ? (
-        <span className="flex items-center gap-1.5 text-muted font-mono">
-          <span className="hx-live" />
-          Streaming
-        </span>
+        <span className="hx-spin" aria-label="Working" />
       ) : sourceCount > 0 ? (
         <span className="text-muted">
           {sourceCount} source{sourceCount !== 1 ? "s" : ""} retrieved

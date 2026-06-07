@@ -31,8 +31,8 @@ export default function ModeSwitcher({ mode, onModeChange }: Props) {
               aria-label={MODE_CONFIG[m].description}
               className={`relative rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap transition-all ${
                 active
-                  ? "border-green/40 bg-green-faint text-green"
-                  : "border-line bg-bg-2 text-muted hover:border-line-2 hover:text-ink-2"
+                  ? "border-green/50 bg-green-faint text-green"
+                  : "border-line-2 bg-bg-3 text-muted hover:bg-bg-4 hover:text-ink-2"
               }`}
             >
               {MODE_CONFIG[m].label}

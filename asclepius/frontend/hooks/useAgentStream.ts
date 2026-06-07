@@ -188,7 +188,24 @@ export function useAgentStream() {
           }
         }
       }
-      setState((s) => ({ ...s, isStreaming: false }));
+      // The reader completed. Guarantee a terminal state so the UI never hangs
+      // on a permanent spinner if the stream closed without a `done` event
+      // (e.g. a proxy dropped the connection after partial output).
+      setState((s) => {
+        if (s.done || s.error) return { ...s, isStreaming: false };
+        if (s.finalAnswer) {
+          return {
+            ...s,
+            isStreaming: false,
+            done: { iterations: s.steps.length, model: "claude-sonnet-4-6", cost_usd: 0 },
+          };
+        }
+        return {
+          ...s,
+          isStreaming: false,
+          error: "The agent stream ended before completing. Please try again.",
+        };
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setState((s) => ({

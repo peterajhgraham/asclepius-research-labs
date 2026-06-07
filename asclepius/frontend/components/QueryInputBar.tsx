@@ -6,7 +6,7 @@ import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 
 const INPUT_CLS =
-  "h-11 flex-1 min-w-0 rounded-xl border border-line bg-bg-2 px-3.5 text-sm text-ink placeholder-faint outline-none transition focus:border-green focus:ring-4 focus:ring-green-faint disabled:opacity-40 font-sans";
+  "h-11 flex-1 min-w-0 rounded-xl border border-line-2 bg-bg-3 px-3.5 text-sm text-ink placeholder-muted outline-none transition focus:border-green/70 focus:ring-2 focus:ring-green-faint disabled:opacity-40 font-sans";
 
 interface Props {
   mode: Mode;
@@ -64,12 +64,7 @@ export default function QueryInputBar({
 
         {/* Top row: mode switcher + options */}
         <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5">
-            <span className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
-              Mode
-            </span>
-            <ModeSwitcher mode={mode} onModeChange={onModeChange} />
-          </div>
+          <ModeSwitcher mode={mode} onModeChange={onModeChange} />
 
           <div className="flex items-center gap-3 shrink-0">
             {isDmiMode && (
@@ -80,7 +75,7 @@ export default function QueryInputBar({
                   value={vertical}
                   onChange={(e) => onVerticalChange(e.target.value)}
                   placeholder="general"
-                  className="w-28 h-7 rounded-md border border-line bg-bg-2 px-2 text-[11px] text-ink-2 placeholder-faint outline-none transition focus:border-green font-mono"
+                  className="w-28 h-7 rounded-md border border-line-2 bg-bg-3 px-2 text-[11px] text-ink-2 placeholder-muted outline-none transition focus:border-green/70 font-mono"
                 />
               </div>
             )}
@@ -262,7 +257,7 @@ export default function QueryInputBar({
               className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                 uploadedImage
                   ? "border-green/50 bg-green-faint text-green"
-                  : "border-line bg-bg-2 text-muted hover:border-line-2 hover:text-ink-2"
+                  : "border-line-2 bg-bg-3 text-muted hover:bg-bg-4 hover:text-ink-2"
               }`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -278,7 +273,7 @@ export default function QueryInputBar({
               className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                 uploadedPdf
                   ? "border-green/50 bg-green-faint text-green"
-                  : "border-line bg-bg-2 text-muted hover:border-line-2 hover:text-ink-2"
+                  : "border-line-2 bg-bg-3 text-muted hover:bg-bg-4 hover:text-ink-2"
               }`}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -374,12 +369,6 @@ export default function QueryInputBar({
             )}
           </button>
         </div>
-
-        <p className="mt-2 text-center font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
-          Asclepius · Hybrid RAG ·{" "}
-          {mode === "standard" ? "streaming" : "structured"} ·{" "}
-          {isDmiMode ? "mechanism intelligence" : "literature synthesis"}
-        </p>
       </form>
     </div>
   );

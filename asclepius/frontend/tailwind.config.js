@@ -17,7 +17,7 @@ module.exports = {
         },
         line: {
           DEFAULT: "#232a36", // hairline
-          2: "#2e3744",       // strong divider
+          2: "#39434f",       // interactive border / strong divider
         },
         ink: {
           DEFAULT: "#f3f6f8", // primary text

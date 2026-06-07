@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import AsyncGenerator
@@ -136,39 +137,76 @@ async def query_agent_stream(
     """
     from app.services.agent_service import run_agent
 
+    # Emit an SSE heartbeat if no agent event arrives within this window. The
+    # planner blocks on Anthropic for seconds at a time between events; without
+    # a keepalive the idle socket gets torn down by an intermediary proxy
+    # (Vercel function, Railway/nginx) and the client sees "Connection lost".
+    HEARTBEAT_S = 15
+
     async def event_gen() -> AsyncGenerator[str, None]:
         def sse(payload: dict) -> str:
             return f"data: {json.dumps(payload, default=str)}\n\n"
 
         final_answer = ""
         image_hashes: list[str] = []
+
+        # `run_agent` is a *sync* generator that blocks on Anthropic between
+        # events. Run it in a worker thread and forward each event through a
+        # queue, so events reach the client the instant they are produced
+        # rather than being buffered until the whole multi-step run finishes.
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+        _DONE = object()
+
+        def _producer() -> None:
+            try:
+                for evt in run_agent(question):
+                    loop.call_soon_threadsafe(queue.put_nowait, evt.to_dict())
+            except Exception:
+                logger.exception("Agent loop crashed")
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"type": "error", "message": "Internal agent error"},
+                )
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, _DONE)
+
+        log_query(f"AGENT: {question}")
+        yield sse({"type": "start", "question": question})
+
+        producer = asyncio.create_task(run_in_threadpool(_producer))
+        # Retrieve any producer exception so a client disconnect doesn't surface
+        # a noisy "exception never retrieved" warning.
+        producer.add_done_callback(lambda t: t.cancelled() or t.exception())
         try:
-            log_query(f"AGENT: {question}")
-            yield sse({"type": "start", "question": question})
+            while True:
+                try:
+                    evt = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_S)
+                except asyncio.TimeoutError:
+                    # SSE comment line — ignored by the EventSource parser,
+                    # keeps the connection warm through proxies.
+                    yield ": keepalive\n\n"
+                    continue
 
-            # The agent loop is a sync generator; offload each next() so we don't
-            # block the event loop while waiting on Anthropic.
-            def _drain():
-                return list(run_agent(question))
-            events = await run_in_threadpool(_drain)
+                if evt is _DONE:
+                    break
 
-            for evt in events:
-                d = evt.to_dict()
-                yield sse(d)
-                if evt.type == "final":
-                    final_answer = evt.data.get("answer", "")
-                    image_hashes = list(evt.data.get("image_hashes") or [])
+                yield sse(evt)
+                if evt.get("type") == "final":
+                    final_answer = evt.get("answer", "")
+                    image_hashes = list(evt.get("image_hashes") or [])
 
             if verify and final_answer and image_hashes:
                 from app.services.verification_service import verify_against_figures
-                v = await run_in_threadpool(
-                    lambda: verify_against_figures(final_answer, image_hashes)
-                )
-                yield sse({"type": "verification", **v.to_dict()})
-
-        except Exception:
-            logger.exception("Agent streaming error")
-            yield sse({"type": "error", "message": "Internal agent streaming error"})
+                try:
+                    v = await run_in_threadpool(
+                        lambda: verify_against_figures(final_answer, image_hashes)
+                    )
+                    yield sse({"type": "verification", **v.to_dict()})
+                except Exception:
+                    logger.warning("Agent verification failed", exc_info=True)
+        finally:
+            producer.cancel()
 
     return StreamingResponse(
         event_gen(),
