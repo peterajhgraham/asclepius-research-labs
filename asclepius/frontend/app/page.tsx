@@ -653,7 +653,7 @@ export default function HomePage() {
                       key={w.mode}
                       onClick={() => setMode(w.mode)}
                       className={`group rounded-xl border bg-bg-2 p-4 text-left transition hover:bg-bg-3 ${
-                        active ? "border-green/40" : "border-line hover:border-line-2"
+                        active ? "border-green/50 bg-bg-3" : "border-line-2"
                       }`}
                     >
                       <p className={`text-[13px] font-semibold ${active ? "text-green" : "text-ink"}`}>
@@ -670,7 +670,7 @@ export default function HomePage() {
                 <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
                   Try a prompt
                 </p>
-                <div className="overflow-hidden rounded-xl border border-line bg-bg-2/40">
+                <div className="overflow-hidden rounded-xl border border-line-2 bg-bg-2">
                   {examples.map((example, i) => (
                     <button
                       key={example}
@@ -690,7 +690,7 @@ export default function HomePage() {
 
           {/* Results */}
           {!isEmpty && (
-            <div className="mx-auto max-w-3xl px-4 py-8 space-y-8 sm:px-6">
+            <div className="mx-auto max-w-4xl px-4 py-8 space-y-8 sm:px-6">
               {entries.map((entry) => {
                 const isCurrentlyStreaming = entry.id === streamingEntryId;
                 return (
@@ -761,8 +761,8 @@ export default function HomePage() {
                       )}
 
                       {entry.loading && !isCurrentlyStreaming && entry.id !== agentEntryId && (
-                        <div className="flex items-center gap-3 rounded-xl border border-line bg-bg-2 px-4 py-3">
-                          <ClaudeBadge isStreaming />
+                        <div className="flex items-center gap-2.5 rounded-xl border border-line-2 bg-bg-2 px-4 py-3">
+                          <span className="hx-spin" />
                           <span className="text-xs text-muted">
                             {entry.mode === "disease-report"
                               ? "Mapping disease mechanisms…"

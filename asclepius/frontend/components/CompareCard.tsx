@@ -231,7 +231,6 @@ export default function CompareCard({ data }: CompareCardProps) {
                     : "text-muted hover:text-gray-300 hover:bg-surface-1/50"
                 }`}
               >
-                <span>{tab.icon}</span>
                 <span>{tab.label}</span>
               </button>
             ))}

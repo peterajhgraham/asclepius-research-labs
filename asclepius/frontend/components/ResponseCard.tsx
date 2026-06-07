@@ -13,14 +13,12 @@ function formatPubMedLink(source: string): { text: string; href: string | null }
 }
 
 function ReasoningSection({
-  icon,
   label,
   subtitle,
   items,
   accentClass,
   borderClass,
 }: {
-  icon: string;
   label: string;
   subtitle: string;
   items: string[];
@@ -31,7 +29,7 @@ function ReasoningSection({
   return (
     <div className={`rounded-xl border ${borderClass} overflow-hidden`}>
       <div className="flex items-center gap-2.5 px-4 py-3 bg-surface-2">
-        <span className="text-base leading-none">{icon}</span>
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${accentClass}`} style={{ backgroundColor: "currentColor" }} />
         <div>
           <p className={`text-xs font-bold uppercase tracking-widest ${accentClass}`}>{label}</p>
           <p className="text-[10px] text-muted mt-0.5">{subtitle}</p>
@@ -63,7 +61,7 @@ function CausalNetworkSection({ graphContext }: { graphContext: QueryResponse["g
   return (
     <div className="rounded-xl border border-accent-500/20 overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 bg-surface-2">
-        <span className="text-base">⚡</span>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-accent-400">Causal Network Impact</p>
           <p className="text-[10px] text-muted mt-0.5">Predicted downstream network effects</p>
@@ -174,7 +172,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
       {hasReasoning && (
         <div className="grid gap-3 sm:grid-cols-2">
           <ReasoningSection
-            icon="🔬"
             label="Key Entities"
             subtitle="Key actors and components"
             items={r.key_entities}
@@ -182,7 +179,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
             borderClass="border-cell/20"
           />
           <ReasoningSection
-            icon="⚗️"
             label="Key Mechanisms"
             subtitle="Signals and mediators"
             items={r.key_mechanisms}
@@ -190,7 +186,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
             borderClass="border-cytokine/20"
           />
           <ReasoningSection
-            icon="🧠"
             label="Pathways"
             subtitle="Regulatory and signaling cascades"
             items={r.pathways}
@@ -198,7 +193,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
             borderClass="border-pathway/20"
           />
           <ReasoningSection
-            icon="🧬"
             label="Genetic Risk Loci"
             subtitle="Disease-associated variants and genes"
             items={r.genes}
@@ -206,7 +200,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
             borderClass="border-gene/20"
           />
           <ReasoningSection
-            icon="💊"
             label="Therapeutic Targets"
             subtitle="Actionable intervention points"
             items={r.therapeutic_targets}
@@ -214,7 +207,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
             borderClass="border-target/20"
           />
           <ReasoningSection
-            icon="❓"
             label="Open Hypotheses"
             subtitle="Mechanistic gaps worth investigating"
             items={r.open_questions}

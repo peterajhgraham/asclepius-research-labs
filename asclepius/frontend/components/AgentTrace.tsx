@@ -91,12 +91,6 @@ export default function AgentTrace({ state }: Props) {
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
         <ClaudeBadge model={state.done?.model ?? "claude-sonnet-4-6"} isStreaming={state.isStreaming} />
-        {state.isStreaming && (
-          <span className="flex items-center gap-1.5 text-[11px] text-green font-mono">
-            <span className="hx-live" />
-            Planning
-          </span>
-        )}
         <span className="text-[11px] text-muted font-mono">research agent</span>
         {state.done && (
           <span className="text-[10px] text-muted ml-auto font-mono tabular-nums">
@@ -149,9 +143,9 @@ export default function AgentTrace({ state }: Props) {
                       {/* Serif numeral bullet */}
                       <span
                         className={`relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border bg-bg-2 font-display tabular-nums ${
-                          active ? "border-green text-green" : "border-line-2 text-muted"
+                          active ? "border-green/60 text-green" : "border-line-2 text-muted"
                         }`}
-                        style={active ? { boxShadow: "var(--glow-green)", fontSize: 15 } : { fontSize: 15 }}
+                        style={{ fontSize: 15 }}
                       >
                         {iter}
                       </span>
@@ -167,9 +161,9 @@ export default function AgentTrace({ state }: Props) {
                           const isFinal = c.tool === "final_answer";
                           return (
                             <div key={`${iter}-${i}`} className="mt-2">
-                              <span className="inline-flex items-center gap-1.5 rounded-md border border-green/30 bg-green-faint px-2 py-1 font-mono text-[11px] text-green">
-                                <span className="opacity-70">→</span>
-                                <span className="shrink-0">{TOOL_ICONS[c.tool] ?? TOOL_ICONS.search_knowledge_base}</span>
+                              <span className="inline-flex items-center gap-1.5 rounded-md border border-line-2 bg-bg-3 px-2 py-1 font-mono text-[11px] text-ink-2">
+                                <span className="text-green">→</span>
+                                <span className="shrink-0 text-muted">{TOOL_ICONS[c.tool] ?? TOOL_ICONS.search_knowledge_base}</span>
                                 {c.tool}
                               </span>
                               {!isFinal && Object.keys(c.args).length > 0 && (
@@ -186,9 +180,8 @@ export default function AgentTrace({ state }: Props) {
                                 </div>
                               )}
                               {isFinal && (
-                                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-green font-mono">
-                                  <span className="hx-live" />
-                                  Synthesizing final answer
+                                <p className="mt-1.5 text-[11px] text-muted font-mono">
+                                  Composing answer…
                                 </p>
                               )}
                             </div>
@@ -249,10 +242,7 @@ export default function AgentTrace({ state }: Props) {
       {/* Streaming placeholder when no final answer yet */}
       {state.isStreaming && !state.finalAnswer && (
         <div className="px-5 py-4">
-          <div className="flex items-center gap-2 text-xs text-muted">
-            <span className="hx-live" />
-            <span>Agent reasoning across the indexed corpus and live tools…</span>
-          </div>
+          <p className="text-xs text-muted">Reasoning across the corpus and live tools…</p>
         </div>
       )}
 

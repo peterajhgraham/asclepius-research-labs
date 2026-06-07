@@ -22,7 +22,6 @@ function CategoryBadge({ category }: { category: string }) {
   const cfg = CATEGORY_CONFIG[category] || { color: "bg-surface-3 text-muted-light border-surface-4", icon: "💡", description: "" };
   return (
     <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[10px] font-bold ${cfg.color}`}>
-      <span>{cfg.icon}</span>
       {category}
     </span>
   );
@@ -83,9 +82,9 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
           </div>
 
           {/* Experimental Design */}
-          <div className="rounded-xl border border-accent-500/20 bg-accent-600/5 p-4 space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-accent-400 flex items-center gap-1.5">
-              <span>🧪</span> Experimental Design
+          <div className="rounded-xl border border-line bg-bg-2 p-4 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+              Experimental Design
             </p>
             <div className="grid gap-3 sm:grid-cols-2 text-sm">
               <div className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2">
@@ -132,8 +131,8 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
           {/* Biomarkers & Confounders side by side */}
           <div className="grid gap-3 sm:grid-cols-2">
             {h.biomarkers.length > 0 && (
-              <div className="rounded-xl border border-cell/20 bg-cell/5 p-3" style={{ backgroundColor: "rgba(52, 211, 153, 0.04)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-cell mb-2">🩸 Biomarkers</p>
+              <div className="rounded-xl border border-line bg-bg-2 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Biomarkers</p>
                 <ul className="space-y-1">
                   {h.biomarkers.map((b, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
@@ -145,8 +144,8 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
               </div>
             )}
             {h.confounders.length > 0 && (
-              <div className="rounded-xl border border-yellow-500/20 p-3" style={{ backgroundColor: "rgba(251, 191, 36, 0.04)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400 mb-2">⚠️ Confounders</p>
+              <div className="rounded-xl border border-amber/20 p-3" style={{ backgroundColor: "rgba(245, 192, 98, 0.05)" }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber mb-2">Confounders</p>
                 <ul className="space-y-1">
                   {h.confounders.map((c, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
@@ -172,7 +171,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
                       href={`https://pubmed.ncbi.nlm.nih.gov/${pmidMatch[1]}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-mono border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 hover:border-accent-500/60 transition"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-mono border border-line-2 bg-bg-3 text-muted hover:text-green hover:border-green/40 transition"
                     >
                       {cite}
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -256,7 +255,6 @@ export default function HypothesisCard({ data }: { data: HypothesisResponse }) {
                     : "border-surface-3 text-muted hover:text-gray-300"
                 }`}
               >
-                <span>{cfg?.icon}</span>
                 {cat} ({count})
               </button>
             );

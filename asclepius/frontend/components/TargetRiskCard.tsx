@@ -10,12 +10,12 @@ function PmidLink({ pmid }: { pmid: string }) {
       href={`https://pubmed.ncbi.nlm.nih.gov/${clean}/`}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 rounded border border-surface-4 bg-surface-2 px-1.5 py-0.5 text-[10px] font-mono text-accent-400 transition hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-300"
+      className="inline-flex items-center gap-1 rounded-md border border-line-2 bg-bg-3 px-1.5 py-0.5 text-[10px] font-mono text-muted transition hover:border-green/40 hover:text-green"
     >
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50">
         <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
       </svg>
-      PMID:{clean}
+      {clean}
     </a>
   );
 }
@@ -139,11 +139,8 @@ export default function TargetRiskCard({ data }: { data: TargetRiskResponse }) {
   return (
     <div className="space-y-4">
       {/* Target header */}
-      <div className="rounded-xl border border-accent-500/25 bg-accent-600/8 px-5 py-4" style={{ backgroundColor: "rgba(37, 99, 235, 0.05)" }}>
+      <div className="rounded-xl border border-line bg-bg-2 px-5 py-4">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-600/15 text-2xl">
-            🎯
-          </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-display text-ink text-display-m">{data.target}</h3>
             <p className="text-sm text-muted mt-0.5">
@@ -224,7 +221,6 @@ export default function TargetRiskCard({ data }: { data: TargetRiskResponse }) {
       {data.historical_failures.length > 0 && (
         <div className="rounded-xl border border-red-500/20 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 bg-red-500/8 border-b border-red-500/15" style={{ backgroundColor: "rgba(239, 68, 68, 0.05)" }}>
-            <span className="text-base">⚠️</span>
             <p className="text-xs font-bold uppercase tracking-widest text-red-400">
               Historical Failures ({data.historical_failures.length})
             </p>
