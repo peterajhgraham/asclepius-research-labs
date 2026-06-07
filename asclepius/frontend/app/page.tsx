@@ -32,7 +32,7 @@ import { useAgentStream } from "@/hooks/useAgentStream";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 import { genId, PROSE_CLS, pmidToUrl } from "@/lib/utils";
-import { MODE_CONFIG } from "@/components/ModeSwitcher";
+import { MODE_CONFIG, ALL_MODES } from "@/components/ModeSwitcher";
 
 import AgentTrace from "@/components/AgentTrace";
 import AuthHeader from "@/components/AuthHeader";
@@ -97,24 +97,6 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
     "Gut-brain axis in Parkinson's disease",
   ],
 };
-
-const WORKFLOWS: { mode: Mode; title: string; desc: string }[] = [
-  {
-    mode: "disease-report",
-    title: "Mechanism Report",
-    desc: "Map disease biology (pathways, targets, and confidence) from the literature.",
-  },
-  {
-    mode: "target-risk",
-    title: "Target Risk",
-    desc: "Score a therapeutic target across tractability, safety, and modality feasibility.",
-  },
-  {
-    mode: "research",
-    title: "Research Agent",
-    desc: "A multi-hop agent plans, dispatches tools, and synthesizes a figure-grounded answer.",
-  },
-];
 
 // ------------------------------------------------------------------
 // PDF ingest helper
@@ -639,27 +621,27 @@ export default function HomePage() {
 
               {/* Subtitle */}
               <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-                A multimodal, agentic RAG system over PubMed for mechanism mapping,
-                target risk, and hypothesis generation — every claim traced to primary
-                literature.
+                Agentic retrieval over PubMed. Every claim traced to a primary source.
               </p>
 
-              {/* Workflow cards */}
+              {/* Mode cards: all six, matching the sidebar and input bar */}
               <div className="mt-10 grid w-full gap-2 text-left sm:grid-cols-3">
-                {WORKFLOWS.map((w) => {
-                  const active = mode === w.mode;
+                {ALL_MODES.map((m) => {
+                  const active = mode === m;
                   return (
                     <button
-                      key={w.mode}
-                      onClick={() => setMode(w.mode)}
+                      key={m}
+                      onClick={() => setMode(m)}
                       className={`group rounded-xl border bg-bg-2 p-4 text-left transition hover:bg-bg-3 ${
                         active ? "border-green/50 bg-bg-3" : "border-line-2"
                       }`}
                     >
                       <p className={`text-[13px] font-semibold ${active ? "text-green" : "text-ink"}`}>
-                        {w.title}
+                        {MODE_CONFIG[m].label}
                       </p>
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{w.desc}</p>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                        {MODE_CONFIG[m].description}
+                      </p>
                     </button>
                   );
                 })}
