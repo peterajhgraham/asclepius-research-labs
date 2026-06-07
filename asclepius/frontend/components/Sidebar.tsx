@@ -1,8 +1,8 @@
 "use client";
 
-import { MODE_CONFIG, ALL_MODES } from "@/components/ModeSwitcher";
+import { MODE_CONFIG } from "@/components/ModeSwitcher";
 import { BrandLockup } from "@/components/Logo";
-import type { Mode, SavedSession } from "@/lib/types";
+import type { SavedSession } from "@/lib/types";
 
 interface Props {
   sessions: SavedSession[];
@@ -12,8 +12,6 @@ interface Props {
   onDeleteSession: (id: string) => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
-  mode: Mode;
-  onModeChange: (m: Mode) => void;
 }
 
 export default function Sidebar({
@@ -24,8 +22,6 @@ export default function Sidebar({
   onDeleteSession,
   sidebarOpen,
   onToggleSidebar,
-  mode,
-  onModeChange,
 }: Props) {
   return (
     <>
@@ -54,39 +50,8 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Workspace: mode list */}
-        <div className="px-3 pt-4 pb-2">
-          <p className="px-1 mb-2 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
-            Workspace
-          </p>
-          <nav className="space-y-0.5">
-            {ALL_MODES.map((m) => {
-              const active = mode === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => onModeChange(m)}
-                  aria-label={MODE_CONFIG[m].description}
-                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition ${
-                    active
-                      ? "bg-green-faint text-green font-medium"
-                      : "text-muted hover:bg-bg-3 hover:text-ink-2"
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full shrink-0 ${active ? "bg-green" : "bg-line-2"}`}
-                    style={active ? { boxShadow: "0 0 8px var(--green)" } : undefined}
-                  />
-                  <span className="truncate">{MODE_CONFIG[m].label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
         {/* Recent sessions */}
-        <div className="flex-1 overflow-y-auto px-3 pt-2 pb-1">
+        <div className="flex-1 overflow-y-auto px-3 pt-4 pb-1">
           <p className="px-1 mb-2 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
             Recent
           </p>

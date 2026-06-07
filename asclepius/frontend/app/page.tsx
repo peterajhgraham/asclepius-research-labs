@@ -32,7 +32,7 @@ import { useAgentStream } from "@/hooks/useAgentStream";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 import { genId, PROSE_CLS, pmidToUrl } from "@/lib/utils";
-import { MODE_CONFIG, ALL_MODES } from "@/components/ModeSwitcher";
+import { MODE_CONFIG } from "@/components/ModeSwitcher";
 
 import AgentTrace from "@/components/AgentTrace";
 import AuthHeader from "@/components/AuthHeader";
@@ -573,8 +573,6 @@ export default function HomePage() {
         onDeleteSession={handleDeleteSession}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        mode={mode}
-        onModeChange={setMode}
       />
 
       <main className="flex flex-1 min-w-0 flex-col">
@@ -624,31 +622,8 @@ export default function HomePage() {
                 Agentic retrieval over PubMed. Every claim traced to a primary source.
               </p>
 
-              {/* Mode cards: all six, matching the sidebar and input bar */}
-              <div className="mt-10 grid w-full gap-2 text-left sm:grid-cols-3">
-                {ALL_MODES.map((m) => {
-                  const active = mode === m;
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => setMode(m)}
-                      className={`group rounded-xl border bg-bg-2 p-4 text-left transition hover:bg-bg-3 ${
-                        active ? "border-green/50 bg-bg-3" : "border-line-2"
-                      }`}
-                    >
-                      <p className={`text-[13px] font-semibold ${active ? "text-green" : "text-ink"}`}>
-                        {MODE_CONFIG[m].label}
-                      </p>
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-                        {MODE_CONFIG[m].description}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-
               {/* Example prompts */}
-              <div className="mt-8 w-full text-left">
+              <div className="mt-10 w-full text-left">
                 <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
                   Try a prompt
                 </p>
