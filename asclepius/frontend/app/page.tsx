@@ -619,7 +619,7 @@ export default function HomePage() {
 
               {/* Subtitle */}
               <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-                Multimodal hybrid RAG agent over PubMed. Every claim traced to a primary source.
+                Multimodal Agentic RAG System over PubMed. Every claim traced to a primary source.
               </p>
 
               {/* Example prompts */}
