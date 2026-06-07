@@ -98,24 +98,6 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const WORKFLOWS: { mode: Mode; title: string; desc: string }[] = [
-  {
-    mode: "disease-report",
-    title: "Mechanism Report",
-    desc: "Map disease biology (pathways, targets, and confidence) from the literature.",
-  },
-  {
-    mode: "target-risk",
-    title: "Target Risk",
-    desc: "Score a therapeutic target across tractability, safety, and modality feasibility.",
-  },
-  {
-    mode: "research",
-    title: "Research Agent",
-    desc: "A multi-hop agent plans, dispatches tools, and synthesizes a figure-grounded answer.",
-  },
-];
-
 // ------------------------------------------------------------------
 // PDF ingest helper
 // ------------------------------------------------------------------
@@ -591,8 +573,6 @@ export default function HomePage() {
         onDeleteSession={handleDeleteSession}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        mode={mode}
-        onModeChange={setMode}
       />
 
       <main className="flex flex-1 min-w-0 flex-col">
@@ -639,34 +619,11 @@ export default function HomePage() {
 
               {/* Subtitle */}
               <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-                A multimodal, agentic RAG system over PubMed for mechanism mapping,
-                target risk, and hypothesis generation — every claim traced to primary
-                literature.
+                Agentic retrieval over PubMed. Every claim traced to a primary source.
               </p>
 
-              {/* Workflow cards */}
-              <div className="mt-10 grid w-full gap-2 text-left sm:grid-cols-3">
-                {WORKFLOWS.map((w) => {
-                  const active = mode === w.mode;
-                  return (
-                    <button
-                      key={w.mode}
-                      onClick={() => setMode(w.mode)}
-                      className={`group rounded-xl border bg-bg-2 p-4 text-left transition hover:bg-bg-3 ${
-                        active ? "border-green/50 bg-bg-3" : "border-line-2"
-                      }`}
-                    >
-                      <p className={`text-[13px] font-semibold ${active ? "text-green" : "text-ink"}`}>
-                        {w.title}
-                      </p>
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{w.desc}</p>
-                    </button>
-                  );
-                })}
-              </div>
-
               {/* Example prompts */}
-              <div className="mt-8 w-full text-left">
+              <div className="mt-10 w-full text-left">
                 <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
                   Try a prompt
                 </p>
