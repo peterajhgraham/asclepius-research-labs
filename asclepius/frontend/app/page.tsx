@@ -98,13 +98,6 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   ],
 };
 
-const HERO_STATS: { value: string; label: string }[] = [
-  { value: "3", label: "leg hybrid" },
-  { value: "6", label: "modes" },
-  { value: "5", label: "agent tools" },
-  { value: "18", label: "KB topics" },
-];
-
 const WORKFLOWS: { mode: Mode; title: string; desc: string }[] = [
   {
     mode: "disease-report",
@@ -631,94 +624,64 @@ export default function HomePage() {
           {/* Landing */}
           {isEmpty && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="mx-auto w-full max-w-5xl px-6 pt-14 pb-10 sm:px-10 sm:pt-20"
+              className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 py-16 text-center"
             >
-              {/* Hero + stat panel */}
-              <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono uppercase text-muted" style={{ fontSize: 11, letterSpacing: "0.18em" }}>
-                      Biomedical RAG · v2.0.0
-                    </span>
-                  </div>
-                  <h1 className="mt-5 font-display text-ink text-display-l sm:text-display-xl">
-                    The literature,
-                    <br />
-                    <em className="italic text-green">read carefully.</em>
-                  </h1>
-                  <p className="mt-5 max-w-lg text-ink-2 text-body-l">
-                    A multimodal, agentic hybrid RAG system over PubMed, for mechanism mapping,
-                    target risk, and hypothesis generation, with every claim traced to primary
-                    literature.
-                  </p>
-                </div>
+              {/* Brand mark */}
+              <Logo size={32} />
 
-                {/* Stat panel */}
-                <div className="w-full shrink-0 overflow-hidden rounded-xl border border-line bg-bg-2 shadow-card lg:w-[320px]">
-                  <div className="grid grid-cols-2">
-                    {HERO_STATS.map((s, i) => (
-                      <div
-                        key={s.label}
-                        className={`px-5 py-5 ${i % 2 === 0 ? "border-r border-line" : ""} ${i < 2 ? "border-b border-line" : ""}`}
-                      >
-                        <p className="font-display tabular-nums text-green text-display-l leading-none">{s.value}</p>
-                        <p className="mt-2 font-mono uppercase text-muted" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
-                          {s.label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              {/* Headline */}
+              <h1 className="mt-6 font-display leading-[1.1] text-ink text-[2rem] sm:text-[2.5rem]">
+                The literature, <em className="italic text-green">read carefully.</em>
+              </h1>
+
+              {/* Subtitle */}
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
+                A multimodal, agentic RAG system over PubMed for mechanism mapping,
+                target risk, and hypothesis generation — every claim traced to primary
+                literature.
+              </p>
 
               {/* Workflow cards */}
-              <div className="mt-12 grid gap-3 sm:grid-cols-3">
-                {WORKFLOWS.map((w, i) => {
+              <div className="mt-10 grid w-full gap-2 text-left sm:grid-cols-3">
+                {WORKFLOWS.map((w) => {
                   const active = mode === w.mode;
                   return (
                     <button
                       key={w.mode}
                       onClick={() => setMode(w.mode)}
-                      className={`group rounded-xl border bg-bg-2 p-5 text-left transition hover:bg-bg-3 ${
-                        active ? "border-green/40 shadow-glow-green" : "border-line hover:border-line-2"
+                      className={`group rounded-xl border bg-bg-2 p-4 text-left transition hover:bg-bg-3 ${
+                        active ? "border-green/40" : "border-line hover:border-line-2"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-display text-muted text-display-m group-hover:text-ink">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                      </div>
-                      <p className={`mt-3 text-sm font-semibold ${active ? "text-green" : "text-ink"}`}>{w.title}</p>
-                      <p className="mt-1.5 text-xs leading-relaxed text-muted">{w.desc}</p>
+                      <p className={`text-[13px] font-semibold ${active ? "text-green" : "text-ink"}`}>
+                        {w.title}
+                      </p>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{w.desc}</p>
                     </button>
                   );
                 })}
               </div>
 
               {/* Example prompts */}
-              <div className="mt-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
-                    Try a prompt
-                  </p>
-                  <div className="h-px flex-1 bg-line" />
-                </div>
-                <div className="flex flex-col gap-1">
+              <div className="mt-8 w-full text-left">
+                <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
+                  Try a prompt
+                </p>
+                <div className="overflow-hidden rounded-xl border border-line bg-bg-2/40">
                   {examples.map((example, i) => (
-                    <motion.button
+                    <button
                       key={example}
-                      whileTap={{ scale: 0.995 }}
                       onClick={() => handleExampleClick(example)}
-                      className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-line hover:bg-bg-2"
+                      className={`group flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] text-ink-2 transition hover:bg-bg-3 ${
+                        i > 0 ? "border-t border-line" : ""
+                      }`}
                     >
-                      <span className="font-display tabular-nums text-muted group-hover:text-green" style={{ fontSize: 18, minWidth: 22 }}>
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-ink-2 group-hover:text-ink">{example}</span>
-                    </motion.button>
+                      <span className="text-faint transition group-hover:text-green">→</span>
+                      <span className="flex-1">{example}</span>
+                    </button>
                   ))}
                 </div>
               </div>

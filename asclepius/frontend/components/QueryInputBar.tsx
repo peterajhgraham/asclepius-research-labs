@@ -64,12 +64,7 @@ export default function QueryInputBar({
 
         {/* Top row: mode switcher + options */}
         <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5">
-            <span className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
-              Mode
-            </span>
-            <ModeSwitcher mode={mode} onModeChange={onModeChange} />
-          </div>
+          <ModeSwitcher mode={mode} onModeChange={onModeChange} />
 
           <div className="flex items-center gap-3 shrink-0">
             {isDmiMode && (
@@ -374,12 +369,6 @@ export default function QueryInputBar({
             )}
           </button>
         </div>
-
-        <p className="mt-2 text-center font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
-          Asclepius · Hybrid RAG ·{" "}
-          {mode === "standard" ? "streaming" : "structured"} ·{" "}
-          {isDmiMode ? "mechanism intelligence" : "literature synthesis"}
-        </p>
       </form>
     </div>
   );
