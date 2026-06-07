@@ -3,6 +3,10 @@ import { BACKEND_URL } from "@/lib/backend";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// The research agent runs a multi-step planner loop (up to ~90s of wall-clock
+// on the backend). Without this, Vercel's default serverless timeout cuts the
+// proxied SSE stream off early and the client sees a dropped connection.
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
