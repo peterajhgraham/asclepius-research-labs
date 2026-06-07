@@ -178,6 +178,11 @@ async def query_agent_stream(
         # Retrieve any producer exception so a client disconnect doesn't surface
         # a noisy "exception never retrieved" warning.
         producer.add_done_callback(lambda t: t.cancelled() or t.exception())
+        # Hold the terminal `done` event until after the (optional) verification
+        # pass. The client freezes the agent entry when it sees `done`, so a
+        # `done` emitted before `verification` would drop the verification block
+        # from the rendered result.
+        pending_done: dict | None = None
         try:
             while True:
                 try:
@@ -190,6 +195,10 @@ async def query_agent_stream(
 
                 if evt is _DONE:
                     break
+
+                if evt.get("type") == "done":
+                    pending_done = evt
+                    continue
 
                 yield sse(evt)
                 if evt.get("type") == "final":
@@ -205,6 +214,9 @@ async def query_agent_stream(
                     yield sse({"type": "verification", **v.to_dict()})
                 except Exception:
                     logger.warning("Agent verification failed", exc_info=True)
+
+            if pending_done is not None:
+                yield sse(pending_done)
         finally:
             producer.cancel()
 

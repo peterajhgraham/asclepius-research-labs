@@ -31,6 +31,7 @@ show live reasoning progress rather than a 15-second silent spinner.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 import time
@@ -44,9 +45,44 @@ logger = logging.getLogger(__name__)
 _PLANNER_MODEL = "claude-sonnet-4-6"
 _ANSWERER_MODEL = "claude-sonnet-4-6"
 
-MAX_ITERS = 4
-WALL_CLOCK_BUDGET_S = 120
+# The entire run must finish inside the serverless function / proxy execution
+# window, or the SSE connection is torn down before the agent emits `final` /
+# `done` and the client shows "the agent stream ended before completing".
+# Two things blow that window when left unbounded, and earlier fixes missed
+# both:
+#   1. The Anthropic SDK defaults to a 600s per-request timeout with retries —
+#      one slow or overloaded call can stall the stream for minutes.
+#   2. Tool calls (notably PubMed, which retries NCBI requests) are unbounded;
+#      a single `search_pubmed` can block ~90s+ on a slow network.
+# So we bound every model call and every tool call individually, keep a tight
+# overall wall-clock budget, and reserve time at the end for the closing
+# synthesis so a usable answer is always emitted.
+MAX_ITERS = 3
+WALL_CLOCK_BUDGET_S = 75       # hard ceiling for the whole run
+FINALIZE_RESERVE_S = 25        # time held back for the closing synthesis call
+PER_CALL_TIMEOUT_S = 30.0      # per-request timeout on each Anthropic call
+TOOL_TIMEOUT_S = 12.0          # hard cap on any single tool call
+MAX_ANSWER_TOKENS = 1280      # closing-answer size; fits inside PER_CALL_TIMEOUT_S
 MAX_TOOL_OUTPUT_CHARS = 6000  # keep the planner's context lean
+
+
+# Tools run in a side thread pool so a slow call (e.g. a stalled PubMed
+# request) can be abandoned without blocking the agent past its deadline.
+_TOOL_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=8, thread_name_prefix="agent-tool"
+)
+
+
+def _execute_tool(fn, args: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+    """Run a tool function with a hard wall-clock timeout.
+
+    The call is dispatched to a worker thread and abandoned if it exceeds
+    ``timeout_s`` (raising ``concurrent.futures.TimeoutError``); the orphaned
+    thread finishes on its own without holding up the SSE stream. Exceptions
+    raised by the tool itself propagate normally to the caller.
+    """
+    future = _TOOL_EXECUTOR.submit(lambda: fn(**args))
+    return future.result(timeout=timeout_s)
 
 
 _SYSTEM_PROMPT = (
@@ -307,20 +343,31 @@ def run_agent(
         yield AgentEvent("error", {"message": "Daily budget exhausted"})
         return
 
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    # Bound every call and disable the SDK's long exponential-backoff retries:
+    # the defaults (600s timeout, retries) can silently block for minutes
+    # mid-stream until an upstream proxy drops the connection.
+    client = anthropic.Anthropic(
+        api_key=settings.anthropic_api_key,
+        timeout=PER_CALL_TIMEOUT_S,
+        max_retries=1,
+    )
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     image_hashes_used: list[str] = []
     started = time.monotonic()
     total_cost = 0.0
 
+    # Stop planning early enough to leave room for the closing synthesis call,
+    # so the agent always emits a `final` answer before the request deadline.
+    plan_deadline = max(1, timeout_s - FINALIZE_RESERVE_S)
+
     yield AgentEvent("planner_step", {"iteration": 0, "status": "starting"})
 
     for it in range(1, max_iters + 1):
-        if time.monotonic() - started > timeout_s:
-            # Out of time — don't fail. Break to the forced-finalization path
-            # below so the user gets a usable answer from the evidence gathered
-            # so far instead of a "budget exceeded" error.
-            logger.info("Agent hit wall-clock budget (%ss); forcing finalization", timeout_s)
+        if time.monotonic() - started > plan_deadline:
+            # Out of planning time — don't fail. Break to the forced-finalization
+            # path below so the user gets a usable answer from the evidence
+            # gathered so far instead of a "budget exceeded" error.
+            logger.info("Agent hit planning budget (%ss); forcing finalization", plan_deadline)
             break
         if not check_budget():
             yield AgentEvent("error", {"message": "Daily budget exhausted mid-loop"})
@@ -329,14 +376,20 @@ def run_agent(
         try:
             response = client.messages.create(
                 model=_PLANNER_MODEL,
-                max_tokens=2048,
+                max_tokens=MAX_ANSWER_TOKENS,
                 system=_SYSTEM_PROMPT,
                 tools=TOOLS,
                 messages=messages,
             )
         except Exception as e:
-            yield AgentEvent("error", {"message": f"Planner call failed: {e}"})
-            return
+            # A transient or slow planner call shouldn't sink the whole run.
+            # Once some evidence has been gathered, fall through to forced
+            # finalization; only error out if the very first call fails.
+            if it == 1:
+                yield AgentEvent("error", {"message": f"Planner call failed: {e}"})
+                return
+            logger.warning("Planner call failed on iter %s; forcing finalization", it, exc_info=True)
+            break
 
         try:
             cost = record_query(
@@ -403,7 +456,10 @@ def run_agent(
                 payload = {"error": f"unknown tool: {name}"}
             else:
                 try:
-                    payload = fn(**args)
+                    payload = _execute_tool(fn, args, TOOL_TIMEOUT_S)
+                except concurrent.futures.TimeoutError:
+                    logger.warning("Tool %s timed out after %ss", name, TOOL_TIMEOUT_S)
+                    payload = {"error": f"{name} timed out after {TOOL_TIMEOUT_S:g}s"}
                 except TypeError as e:
                     payload = {"error": f"bad tool args: {e}"}
                 except Exception as e:
@@ -448,7 +504,7 @@ def run_agent(
     try:
         forced = client.messages.create(
             model=_ANSWERER_MODEL,
-            max_tokens=2048,
+            max_tokens=MAX_ANSWER_TOKENS,
             system=_SYSTEM_PROMPT + "\n\nYou have used your tool budget. Emit `final_answer` now.",
             tools=[TOOLS[-1]],  # only final_answer
             tool_choice={"type": "tool", "name": "final_answer"},
