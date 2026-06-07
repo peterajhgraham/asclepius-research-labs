@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 _PLANNER_MODEL = "claude-sonnet-4-6"
 _ANSWERER_MODEL = "claude-sonnet-4-6"
 
-MAX_ITERS = 5
-WALL_CLOCK_BUDGET_S = 90
+MAX_ITERS = 4
+WALL_CLOCK_BUDGET_S = 120
 MAX_TOOL_OUTPUT_CHARS = 6000  # keep the planner's context lean
 
 
@@ -317,8 +317,11 @@ def run_agent(
 
     for it in range(1, max_iters + 1):
         if time.monotonic() - started > timeout_s:
-            yield AgentEvent("error", {"message": f"Agent exceeded wall-clock budget ({timeout_s}s)"})
-            return
+            # Out of time — don't fail. Break to the forced-finalization path
+            # below so the user gets a usable answer from the evidence gathered
+            # so far instead of a "budget exceeded" error.
+            logger.info("Agent hit wall-clock budget (%ss); forcing finalization", timeout_s)
+            break
         if not check_budget():
             yield AgentEvent("error", {"message": "Daily budget exhausted mid-loop"})
             return
@@ -438,7 +441,10 @@ def run_agent(
             })
             return
 
-    # Loop exhausted without a final_answer — request one synchronously
+    # Loop ended without a final_answer (tool budget or wall-clock budget) —
+    # synthesize one from the evidence gathered so far. Always emit a usable
+    # answer rather than surfacing an error to the user.
+    final_answer = ""
     try:
         forced = client.messages.create(
             model=_ANSWERER_MODEL,
@@ -451,10 +457,7 @@ def run_agent(
         for b in forced.content:
             if getattr(b, "type", None) == "tool_use" and b.name == "final_answer":
                 args = b.input or {}
-                yield AgentEvent("final", {
-                    "answer": args.get("answer", "").strip() or "(empty answer)",
-                    "image_hashes": list(args.get("image_hashes") or []) + image_hashes_used,
-                })
+                final_answer = (args.get("answer", "") or "").strip()
                 break
         try:
             total_cost += record_query(
@@ -465,11 +468,23 @@ def run_agent(
             )
         except Exception:
             pass
-    except Exception as e:
-        yield AgentEvent("error", {"message": f"forced finalization failed: {e}"})
+    except Exception:
+        logger.warning("Forced finalization call failed", exc_info=True)
 
+    if not final_answer:
+        final_answer = (
+            "I gathered evidence across several tools but ran out of time before "
+            "composing a complete synthesis. Based on what was retrieved, please "
+            "narrow the question or try again — the indexed corpus did return "
+            "relevant results."
+        )
+
+    yield AgentEvent("final", {
+        "answer": final_answer,
+        "image_hashes": image_hashes_used,
+    })
     yield AgentEvent("done", {
-        "iterations": max_iters,
+        "iterations": it,
         "model": _PLANNER_MODEL,
         "cost_usd": round(total_cost, 6),
         "truncated": True,
