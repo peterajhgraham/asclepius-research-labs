@@ -45,31 +45,38 @@ logger = logging.getLogger(__name__)
 _PLANNER_MODEL = "claude-sonnet-4-6"
 _ANSWERER_MODEL = "claude-sonnet-4-6"
 
-# The entire run must finish inside the serverless function / proxy execution
-# window, or the SSE connection is torn down before the agent emits `final` /
-# `done` and the client shows "the agent stream ended before completing".
-# Two things blow that window when left unbounded, and earlier fixes missed
-# both:
+# Budgets. The backend is a long-lived service (uvicorn on Railway), not a
+# serverless function, and the SSE route emits a 15s heartbeat keepalive, so an
+# in-flight run is *not* torn down by an idle-connection timeout. The real
+# constraints are therefore (a) never letting a single model/tool call stall the
+# stream unboundedly, and (b) keeping total latency within a researcher's
+# patience. We still bound every call individually and reserve time at the end
+# for the closing synthesis so a usable answer is always emitted — but the
+# overall budget is generous enough for genuine multi-hop research instead of
+# cutting the agent off after three turns.
+#
+# Two things blow the budget when left unbounded, and earlier fixes missed both:
 #   1. The Anthropic SDK defaults to a 600s per-request timeout with retries —
 #      one slow or overloaded call can stall the stream for minutes.
-#   2. Tool calls (notably PubMed, which retries NCBI requests) are unbounded;
-#      a single `search_pubmed` can block ~90s+ on a slow network.
-# So we bound every model call and every tool call individually, keep a tight
-# overall wall-clock budget, and reserve time at the end for the closing
-# synthesis so a usable answer is always emitted.
-MAX_ITERS = 3
-WALL_CLOCK_BUDGET_S = 75       # hard ceiling for the whole run
-FINALIZE_RESERVE_S = 25        # time held back for the closing synthesis call
-PER_CALL_TIMEOUT_S = 30.0      # per-request timeout on each Anthropic call
-TOOL_TIMEOUT_S = 12.0          # hard cap on any single tool call
-MAX_ANSWER_TOKENS = 1280      # closing-answer size; fits inside PER_CALL_TIMEOUT_S
+#   2. Tool calls (notably PubMed, which retries NCBI requests, and a cold-start
+#      retriever build) are unbounded; a single call can block for a minute+.
+# We bound both, and — crucially — run the tool calls a planner emits in one
+# turn *concurrently*, so a turn that fans out to four retrievals costs one tool
+# timeout, not four.
+MAX_ITERS = 6
+WALL_CLOCK_BUDGET_S = 180      # hard ceiling for the whole run
+FINALIZE_RESERVE_S = 35        # time held back for the closing synthesis call
+PER_CALL_TIMEOUT_S = 45.0      # per-request timeout on each Anthropic call
+TOOL_TIMEOUT_S = 25.0          # hard cap on any single tool call (cold retriever, PubMed)
+WARMUP_TIMEOUT_S = 45.0        # bounded wait for the retriever to finish building
+MAX_ANSWER_TOKENS = 2048      # closing-answer size; fits inside PER_CALL_TIMEOUT_S
 MAX_TOOL_OUTPUT_CHARS = 6000  # keep the planner's context lean
 
 
 # Tools run in a side thread pool so a slow call (e.g. a stalled PubMed
 # request) can be abandoned without blocking the agent past its deadline.
 _TOOL_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=8, thread_name_prefix="agent-tool"
+    max_workers=16, thread_name_prefix="agent-tool"
 )
 
 
@@ -85,6 +92,35 @@ def _execute_tool(fn, args: dict[str, Any], timeout_s: float) -> dict[str, Any]:
     return future.result(timeout=timeout_s)
 
 
+def _ensure_retriever_ready(timeout_s: float = WARMUP_TIMEOUT_S) -> bool:
+    """Block until the retrieval pipeline has finished building, bounded by
+    ``timeout_s``.
+
+    The pipeline builds lazily on first use (loading sentence-transformers +
+    FAISS and indexing the corpus), which can take far longer than a single
+    tool-call timeout on a cold instance. Without this gate, the *first*
+    iteration's retrievals each trip the per-tool timeout while the build is
+    still in flight, wasting the early budget on calls that return nothing.
+
+    Paying the cold-start cost once, here, means every in-loop retrieval is
+    fast. Returns True if the pipeline is ready, False if it didn't build in
+    time (in which case retrieval tools degrade to empty results rather than
+    blocking). Cheap and idempotent once warm.
+    """
+    try:
+        from app.services.retrieval_service import get_pipeline
+
+        future = _TOOL_EXECUTOR.submit(get_pipeline)
+        pipeline = future.result(timeout=timeout_s)
+        return bool(getattr(pipeline, "is_ready", False))
+    except concurrent.futures.TimeoutError:
+        logger.warning("Retriever warm-up exceeded %ss; proceeding uninitialized", timeout_s)
+        return False
+    except Exception:
+        logger.warning("Retriever warm-up failed", exc_info=True)
+        return False
+
+
 _SYSTEM_PROMPT = (
     "You are Asclepius Research Agent — a scientific research planner that answers "
     "complex multi-part questions by decomposing them into sub-queries and dispatching "
@@ -97,7 +133,9 @@ _SYSTEM_PROMPT = (
     "    primary literature (e.g. 'latest 2025 trials').\n"
     "  • Use `causal_propagate` / `rank_interventions` for mechanism / target questions.\n"
     "  • Use `compare_topics` only for explicit comparisons between two diseases.\n"
-    "  • Stop as soon as you have enough evidence — do not pad with extra tool calls.\n"
+    "  • Vary your queries — if a result is marked as already retrieved, re-target "
+    "    rather than repeating it. Stop as soon as you have enough evidence; do not "
+    "    pad with extra tool calls.\n"
     "  • End the loop with `final_answer`, providing a well-structured response that "
     "    cites the tool results you actually used. Cite figures by their image_hash "
     "    when they appear in retrieval results.\n"
@@ -216,6 +254,52 @@ def _truncate(s: str, n: int = MAX_TOOL_OUTPUT_CHARS) -> str:
     if len(s) <= n:
         return s
     return s[:n] + f"\n…[truncated {len(s) - n} chars]"
+
+
+def _fingerprint(text: str) -> str:
+    """Stable fingerprint of a proposition's text for cross-call dedup.
+
+    Lowercased, whitespace-collapsed, and capped — two retrieval hits whose
+    leading text is identical (the common case when the same dominant document
+    keeps resurfacing for different queries) collapse to the same key.
+    """
+    norm = " ".join((text or "").lower().split())[:200]
+    return norm
+
+
+def _dedup_search_results(
+    payload: dict[str, Any], seen: set[str]
+) -> dict[str, Any]:
+    """Drop knowledge-base hits already returned earlier this run.
+
+    The planner often fans out several overlapping queries; without this, the
+    same dominant document comes back on each one, padding the planner's context
+    and tricking it into thinking it has more evidence than it does. We strip the
+    repeats and leave a short note so the planner knows to vary its query or
+    finalize rather than re-retrieving the same material.
+    """
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return payload
+    fresh: list[dict[str, Any]] = []
+    duplicates = 0
+    for r in results:
+        fp = _fingerprint(r.get("text", ""))
+        if fp and fp in seen:
+            duplicates += 1
+            continue
+        if fp:
+            seen.add(fp)
+        fresh.append(r)
+    payload["results"] = fresh
+    payload["count"] = len(fresh)
+    if duplicates:
+        payload["note"] = (
+            f"{duplicates} result(s) omitted — already returned by an earlier search "
+            "this run. Broaden or re-target the query for new evidence, or call "
+            "final_answer if you have enough."
+        )
+    return payload
 
 
 def _tool_search_knowledge_base(query: str, top_k: int = 6) -> dict[str, Any]:
@@ -353,6 +437,9 @@ def run_agent(
     )
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     image_hashes_used: list[str] = []
+    # Fingerprints of knowledge-base hits already shown to the planner, so a
+    # later overlapping query doesn't re-feed the same documents.
+    seen_fingerprints: set[str] = set()
     started = time.monotonic()
     total_cost = 0.0
 
@@ -361,6 +448,18 @@ def run_agent(
     plan_deadline = max(1, timeout_s - FINALIZE_RESERVE_S)
 
     yield AgentEvent("planner_step", {"iteration": 0, "status": "starting"})
+
+    # Pay any cold-start retriever build cost up front, outside the per-tool
+    # timeout, so the first iteration's retrievals don't all trip the cap while
+    # the index is still building. The wait is bounded and counts against the
+    # planning budget; if it doesn't finish in time the loop still runs (tools
+    # degrade gracefully) rather than hanging.
+    warm_budget = min(WARMUP_TIMEOUT_S, max(1.0, plan_deadline - (time.monotonic() - started)))
+    if not _ensure_retriever_ready(warm_budget):
+        yield AgentEvent("planner_step", {
+            "iteration": 0,
+            "status": "knowledge base still warming — proceeding",
+        })
 
     for it in range(1, max_iters + 1):
         if time.monotonic() - started > plan_deadline:
@@ -432,18 +531,36 @@ def run_agent(
         finished = False
         final_payload: dict[str, Any] | None = None
 
+        # Announce every call first (in the planner's emitted order) so the UI
+        # shows the full fan-out, then dispatch the real tools concurrently.
         for tu in tool_uses:
-            name = tu.name
-            args = tu.input or {}
-            yield AgentEvent("tool_call", {"iteration": it, "tool": name, "args": args})
+            yield AgentEvent("tool_call", {"iteration": it, "tool": tu.name, "args": tu.input or {}})
 
-            if name == "final_answer":
+        # Kick off all non-terminal tool calls at once. A turn that fans out to
+        # several retrievals then costs a single tool timeout instead of the sum
+        # of them — the difference between staying inside budget and blowing it.
+        running: dict[str, concurrent.futures.Future] = {}
+        for tu in tool_uses:
+            if tu.name == "final_answer":
+                args = tu.input or {}
                 final_payload = {
                     "answer": args.get("answer", "").strip() or "(empty answer)",
                     "image_hashes": list(args.get("image_hashes") or []) + image_hashes_used,
                 }
                 finished = True
-                # Anthropic requires us to send a tool_result even for terminal tools
+                continue
+            fn = _TOOL_FNS.get(tu.name)
+            if fn is not None:
+                running[tu.id] = _TOOL_EXECUTOR.submit(lambda fn=fn, a=tu.input or {}: fn(**a))
+
+        # Collect results in the planner's original order. Each call gets up to
+        # TOOL_TIMEOUT_S, but since they run in parallel the batch wall-time is
+        # bounded by the slowest call, not their sum.
+        batch_deadline = time.monotonic() + TOOL_TIMEOUT_S
+        for tu in tool_uses:
+            name = tu.name
+            if name == "final_answer":
+                # Anthropic requires a tool_result for every tool_use block.
                 tool_results_for_planner.append({
                     "type": "tool_result",
                     "tool_use_id": tu.id,
@@ -451,12 +568,13 @@ def run_agent(
                 })
                 continue
 
-            fn = _TOOL_FNS.get(name)
-            if fn is None:
+            fut = running.get(tu.id)
+            if fut is None:
                 payload = {"error": f"unknown tool: {name}"}
             else:
+                remaining = max(0.0, batch_deadline - time.monotonic())
                 try:
-                    payload = _execute_tool(fn, args, TOOL_TIMEOUT_S)
+                    payload = fut.result(timeout=remaining)
                 except concurrent.futures.TimeoutError:
                     logger.warning("Tool %s timed out after %ss", name, TOOL_TIMEOUT_S)
                     payload = {"error": f"{name} timed out after {TOOL_TIMEOUT_S:g}s"}
@@ -466,8 +584,10 @@ def run_agent(
                     logger.warning("Tool %s failed", name, exc_info=True)
                     payload = {"error": str(e)}
 
-            # Harvest any image_hashes returned by retrieval for citation
-            if name == "search_knowledge_base":
+            # Drop documents already retrieved this run, then harvest image
+            # hashes from what's genuinely new for citation.
+            if name == "search_knowledge_base" and isinstance(payload, dict):
+                payload = _dedup_search_results(payload, seen_fingerprints)
                 for r in payload.get("results", []):
                     h = r.get("image_hash")
                     if h and h not in image_hashes_used:
