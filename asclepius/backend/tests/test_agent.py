@@ -17,7 +17,12 @@ import types
 import pytest
 
 import app.services.agent_service as agent
-from app.services.agent_service import AgentEvent, run_agent
+from app.services.agent_service import (
+    AgentEvent,
+    _dedup_search_results,
+    _fingerprint,
+    run_agent,
+)
 
 
 # ------------------------------------------------------------------
@@ -216,3 +221,66 @@ def test_plain_text_with_no_tools_is_coerced_to_final(patched_agent):
     ]
     events = _collect("trivial")
     assert _final_answer(events) == "just a direct answer"
+
+
+# ------------------------------------------------------------------
+# Cross-call result deduplication
+# ------------------------------------------------------------------
+
+def test_fingerprint_ignores_case_and_whitespace():
+    assert _fingerprint("TNF  blocks\nIL-17") == _fingerprint("tnf blocks il-17")
+    assert _fingerprint("a") != _fingerprint("b")
+
+
+def test_dedup_strips_repeats_and_notes_them():
+    seen: set[str] = set()
+    first = _dedup_search_results(
+        {"results": [{"text": "Infliximab targets TNF"}], "count": 1}, seen
+    )
+    assert first["count"] == 1
+    assert "note" not in first
+
+    second = _dedup_search_results(
+        {
+            "results": [
+                {"text": "Infliximab targets TNF"},  # duplicate
+                {"text": "Secukinumab targets IL-17A"},  # new
+            ],
+            "count": 2,
+        },
+        seen,
+    )
+    assert second["count"] == 1
+    assert second["results"][0]["text"] == "Secukinumab targets IL-17A"
+    assert "omitted" in second["note"]
+
+
+def test_dedup_leaves_non_search_payloads_untouched():
+    seen: set[str] = set()
+    payload = {"ranked": [{"node": "TNF", "score": 1.0}]}
+    assert _dedup_search_results(payload, seen) == payload
+
+
+def test_repeated_queries_are_deduped_across_the_run(patched_agent, monkeypatch):
+    """The same dominant doc surfacing for two different queries should reach the
+    planner only once."""
+    def kb(query, top_k=6):
+        return {"results": [{"text": "Infliximab targets TNF-alpha"}], "count": 1}
+
+    monkeypatch.setitem(agent._TOOL_FNS, "search_knowledge_base", kb)
+
+    patched_agent.state["script"] = [
+        _Response([
+            _Block("tool_use", name="search_knowledge_base", id="a", input={"query": "tnf"}),
+            _Block("tool_use", name="search_knowledge_base", id="b", input={"query": "il17"}),
+        ]),
+        _Response([
+            _Block("tool_use", name="final_answer", id="fin", input={"answer": "done"}),
+        ]),
+    ]
+
+    events = _collect("compare")
+    previews = [e.data.get("result_preview", "") for e in events if e.type == "tool_result"]
+    # First query returns the doc; second is deduped to empty + a note.
+    assert any("Infliximab" in p and "omitted" not in p for p in previews)
+    assert any("omitted" in p for p in previews)

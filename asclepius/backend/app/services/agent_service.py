@@ -133,7 +133,9 @@ _SYSTEM_PROMPT = (
     "    primary literature (e.g. 'latest 2025 trials').\n"
     "  • Use `causal_propagate` / `rank_interventions` for mechanism / target questions.\n"
     "  • Use `compare_topics` only for explicit comparisons between two diseases.\n"
-    "  • Stop as soon as you have enough evidence — do not pad with extra tool calls.\n"
+    "  • Vary your queries — if a result is marked as already retrieved, re-target "
+    "    rather than repeating it. Stop as soon as you have enough evidence; do not "
+    "    pad with extra tool calls.\n"
     "  • End the loop with `final_answer`, providing a well-structured response that "
     "    cites the tool results you actually used. Cite figures by their image_hash "
     "    when they appear in retrieval results.\n"
@@ -252,6 +254,52 @@ def _truncate(s: str, n: int = MAX_TOOL_OUTPUT_CHARS) -> str:
     if len(s) <= n:
         return s
     return s[:n] + f"\n…[truncated {len(s) - n} chars]"
+
+
+def _fingerprint(text: str) -> str:
+    """Stable fingerprint of a proposition's text for cross-call dedup.
+
+    Lowercased, whitespace-collapsed, and capped — two retrieval hits whose
+    leading text is identical (the common case when the same dominant document
+    keeps resurfacing for different queries) collapse to the same key.
+    """
+    norm = " ".join((text or "").lower().split())[:200]
+    return norm
+
+
+def _dedup_search_results(
+    payload: dict[str, Any], seen: set[str]
+) -> dict[str, Any]:
+    """Drop knowledge-base hits already returned earlier this run.
+
+    The planner often fans out several overlapping queries; without this, the
+    same dominant document comes back on each one, padding the planner's context
+    and tricking it into thinking it has more evidence than it does. We strip the
+    repeats and leave a short note so the planner knows to vary its query or
+    finalize rather than re-retrieving the same material.
+    """
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return payload
+    fresh: list[dict[str, Any]] = []
+    duplicates = 0
+    for r in results:
+        fp = _fingerprint(r.get("text", ""))
+        if fp and fp in seen:
+            duplicates += 1
+            continue
+        if fp:
+            seen.add(fp)
+        fresh.append(r)
+    payload["results"] = fresh
+    payload["count"] = len(fresh)
+    if duplicates:
+        payload["note"] = (
+            f"{duplicates} result(s) omitted — already returned by an earlier search "
+            "this run. Broaden or re-target the query for new evidence, or call "
+            "final_answer if you have enough."
+        )
+    return payload
 
 
 def _tool_search_knowledge_base(query: str, top_k: int = 6) -> dict[str, Any]:
@@ -389,6 +437,9 @@ def run_agent(
     )
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     image_hashes_used: list[str] = []
+    # Fingerprints of knowledge-base hits already shown to the planner, so a
+    # later overlapping query doesn't re-feed the same documents.
+    seen_fingerprints: set[str] = set()
     started = time.monotonic()
     total_cost = 0.0
 
@@ -533,8 +584,10 @@ def run_agent(
                     logger.warning("Tool %s failed", name, exc_info=True)
                     payload = {"error": str(e)}
 
-            # Harvest any image_hashes returned by retrieval for citation
-            if name == "search_knowledge_base":
+            # Drop documents already retrieved this run, then harvest image
+            # hashes from what's genuinely new for citation.
+            if name == "search_knowledge_base" and isinstance(payload, dict):
+                payload = _dedup_search_results(payload, seen_fingerprints)
                 for r in payload.get("results", []):
                     h = r.get("image_hash")
                     if h and h not in image_hashes_used:
