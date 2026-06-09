@@ -21,6 +21,7 @@ from app.services.agent_service import (
     AgentEvent,
     _dedup_search_results,
     _fingerprint,
+    _tool_search_pubmed,
     run_agent,
 )
 
@@ -253,6 +254,46 @@ def test_dedup_strips_repeats_and_notes_them():
     assert second["count"] == 1
     assert second["results"][0]["text"] == "Secukinumab targets IL-17A"
     assert "omitted" in second["note"]
+
+
+# ------------------------------------------------------------------
+# PubMed failure is surfaced, not masked as an empty result
+# ------------------------------------------------------------------
+
+def test_pubmed_transport_failure_is_reported_as_error(monkeypatch):
+    """When NCBI is unreachable the tool must return an error + note, not a
+    silent empty success the planner would read as 'no literature exists'."""
+    import app.services.pubmed_service as pubmed_module
+
+    class _DownService:
+        last_error = "PubMed request failed: name resolution failed"
+
+        def search(self, query, max_results=5):
+            return []
+
+    monkeypatch.setattr(pubmed_module, "pubmed", _DownService())
+
+    out = _tool_search_pubmed("psoriatic arthritis biomarkers")
+    assert out["count"] == 0
+    assert "error" in out
+    assert "unreachable" in out["note"].lower()
+
+
+def test_pubmed_genuine_empty_is_not_an_error(monkeypatch):
+    """A real empty result (NCBI reachable, no hits) stays a clean empty list."""
+    import app.services.pubmed_service as pubmed_module
+
+    class _EmptyService:
+        last_error = None
+
+        def search(self, query, max_results=5):
+            return []
+
+    monkeypatch.setattr(pubmed_module, "pubmed", _EmptyService())
+
+    out = _tool_search_pubmed("a query with no hits")
+    assert out["count"] == 0
+    assert "error" not in out
 
 
 def test_dedup_leaves_non_search_payloads_untouched():

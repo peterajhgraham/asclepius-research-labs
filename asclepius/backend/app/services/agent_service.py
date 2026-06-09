@@ -330,6 +330,19 @@ def _tool_search_pubmed(query: str, max_results: int = 5) -> dict[str, Any]:
     try:
         from app.services.pubmed_service import pubmed
         articles = pubmed.search(query, max_results=int(max_results))
+        # Distinguish a genuine "no hits" from "couldn't reach NCBI" — otherwise
+        # the planner reads a transport failure as an authoritative empty result
+        # and wrongly concludes the literature has nothing to say.
+        if not articles and pubmed.last_error:
+            return {
+                "error": pubmed.last_error,
+                "results": [],
+                "count": 0,
+                "note": (
+                    "PubMed was unreachable — this is an infrastructure error, not "
+                    "an empty result. Rely on search_knowledge_base for grounding."
+                ),
+            }
         return {
             "results": [
                 {
@@ -355,7 +368,8 @@ def _tool_causal_propagate(seed_nodes: list[str], direction: str = "downstream")
         ranked = sorted(scores.items(), key=lambda x: abs(x[1]), reverse=True)[:20]
         return {"ranked": [{"node": k, "score": round(v, 4)} for k, v in ranked]}
     except Exception as e:
-        return {"error": str(e), "ranked": []}
+        logger.warning("causal_propagate failed for seeds=%s", seed_nodes, exc_info=True)
+        return {"error": f"{type(e).__name__}: {e}", "ranked": []}
 
 
 def _tool_rank_interventions(target_node: str, top_k: int = 10) -> dict[str, Any]:
@@ -364,7 +378,8 @@ def _tool_rank_interventions(target_node: str, top_k: int = 10) -> dict[str, Any
         ranked = knowledge_graph.rank_interventions(target_node=target_node, top_k=int(top_k))
         return {"target": target_node, "interventions": ranked}
     except Exception as e:
-        return {"error": str(e), "interventions": []}
+        logger.warning("rank_interventions failed for target=%s", target_node, exc_info=True)
+        return {"error": f"{type(e).__name__}: {e}", "interventions": []}
 
 
 def _tool_compare_topics(topic_a: str, topic_b: str) -> dict[str, Any]:

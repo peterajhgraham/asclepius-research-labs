@@ -65,28 +65,43 @@ class CausalPropagator:
         dict
             Mapping from node ID to propagated score.
         """
-        # Build weighted adjacency dict
+        # Build weighted adjacency dict (out-degree normalised, see below)
         adj = self._build_weighted_adj(edge_list, direction)
 
-        # Initialise scores
-        scores: Dict[str, float] = defaultdict(float)
-        for nid, val in seed_scores.items():
-            scores[nid] = val
+        # Bounded diffusion via the linear recurrence
+        #
+        #     x_{t+1}[n] = seed[n] + decay * Σ_{m→n} W[m→n] · x_t[m]
+        #
+        # i.e. the seed signal is *re-injected* every iteration and each hop
+        # attenuates by ``decay``. Because the per-source weights are L1
+        # normalised in ``_build_weighted_adj`` (Σ_m |W[m→n contributions]| ≤ 1
+        # out of every node), the propagation operator is sub-stochastic and the
+        # recurrence is a contraction with factor ``decay`` < 1. It therefore
+        # converges to the bounded fixed point ``(I − decay·W)⁻¹ · seed``.
+        #
+        # The previous implementation instead *accumulated* contributions on top
+        # of the carried-over scores without resetting or normalising, so in any
+        # graph with cycles (which the immune signalling graph is full of) the
+        # scores compounded every iteration and diverged to ~1e21 / inf — the
+        # ``convergence_threshold`` never tripped because the deltas kept growing.
+        scores: Dict[str, float] = {nid: float(val) for nid, val in seed_scores.items()}
 
-        for iteration in range(self.max_iterations):
-            new_scores: Dict[str, float] = dict(scores)
-            max_delta = 0.0
+        for _ in range(self.max_iterations):
+            # Re-inject the seed each step; non-seed nodes start from zero and are
+            # rebuilt purely from this iteration's propagated inflow.
+            new_scores: Dict[str, float] = {nid: float(val) for nid, val in seed_scores.items()}
 
             for source, targets in adj.items():
                 source_score = scores.get(source, 0.0)
                 if source_score == 0.0:
                     continue
+                contribution_base = self.decay * source_score
                 for target, weight in targets:
-                    contribution = self.decay * source_score * weight
-                    new_val = new_scores.get(target, 0.0) + contribution
-                    delta = abs(new_val - new_scores.get(target, 0.0))
-                    new_scores[target] = new_val
-                    max_delta = max(max_delta, delta)
+                    new_scores[target] = new_scores.get(target, 0.0) + contribution_base * weight
+
+            max_delta = 0.0
+            for node in set(new_scores) | set(scores):
+                max_delta = max(max_delta, abs(new_scores.get(node, 0.0) - scores.get(node, 0.0)))
 
             scores = new_scores
             if max_delta < self.convergence_threshold:
@@ -104,6 +119,13 @@ class CausalPropagator:
         ``activates`` edges propagate the signal unmodified.
         ``inhibits`` edges propagate the negated signal.
 
+        Outgoing weights are **L1 normalised per source** so the magnitudes
+        leaving any node sum to at most 1. This keeps the propagation operator
+        sub-stochastic, which is what guarantees the diffusion in
+        :meth:`propagate` converges instead of compounding around cycles. The
+        sign (activation vs. inhibition) is preserved; only the magnitude is
+        scaled.
+
         Parameters
         ----------
         edge_list:
@@ -114,9 +136,9 @@ class CausalPropagator:
         Returns
         -------
         dict
-            Mapping source → list of (target, signed_weight).
+            Mapping source → list of (target, normalised_signed_weight).
         """
-        adj: Dict[str, List[Tuple[str, float]]] = defaultdict(list)
+        raw: Dict[str, List[Tuple[str, float]]] = defaultdict(list)
 
         for src, tgt, etype, meta in edge_list:
             conf = float(meta.get("confidence_score", 0.5))
@@ -124,8 +146,16 @@ class CausalPropagator:
             weight = sign * conf
 
             if direction in ("downstream", "both"):
-                adj[src].append((tgt, weight))
+                raw[src].append((tgt, weight))
             if direction in ("upstream", "both"):
-                adj[tgt].append((src, weight))
+                raw[tgt].append((src, weight))
+
+        adj: Dict[str, List[Tuple[str, float]]] = {}
+        for source, targets in raw.items():
+            total = sum(abs(w) for _, w in targets)
+            if total <= 0:
+                adj[source] = targets
+            else:
+                adj[source] = [(tgt, w / total) for tgt, w in targets]
 
         return adj
