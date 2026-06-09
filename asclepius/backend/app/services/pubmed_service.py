@@ -108,6 +108,10 @@ class PubMedService:
         self.email = email
         self.rate_limit_delay = rate_limit_delay
         self.max_retries = max_retries
+        # Records the last transport/parse failure so callers can tell a genuine
+        # "0 results" apart from "couldn't reach NCBI". Reset at the start of
+        # every search(); None means the last search completed cleanly.
+        self.last_error: Optional[str] = None
         self._session = requests.Session()
         self._session.headers.update({
             "User-Agent": "AsclepiusResearchLabs/1.0",
@@ -133,7 +137,13 @@ class PubMedService:
             Sort order: "relevance" or "date".
         min_date / max_date : str, optional
             Date range filters (YYYY/MM/DD format).
+
+        On a transport failure (NCBI unreachable, timeout, HTTP error) this
+        returns ``[]`` *and* sets :attr:`last_error`; callers that need to
+        distinguish an infrastructure failure from a genuinely empty result set
+        should check ``last_error`` after calling.
         """
+        self.last_error = None
         pmids = self._search_ids(query, max_results, sort, min_date, max_date)
         if not pmids:
             return []
@@ -220,8 +230,9 @@ class PubMedService:
             resp = self._get(f"{_NCBI_BASE}/esearch.fcgi", params)
             data = resp.json()
             return data.get("esearchresult", {}).get("idlist", [])
-        except Exception:
+        except Exception as exc:
             logger.warning("PubMed search failed for query=%r", query, exc_info=True)
+            self.last_error = f"PubMed request failed: {exc}"
             return []
 
     def _fetch_articles(self, pmids: List[str]) -> List[PubMedArticle]:
