@@ -2,14 +2,22 @@
 
 ## Current State Assessment
 
-Asclepius Research Labs is a structured autoimmune intelligence engine for
-biotech researchers and translational immunologists. The product provides a
-multi-mode research interface (Analyze, Compare, Hypothesize) backed by
-curated knowledge bases, live PubMed integration, a computable knowledge graph
-with causal propagation, and persistent research workspaces.
+Asclepius Research Labs is a domain-agnostic scientific research intelligence
+engine for biotech researchers and translational scientists. Domain context
+(`vertical`) is a runtime string — the same pipeline serves immunology,
+oncology, neuroscience, or any field without a redeploy. The product provides a
+six-mode research interface (Mechanism Report, Target Risk, Analyze, Research
+Agent, Compare, Hypothesize) backed by truly multimodal proposition-level
+retrieval (text + figures + tables fused in a shared CLIP space), a tool-using
+research agent, figure-grounded verification, curated knowledge bases, live
+PubMed integration, a computable knowledge graph with causal propagation, and
+persistent research workspaces.
 
 ### Current Strengths
-- **Structured immune reasoning** enforced on every query (disease context, cells, cytokines, pathways, targets, genes, hypotheses)
+- **Truly multimodal hybrid retrieval** — three-leg (BM25 lexical + dense MiniLM + CLIP cross-modal text↔image) fused via RRF and CrossEncoder-reranked; figures and tables are first-class propositions and retrieved figures attach to the LLM as native vision blocks
+- **Tool-using research agent** (`mode="research"`) — a Sonnet 4.6 planner that decomposes multi-hop questions and dispatches the retriever, PubMed, the causal graph, and the comparator as native tools, with concurrent per-turn fan-out and figure-grounded verification
+- **Disease/Mechanism Intelligence (DMI)** — structured, citation-backed mechanism reports and rule-based target-risk scoring over live PubMed literature
+- **Structured scientific reasoning** enforced on every query (disease context, cells, cytokines, pathways, targets, genes, hypotheses)
 - **Live PubMed integration** via NCBI E-utilities with autoimmune-enriched queries and molecular interaction extraction
 - **Computable knowledge graph** wired into the query pipeline — subgraph extraction, hub analysis, causal propagation, intervention ranking
 - **Comparative disease analysis** — side-by-side comparison across pathways, cytokines, cells, genetics, therapeutics with similarity scoring
@@ -28,7 +36,7 @@ with causal propagation, and persistent research workspaces.
 - No user data upload (CSV/TSV gene lists, CRISPR screens)
 - Session persistence is client-side only (localStorage, no cloud accounts)
 - No interactive graph visualization
-- Limited to autoimmune diseases only (oncology expansion planned)
+- ~~Limited to autoimmune diseases only~~ — **shipped**: the platform is domain-agnostic (`vertical` is a runtime string), with built-in prompt templates for immunology, oncology, and neuroscience and a general fallback. The curated knowledge base still skews immunology; broader curated datasets remain to come
 
 ---
 
@@ -139,7 +147,7 @@ that an LLM cannot do through text generation alone.
 - [ ] Add bioRxiv/medRxiv preprint search
 - [ ] Implement user accounts with cloud-persistent workspaces (replace localStorage)
 - [ ] Add search within past results
-- [ ] Implement semantic search using vector embeddings (replace keyword matching)
+- [x] Implement semantic search using vector embeddings (replace keyword matching) — three-leg hybrid retrieval (BM25 + dense MiniLM + CLIP) with RRF fusion and CrossEncoder reranking
 
 **Outcome:** Users have a reason to come back (their work is saved) and answers are always current.
 

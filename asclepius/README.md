@@ -86,12 +86,20 @@ asclepius/
 │   │   │   ├── knowledge_base.py           # Curated KB entries (domain-configurable)
 │   │   │   └── ingestion.py                # JSON dataset loaders
 │   │   ├── dmi/                            # Disease/Mechanism Intelligence module
-│   │   │   ├── disease_report.py           #   Structured mechanism reports (domain = runtime param)
-│   │   │   └── target_risk.py              #   Target druggability + risk scoring
+│   │   │   ├── routes.py                    #   /dmi/disease-report + /dmi/target-risk
+│   │   │   ├── pubmed.py                    #   NCBI E-utilities literature fetch (disease + target)
+│   │   │   ├── retriever.py                 #   TF-IDF in-memory abstract retrieval
+│   │   │   ├── extractor.py                 #   LLM mechanism/target extraction (domain-adaptive)
+│   │   │   ├── scoring.py                   #   Rule-based mechanistic/translational/overall risk
+│   │   │   ├── citation_utils.py            #   PMID extraction + dedup
+│   │   │   ├── schemas.py                   #   DMI Pydantic request/response models
+│   │   │   ├── disease_report.py            #   Structured mechanism report builder (domain = runtime param)
+│   │   │   └── target_risk.py               #   Target druggability + risk scoring
 │   │   └── models/
 │   │       └── schema.py                   # Pydantic schemas for all request/response types
 │   ├── tests/
-│   │   └── test_retrieval.py               # 33 tests: BM25, FAISS, RRF, reranking, routing, cost
+│   │   ├── test_retrieval.py               # 34 tests: BM25, FAISS, RRF, reranking, routing, cost
+│   │   └── test_agent.py                   # 9 tests: tool loop, concurrent fan-out, dedup, finalization
 │   ├── scripts/
 │   │   └── setup_dev.sh                    # One-shot venv + deps + .env bootstrap
 │   └── requirements.txt
@@ -166,11 +174,13 @@ The three retrieval legs execute in parallel. RRF merges ranked lists without sc
      ├── rank_interventions       (upstream target ranking)
      ├── compare_topics           (side-by-side comparison)
      │
-     ▼  max 5 iterations · 90s wall-clock · daily budget cap
+     ▼  max 6 iterations · 180s wall-clock · concurrent per-turn tool fan-out · daily budget cap
   final_answer ─► SSE: planner_step / tool_call / tool_result / final / verification / done
 ```
 
 The agent goes *on top of* the retriever — never instead of it. Replacing a strong hybrid retriever with LLM-driven search is strictly worse on every published benchmark.
+
+The loop is engineered so a slow upstream call can never sink a run: the multiple tool calls a planner emits in one turn are dispatched **concurrently** (a fan-out costs one tool timeout, not the sum), every Anthropic call is bounded to 45s and every tool to 25s (the SDK's default 600s timeout + retry backoff are disabled), a warm-up gate pays the cold-start retriever build once before the loop, knowledge-base hits already returned earlier in the run are de-duplicated before they reach the planner, and ~35s is reserved at the end for a forced `final_answer` synthesis so a usable answer is always emitted even when the iteration or wall-clock budget is exhausted. The SSE route emits a 15s heartbeat so the connection survives the seconds-long gaps the planner spends blocked on the model.
 
 ---
 
@@ -293,7 +303,7 @@ cp .env.example .env                         # add ANTHROPIC_API_KEY
 venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 
 # Tests
-venv/bin/pytest tests/test_retrieval.py -v
+venv/bin/pytest tests/ -v                    # 43 tests (retrieval + agent)
 
 # Frontend (separate terminal)
 cd asclepius/frontend

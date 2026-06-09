@@ -95,14 +95,17 @@ BM25, dense MiniLM, and the CLIP cross-modal leg execute in parallel. Their rank
      ├── tool: rank_interventions      ── upstream target ranking
      ├── tool: compare_topics          ── side-by-side topic comparison
      │
-     ▼  (max 5 iterations, 90s wall-clock budget, daily cost cap enforced)
+     ▼  (max 6 iterations, 180s wall-clock budget, daily cost cap enforced)
+     │  tools a planner emits in one turn run CONCURRENTLY; each call is
+     │  individually bounded (45s model / 25s tool) so one slow call can't
+     │  stall the SSE stream
   final_answer tool call ──► SSE stream of planner_step / tool_call / tool_result / final events
                                                 │
                                                 ▼
                                   Optional figure-grounded verification
 ```
 
-The agent is gated behind `mode="research"` so the latency (3–10× single-shot) and cost (5–20×) only apply when callers explicitly opt in. The retriever is invoked *as a tool* — agents go on top of the retriever, not instead of it; replacing strong hybrid retrieval with LLM-driven search is strictly worse on every published benchmark.
+The agent is gated behind `mode="research"` so the latency (3–10× single-shot) and cost (5–20×) only apply when callers explicitly opt in. The retriever is invoked *as a tool* — agents go on top of the retriever, not instead of it; replacing strong hybrid retrieval with LLM-driven search is strictly worse on every published benchmark. A bounded warm-up gate pays the cold-start retriever-build cost once, before the loop, so the first iteration's retrievals are fast rather than each tripping the per-tool timeout; knowledge-base hits already returned earlier in a run are de-duplicated so an overlapping query doesn't re-feed the planner the same document; and if the loop exhausts its iteration or wall-clock budget, a reserved finalization call always synthesizes a usable answer rather than surfacing an error.
 
 ### Research Engine Modules
 
@@ -151,7 +154,7 @@ suggestions = suggester.suggest_experiments("STAT3", edge_list, budget=3)
 | PDF parsing | PyMuPDF (text + embedded images, reading-order sorted, SHA-256 deduped) + pdfplumber (tables → markdown + bbox) + region rasterization | Three parallel streams; image / table propositions are first-class retrieval citizens |
 | Chunking | Layout-aware sentence-bounded packer (~1800 chars, page-bounded, 1-sentence overlap) + Haiku proposition extraction | 5-10× fewer chunks than the prior sliding window with no recall loss; chunks never straddle pages or sections |
 | Image storage | Content-addressed disk store (`./data/images/<shard>/<sha256>.<ext>`) | Dedupes recurring figures; images stream over HTTP with `Cache-Control: immutable`; DB stays slim |
-| Research agent | Anthropic native tool-use loop (Sonnet 4.6 planner) | Multi-hop decomposition, PubMed + retriever + graph + comparator as tools; bounded by iterations + wall-clock + budget |
+| Research agent | Anthropic native tool-use loop (Sonnet 4.6 planner) | Multi-hop decomposition, PubMed + retriever + graph + comparator as tools; concurrent tool fan-out, warm-up gate, cross-call dedup; bounded by iterations + wall-clock + per-call timeout + budget |
 | Verification | Claude Sonnet vision against cited figures | Re-examines the actual image pixels, marks unsupported quantitative claims `[unverified]` |
 | Inference Routing | 3-tier hierarchy with heuristic confidence estimation | Cost-aware; escalates only when necessary |
 | Observability | structlog JSON + Prometheus counters/histograms + JSONL cost audit | Full auditability of spend and retrieval quality |
@@ -181,7 +184,7 @@ The earlier sliding-window chunker bisected at fixed word boundaries regardless 
 
 ### Tool-Using Research Agent (opt-in)
 
-Single-shot RAG is the right answer for simple factual questions — fast, cheap, deterministic, easy to debug. It is structurally inadequate for multi-hop questions ("compare X vs Y across efficacy, safety, biomarkers" is three retrievals), for queries that need to route between live PubMed and the indexed corpus, and for cases where the first retrieval misses key terms and needs reformulation. The research agent (gated behind `mode="research"`) handles those: a Sonnet 4.6 planner iteratively calls `search_knowledge_base`, `search_pubmed`, `causal_propagate`, `rank_interventions`, or `compare_topics` until it has enough evidence to emit `final_answer`. The loop is bounded by 5 iterations, a 90-second wall-clock, and the same daily budget cap as the single-shot path. Crucially, the retriever is invoked *as a tool* — agents go on top of the strong hybrid retriever, not in place of it.
+Single-shot RAG is the right answer for simple factual questions — fast, cheap, deterministic, easy to debug. It is structurally inadequate for multi-hop questions ("compare X vs Y across efficacy, safety, biomarkers" is three retrievals), for queries that need to route between live PubMed and the indexed corpus, and for cases where the first retrieval misses key terms and needs reformulation. The research agent (gated behind `mode="research"`) handles those: a Sonnet 4.6 planner iteratively calls `search_knowledge_base`, `search_pubmed`, `causal_propagate`, `rank_interventions`, or `compare_topics` until it has enough evidence to emit `final_answer`. The loop is bounded by 6 iterations, a 180-second wall-clock, and the same daily budget cap as the single-shot path. Several mechanics keep that budget honest: the multiple tool calls a planner emits in a single turn run **concurrently** (a four-way fan-out costs one tool timeout, not four); every Anthropic call is bounded to 45s and every tool call to 25s (the SDK's default 600s timeout and long retry backoff are disabled) so no single call can stall the SSE stream; a warm-up gate pays the cold-start retriever build once before the loop; knowledge-base hits already returned earlier in the run are de-duplicated so overlapping queries don't re-feed the planner the same document; and ~35s is reserved at the end for a forced finalization call so the agent always emits a usable answer instead of an error if it runs out of budget. Crucially, the retriever is invoked *as a tool* — agents go on top of the strong hybrid retriever, not in place of it.
 
 ### Figure-Grounded Verification (opt-in)
 
@@ -237,7 +240,14 @@ asclepius-research-labs/
 │   │   │   │   ├── models.py           #   SQLAlchemy async ORM (Proposition, Paper)
 │   │   │   │   └── store.py            #   Async SQLite CRUD (aiosqlite)
 │   │   │   ├── dmi/                    #   Disease/Mechanism Intelligence module
-│   │   │   │   ├── disease_report.py   #     Structured mechanism reports
+│   │   │   │   ├── routes.py           #     /dmi/disease-report + /dmi/target-risk
+│   │   │   │   ├── pubmed.py           #     NCBI E-utilities literature fetch (disease/target)
+│   │   │   │   ├── retriever.py        #     TF-IDF in-memory abstract retrieval
+│   │   │   │   ├── extractor.py        #     LLM mechanism/target extraction (domain-adaptive)
+│   │   │   │   ├── scoring.py          #     Rule-based mechanistic/translational/overall risk
+│   │   │   │   ├── citation_utils.py   #     PMID extraction + dedup
+│   │   │   │   ├── schemas.py          #     DMI Pydantic request/response models
+│   │   │   │   ├── disease_report.py   #     Structured mechanism report builder
 │   │   │   │   └── target_risk.py      #     Target druggability + risk scoring
 │   │   │   ├── services/
 │   │   │   │   ├── retrieval_service.py   # Pipeline singleton, KB + dataset + DB indexing
@@ -255,7 +265,9 @@ asclepius-research-labs/
 │   │   │   │   ├── knowledge_base.py      # Curated KB entries (domain-configurable)
 │   │   │   │   └── ingestion.py           # JSON dataset loaders
 │   │   │   └── models/schema.py           # Pydantic schemas for all request/response types
-│   │   ├── tests/test_retrieval.py        # 33 unit + integration tests
+│   │   ├── tests/
+│   │   │   ├── test_retrieval.py          # 34 tests: BM25, FAISS, RRF, reranking, routing, cost
+│   │   │   └── test_agent.py              # 9 tests: tool loop, dedup, concurrency, finalization
 │   │   ├── scripts/setup_dev.sh           # One-shot venv + deps + .env bootstrap
 │   │   └── requirements.txt
 │   └── frontend/
@@ -329,6 +341,7 @@ asclepius-research-labs/
 | `POST` | `/ingest/document` | PDF upload — text + figures (CLIP-embedded, disk-stored) + tables (pdfplumber, markdown + raster), all indexed for retrieval |
 | `GET` | `/images/{image_hash}` | Stream a stored figure or table raster by SHA-256 hash. Used by the frontend to render retrieved figures inline |
 | `POST` | `/compare` | Multi-dimensional side-by-side topic comparison |
+| `GET` | `/diseases` | List topics/conditions available for comparison |
 | `POST` | `/hypotheses` | Testable hypothesis generation (5 strategies with experimental designs) |
 | `POST` | `/pubmed/search` | Live PubMed search + molecular interaction extraction |
 | `GET` | `/graph/stats` | Knowledge graph summary statistics |
@@ -435,7 +448,7 @@ cp .env.example .env                         # add ANTHROPIC_API_KEY
 venv/bin/uvicorn app.main:app --port 8000 --reload --reload-dir app
 
 # Tests
-venv/bin/pytest tests/test_retrieval.py -v
+venv/bin/pytest tests/ -v                    # 43 tests (retrieval + agent)
 
 # Frontend (separate terminal)
 cd asclepius/frontend
@@ -493,7 +506,7 @@ Two toggles next to the mode switcher (only when Analyze or Research is active):
 - **Retrieved figures auto-attached to the LLM** as native Anthropic vision content blocks, so the model grounds quantitative claims in actual image pixels
 - **Layout-aware sentence-bounded chunker** — page-bounded, never cuts mid-sentence, 5–10× fewer chunks than the prior sliding window
 - **CLIP image→image retrieval** when the user uploads a probe figure (`/query/images`)
-- **Tool-using research agent** (`mode="research"`) — Sonnet 4.6 planner with hybrid retriever, PubMed, causal graph, and topic comparator as native tools; bounded by iterations + wall-clock + daily budget
+- **Tool-using research agent** (`mode="research"`) — Sonnet 4.6 planner with hybrid retriever, PubMed, causal graph, and topic comparator as native tools; concurrent per-turn tool fan-out, cold-start warm-up gate, cross-call knowledge-base dedup, and a reserved forced-finalization pass; bounded by iterations (6) + wall-clock (180s) + per-call timeouts + daily budget
 - **Figure-grounded verification pass** (`verify=true`) — Sonnet vision re-checks cited figures and tags unsupported claims `[unverified]` inline
 - **Content-addressed image API** — `/images/{hash}` streams stored figures with `Cache-Control: immutable`; frontend renders thumbnails inline in the citation panel
 - 3-tier confidence-gated inference routing with daily budget enforcement
