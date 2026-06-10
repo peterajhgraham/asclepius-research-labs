@@ -5,8 +5,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 
+// Borderless inputs — the composer box owns the border + focus ring.
 const INPUT_CLS =
-  "h-11 flex-1 min-w-0 rounded-xl border border-line-2 bg-bg-3 px-3.5 text-sm text-ink placeholder-muted outline-none transition focus:border-green/70 focus:ring-2 focus:ring-green-faint disabled:opacity-40 font-sans";
+  "h-9 flex-1 min-w-0 bg-transparent px-1 text-sm text-ink placeholder-muted outline-none disabled:opacity-40 font-sans";
+
+const ATTACH_BTN =
+  "flex h-8 w-8 items-center justify-center rounded-lg border transition shrink-0";
 
 interface Props {
   mode: Mode;
@@ -222,69 +226,33 @@ export default function QueryInputBar({
           )}
         </AnimatePresence>
 
-        {/* Input row */}
-        <div className="flex items-center gap-2">
-          {/* Hidden file inputs */}
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onImageFileSelected(f);
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={pdfInputRef}
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onPdfFileSelected(f);
-              e.target.value = "";
-            }}
-          />
+        {/* Hidden file inputs */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onImageFileSelected(f);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onPdfFileSelected(f);
+            e.target.value = "";
+          }}
+        />
 
-          {/* Attach buttons */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              aria-label="Attach scientific image for multimodal analysis"
-              onClick={() => imageInputRef.current?.click()}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
-                uploadedImage
-                  ? "border-green/50 bg-green-faint text-green"
-                  : "border-line-2 bg-bg-3 text-muted hover:bg-bg-4 hover:text-ink-2"
-              }`}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              aria-label="Upload PDF: figures are captioned and propositions indexed into the RAG pipeline"
-              onClick={() => pdfInputRef.current?.click()}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
-                uploadedPdf
-                  ? "border-green/50 bg-green-faint text-green"
-                  : "border-line-2 bg-bg-3 text-muted hover:bg-bg-4 hover:text-ink-2"
-              }`}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <line x1="10" y1="9" x2="8" y2="9" />
-              </svg>
-            </button>
-          </div>
+        {/* Composer — single terminal-style box with a `>` prompt marker */}
+        <div className="flex items-center gap-2 rounded-xl border border-line-2 bg-bg-3 px-3 py-1.5 transition focus-within:border-green/70 focus-within:ring-2 focus-within:ring-green-faint">
+          <span className="select-none font-mono text-base leading-none text-green">&gt;</span>
 
           {/* Text inputs */}
           {mode === "target-risk" ? (
@@ -297,7 +265,7 @@ export default function QueryInputBar({
                 disabled={isLoading}
                 className={INPUT_CLS}
               />
-              <span className="text-[11px] font-semibold text-muted shrink-0 font-mono">·</span>
+              <span className="shrink-0 font-mono text-[11px] font-semibold text-muted">·</span>
               <input
                 type="text"
                 value={targetName}
@@ -317,7 +285,7 @@ export default function QueryInputBar({
                 disabled={isLoading}
                 className={INPUT_CLS}
               />
-              <span className="text-[11px] font-semibold text-muted shrink-0 font-mono">vs</span>
+              <span className="shrink-0 font-mono text-[11px] font-semibold text-muted">vs</span>
               <input
                 type="text"
                 value={diseaseB}
@@ -348,20 +316,56 @@ export default function QueryInputBar({
             />
           )}
 
+          {/* Attach buttons */}
+          <button
+            type="button"
+            aria-label="Attach scientific image for multimodal analysis"
+            onClick={() => imageInputRef.current?.click()}
+            className={`${ATTACH_BTN} ${
+              uploadedImage
+                ? "border-green/50 bg-green-faint text-green"
+                : "border-transparent text-muted hover:bg-bg-4 hover:text-ink-2"
+            }`}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="Upload PDF: figures are captioned and propositions indexed into the RAG pipeline"
+            onClick={() => pdfInputRef.current?.click()}
+            className={`${ATTACH_BTN} ${
+              uploadedPdf
+                ? "border-green/50 bg-green-faint text-green"
+                : "border-transparent text-muted hover:bg-bg-4 hover:text-ink-2"
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <line x1="10" y1="9" x2="8" y2="9" />
+            </svg>
+          </button>
+
           {/* Submit */}
           <button
             type="submit"
             disabled={submitDisabled}
             aria-label="Submit query"
-            className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-bg transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-green-faint disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold text-bg transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-green-faint disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: "linear-gradient(180deg, var(--green), var(--green-2))" }}
           >
             {isLoading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-bg/40 border-t-bg block" />
+              <span className="block h-4 w-4 animate-spin rounded-full border-2 border-bg/40 border-t-bg" />
             ) : (
               <>
                 <span>Run</span>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 10 4 15 9 20" />
                   <path d="M20 4v7a4 4 0 0 1-4 4H4" />
                 </svg>

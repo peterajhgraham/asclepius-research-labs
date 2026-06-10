@@ -85,8 +85,8 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                 >
                   {/* Ref number + figure thumbnail (images only) + meta */}
                   <div className="flex items-start gap-3">
-                    <span className="font-display tabular-nums text-green leading-none" style={{ fontSize: 22, minWidth: 24 }}>
-                      {i + 1}
+                    <span className="shrink-0 pt-0.5 font-mono text-[11px] font-semibold tabular-nums text-green" style={{ minWidth: 24 }}>
+                      [{i + 1}]
                     </span>
                     {isImage && (
                       <a

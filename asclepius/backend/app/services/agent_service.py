@@ -270,35 +270,56 @@ def _fingerprint(text: str) -> str:
 def _dedup_search_results(
     payload: dict[str, Any], seen: set[str]
 ) -> dict[str, Any]:
-    """Drop knowledge-base hits already returned earlier this run.
+    """Suppress knowledge-base hits already returned earlier this run.
 
     The planner often fans out several overlapping queries; without this, the
     same dominant document comes back on each one, padding the planner's context
-    and tricking it into thinking it has more evidence than it does. We strip the
-    repeats and leave a short note so the planner knows to vary its query or
-    finalize rather than re-retrieving the same material.
+    and tricking it into thinking it has more evidence than it does.
+
+    The earlier version *dropped* every repeat — but on a small corpus several
+    distinct sub-queries (efficacy, safety, biomarkers) legitimately surface the
+    same top documents, so whole turns came back empty and the planner (and the
+    closing synthesis, which reads the transcript) were left with nothing to work
+    with. That is the failure mode this guards against now: we prefer the fresh
+    hits, but when *every* hit is a repeat we keep the top few rather than
+    returning an empty set, annotating them so the planner still knows to vary
+    its query or finalize.
     """
     results = payload.get("results")
-    if not isinstance(results, list):
+    if not isinstance(results, list) or not results:
         return payload
     fresh: list[dict[str, Any]] = []
-    duplicates = 0
+    repeats: list[dict[str, Any]] = []
     for r in results:
         fp = _fingerprint(r.get("text", ""))
         if fp and fp in seen:
-            duplicates += 1
+            repeats.append(r)
             continue
         if fp:
             seen.add(fp)
         fresh.append(r)
-    payload["results"] = fresh
-    payload["count"] = len(fresh)
-    if duplicates:
-        payload["note"] = (
-            f"{duplicates} result(s) omitted — already returned by an earlier search "
-            "this run. Broaden or re-target the query for new evidence, or call "
-            "final_answer if you have enough."
-        )
+
+    if fresh:
+        payload["results"] = fresh
+        payload["count"] = len(fresh)
+        if repeats:
+            payload["note"] = (
+                f"{len(repeats)} result(s) omitted — already returned by an earlier "
+                "search this run. Broaden or re-target the query for new evidence, or "
+                "call final_answer if you have enough."
+            )
+        return payload
+
+    # Everything overlapped prior retrievals. Keep the top hits anyway so the
+    # turn isn't blind — but flag the overlap so the planner re-targets or wraps up.
+    kept = repeats[: min(3, len(repeats))]
+    payload["results"] = kept
+    payload["count"] = len(kept)
+    payload["note"] = (
+        f"All {len(repeats)} hit(s) overlap evidence already retrieved this run — "
+        "shown again for grounding. Vary the query for new evidence, or call "
+        "final_answer if you have enough."
+    )
     return payload
 
 
@@ -363,10 +384,44 @@ def _tool_search_pubmed(query: str, max_results: int = 5) -> dict[str, Any]:
 def _tool_causal_propagate(seed_nodes: list[str], direction: str = "downstream") -> dict[str, Any]:
     try:
         from app.services.graph_service import knowledge_graph
-        seed_scores = {n: 1.0 for n in seed_nodes}
+
+        # The planner names seeds the way a paper does ("TNF-alpha", "IL-17A"),
+        # but the graph keys nodes by HGNC symbol ("TNF", "IL17A"). Resolve each
+        # seed to its canonical node first — otherwise propagation starts from a
+        # node with no outgoing edges and returns nothing but the seeds back.
+        seed_scores: dict[str, float] = {}
+        resolved: dict[str, str] = {}
+        unresolved: list[str] = []
+        for n in seed_nodes:
+            node_id = knowledge_graph.resolve_node_id(n)
+            if node_id is None:
+                unresolved.append(n)
+            else:
+                resolved[n] = node_id
+                seed_scores[node_id] = 1.0
+
+        if not seed_scores:
+            return {
+                "error": f"No seed nodes matched the knowledge graph: {seed_nodes}",
+                "ranked": [],
+                "unresolved": unresolved,
+            }
+
         scores = knowledge_graph.propagate_signal(seed_scores, direction=direction)
-        ranked = sorted(scores.items(), key=lambda x: abs(x[1]), reverse=True)[:20]
-        return {"ranked": [{"node": k, "score": round(v, 4)} for k, v in ranked]}
+        # Rank the *downstream impact* — exclude the seeds themselves, which
+        # trivially carry the strongest signal and aren't what the caller asked for.
+        ranked = sorted(
+            ((k, v) for k, v in scores.items() if k not in seed_scores),
+            key=lambda x: abs(x[1]),
+            reverse=True,
+        )[:20]
+        out: dict[str, Any] = {
+            "seeds_used": resolved,
+            "ranked": [{"node": k, "score": round(v, 4)} for k, v in ranked],
+        }
+        if unresolved:
+            out["unresolved"] = unresolved
+        return out
     except Exception as e:
         logger.warning("causal_propagate failed for seeds=%s", seed_nodes, exc_info=True)
         return {"error": f"{type(e).__name__}: {e}", "ranked": []}
@@ -384,10 +439,26 @@ def _tool_rank_interventions(target_node: str, top_k: int = 10) -> dict[str, Any
 
 def _tool_compare_topics(topic_a: str, topic_b: str) -> dict[str, Any]:
     try:
-        from app.services.comparative_service import compare_diseases
+        from app.services.comparative_service import (
+            compare_diseases,
+            list_available_diseases,
+        )
         result = compare_diseases(topic_a, topic_b)
         if result is None:
-            return {"error": f"One or both topics not found: {topic_a}, {topic_b}"}
+            # This tool compares two *diseases* in the curated dataset. The
+            # planner sometimes hands it drug-class phrases ("TNF blockade in
+            # psoriatic arthritis") instead — tell it which names exist and what
+            # this tool is for so it can re-target or fall back to
+            # search_knowledge_base rather than dead-ending on "not found".
+            return {
+                "error": f"One or both topics not found: {topic_a}, {topic_b}",
+                "available_diseases": list_available_diseases(),
+                "hint": (
+                    "compare_topics only compares two diseases from the list above. "
+                    "For a within-disease comparison (e.g. two drug classes), use "
+                    "search_knowledge_base instead."
+                ),
+            }
         # Trim to keep planner context compact
         return {
             "similarity": result.get("similarity_score"),

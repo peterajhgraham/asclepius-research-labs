@@ -31,13 +31,12 @@ import { useStreamingQuery, type Citation } from "@/hooks/useStreamingQuery";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
-import { genId, PROSE_CLS, pmidToUrl } from "@/lib/utils";
+import { genId, PROSE_CLS, pmidToUrl, modelDisplayName } from "@/lib/utils";
 import { MODE_CONFIG } from "@/components/ModeSwitcher";
 
 import AgentTrace from "@/components/AgentTrace";
 import AuthHeader from "@/components/AuthHeader";
 import CitationPanel from "@/components/CitationPanel";
-import ClaudeBadge from "@/components/ClaudeBadge";
 import CompareCard from "@/components/CompareCard";
 import DiseaseReportCard from "@/components/DiseaseReportCard";
 import FrozenStreamEntry from "@/components/FrozenStreamEntry";
@@ -117,11 +116,12 @@ async function ingestDocument(
 function AiResponseWrapper({ children, label }: { children: React.ReactNode; label: string }) {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-2">
-        <ClaudeBadge />
-        <span className="text-[11px] text-muted">{label}</span>
+      <div className="mb-2 flex items-center gap-2 text-[11px]">
+        <span className="cc-dot is-done" aria-hidden="true" />
+        <Logo size={13} />
+        <span className="font-mono text-faint">{label}</span>
       </div>
-      {children}
+      <div className="pl-[18px]">{children}</div>
     </div>
   );
 }
@@ -131,20 +131,20 @@ function AiResponseWrapper({ children, label }: { children: React.ReactNode; lab
 // ------------------------------------------------------------------
 function ImageResponseCard({ response }: { response: QueryResponse }) {
   return (
-    <div className="mt-3 rounded-lg border border-surface-3 bg-surface-1 overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-surface-3 px-4 py-2.5">
-        <ClaudeBadge
-          model={response.model_used}
-          sourceCount={response.sources?.length ?? 0}
-        />
+    <div className="mt-3">
+      <div className="mb-2 flex items-center gap-2 text-[11px]">
+        <span className="cc-dot is-done" aria-hidden="true" />
+        <Logo size={13} />
+        <span className="font-mono text-faint">
+          {modelDisplayName(response.model_used ?? "")} · multimodal vision
+        </span>
       </div>
-      <div className="px-5 py-4">
+      <div className="pl-[18px]">
         <div className={PROSE_CLS}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{response.answer}</ReactMarkdown>
         </div>
-      </div>
       {(response.sources?.length ?? 0) > 0 && (
-        <div className="border-t border-surface-3 bg-surface-0/40 px-4 py-2.5 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-2.5">
           {response.sources.slice(0, 8).map((s) => {
             const m = s.match(/PMID:\s*(\d+)/i);
             return m ? (
@@ -168,6 +168,7 @@ function ImageResponseCard({ response }: { response: QueryResponse }) {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -622,7 +623,7 @@ export default function HomePage() {
                 Multimodal Agentic RAG System over PubMed. Every claim traced to a primary source.
               </p>
 
-              {/* Example prompts */}
+              {/* Example prompts — terminal-style suggestions */}
               <div className="mt-10 w-full text-left">
                 <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
                   Try a prompt
@@ -632,11 +633,11 @@ export default function HomePage() {
                     <button
                       key={example}
                       onClick={() => handleExampleClick(example)}
-                      className={`group flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] text-ink-2 transition hover:bg-bg-3 ${
+                      className={`group flex w-full items-start gap-2.5 px-4 py-2.5 text-left font-mono text-[12.5px] leading-relaxed text-ink-2 transition hover:bg-bg-3 ${
                         i > 0 ? "border-t border-line" : ""
                       }`}
                     >
-                      <span className="text-faint transition group-hover:text-green">→</span>
+                      <span className="select-none text-faint transition group-hover:text-green">&gt;</span>
                       <span className="flex-1">{example}</span>
                     </button>
                   ))}
@@ -657,34 +658,32 @@ export default function HomePage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {/* User message */}
-                    <div className="mb-4 flex items-start gap-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-bg-3 font-mono text-[11px] font-semibold text-muted">
-                        {MODE_CONFIG[entry.mode]?.label.slice(0, 1)}
-                      </div>
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        {entry.imagePreviewUrl && (
-                          <img
-                            src={entry.imagePreviewUrl}
-                            alt="Uploaded"
-                            className="mb-2 h-16 w-16 rounded-md object-cover border border-line"
-                          />
-                        )}
-                        <p className="font-display text-ink text-display-m leading-snug">
+                    {/* User prompt — Claude Code `>` style */}
+                    <div className="mb-4">
+                      {entry.imagePreviewUrl && (
+                        <img
+                          src={entry.imagePreviewUrl}
+                          alt="Uploaded"
+                          className="mb-2 ml-[22px] h-16 w-16 rounded-md object-cover border border-line"
+                        />
+                      )}
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="select-none font-mono text-[15px] leading-snug text-green">&gt;</span>
+                        <p className="min-w-0 flex-1 text-[15px] leading-snug text-ink">
                           {entry.question}
                         </p>
-                        <p className="mt-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
-                          {MODE_CONFIG[entry.mode]?.label} ·{" "}
-                          {new Date(entry.timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
                       </div>
+                      <p className="mt-1 pl-[22px] font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
+                        {MODE_CONFIG[entry.mode]?.label} ·{" "}
+                        {new Date(entry.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
                     </div>
 
-                    {/* Response */}
-                    <div className="ml-10">
+                    {/* Response — assistant markers align with the user `>` */}
+                    <div className="space-y-2">
                       {entry.error && (
                         <div className="rounded-lg border border-risk/25 bg-risk/8 px-4 py-3 text-sm text-risk">
                           {entry.error}
@@ -718,9 +717,11 @@ export default function HomePage() {
                       )}
 
                       {entry.loading && !isCurrentlyStreaming && entry.id !== agentEntryId && (
-                        <div className="flex items-center gap-2.5 rounded-xl border border-line-2 bg-bg-2 px-4 py-3">
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="cc-dot is-active" aria-hidden="true" />
+                          <Logo size={13} />
                           <span className="hx-spin" />
-                          <span className="text-xs text-muted">
+                          <span className="font-mono text-muted">
                             {entry.mode === "disease-report"
                               ? "Mapping disease mechanisms…"
                               : entry.mode === "target-risk"

@@ -302,9 +302,10 @@ def test_dedup_leaves_non_search_payloads_untouched():
     assert _dedup_search_results(payload, seen) == payload
 
 
-def test_repeated_queries_are_deduped_across_the_run(patched_agent, monkeypatch):
-    """The same dominant doc surfacing for two different queries should reach the
-    planner only once."""
+def test_repeated_queries_are_flagged_but_not_blinded(patched_agent, monkeypatch):
+    """The same dominant doc surfacing for two queries should reach the planner
+    cleanly the first time and be flagged as overlapping the second — but never
+    suppressed to an empty turn, which would starve the closing synthesis."""
     def kb(query, top_k=6):
         return {"results": [{"text": "Infliximab targets TNF-alpha"}], "count": 1}
 
@@ -322,6 +323,22 @@ def test_repeated_queries_are_deduped_across_the_run(patched_agent, monkeypatch)
 
     events = _collect("compare")
     previews = [e.data.get("result_preview", "") for e in events if e.type == "tool_result"]
-    # First query returns the doc; second is deduped to empty + a note.
-    assert any("Infliximab" in p and "omitted" not in p for p in previews)
-    assert any("omitted" in p for p in previews)
+    # First query returns the doc cleanly (no overlap note).
+    assert any("Infliximab" in p and "overlap" not in p for p in previews)
+    # Second query still surfaces the doc (not blinded) but flags the overlap.
+    assert any("Infliximab" in p and "overlap" in p for p in previews)
+
+
+def test_dedup_keeps_evidence_when_every_hit_is_a_repeat():
+    """A turn whose hits are all repeats must still return them (capped), so the
+    planner and the closing synthesis are never left with an empty transcript."""
+    seen: set[str] = set()
+    payload = {"results": [{"text": "Infliximab targets TNF"}], "count": 1}
+    _dedup_search_results(payload, seen)  # first sighting populates `seen`
+
+    again = _dedup_search_results(
+        {"results": [{"text": "Infliximab targets TNF"}], "count": 1}, seen
+    )
+    assert again["count"] == 1
+    assert again["results"][0]["text"] == "Infliximab targets TNF"
+    assert "overlap" in again["note"]

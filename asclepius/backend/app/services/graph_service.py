@@ -8,12 +8,39 @@ path finding, hub analysis, and integration with causal propagation.
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+
+def _find_project_root() -> Path:
+    """Locate the repo root that holds the ``graph/`` and ``causal/`` packages.
+
+    We must put that directory on ``sys.path`` so ``import graph`` / ``import
+    causal`` resolve. The previous implementation hard-coded
+    ``Path(__file__).resolve().parents[4]``, which assumes this file is always
+    exactly five levels below the repo root. That holds for a local checkout but
+    *not* for the deployed image: there the package is rooted shallower, so
+    ``parents[4]`` walked off the end of the path and raised ``IndexError: 4`` —
+    which surfaced as the ``causal_propagate`` tool failing on every call (the
+    graph modules could never be imported).
+
+    Walk upward from this file instead and return the first ancestor that
+    actually contains both packages; fall back to the historical depth only if
+    the search comes up empty.
+    """
+    here = Path(__file__).resolve()
+    for ancestor in here.parents:
+        if (ancestor / "graph").is_dir() and (ancestor / "causal").is_dir():
+            return ancestor
+    # Defensive fallback: never raise from module import.
+    parents = here.parents
+    return parents[4] if len(parents) > 4 else parents[-1]
+
+
 # Add project root to path so we can import the graph/ and causal/ modules
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+_PROJECT_ROOT = _find_project_root()
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -37,6 +64,10 @@ class KnowledgeGraphService:
         self._ranker = InterventionRanker(propagator=self._propagator)
         self._edge_tuples: List[Tuple[str, str, str, Dict[str, Any]]] = []
         self._loaded = False
+        # Lazily-built map: normalised name -> canonical node ID, for resolving
+        # free-text seed names (e.g. "TNF-alpha") onto graph IDs (e.g. "TNF").
+        self._node_alias_index: Optional[Dict[str, str]] = None
+        self._out_degree: Dict[str, int] = {}
 
     def ensure_loaded(self) -> None:
         """Build the graph from loaded datasets (idempotent)."""
@@ -120,6 +151,89 @@ class KnowledgeGraphService:
         """Run causal signal propagation from seed nodes."""
         self.ensure_loaded()
         return self._propagator.propagate(seed_scores, self._edge_tuples, direction)
+
+    # ------------------------------------------------------------------
+    # Node-name resolution
+    # ------------------------------------------------------------------
+
+    _GREEK_WORDS = {"ALPHA": "A", "BETA": "B", "GAMMA": "G", "DELTA": "D"}
+
+    @staticmethod
+    def _normalize_node_key(name: str) -> str:
+        """Collapse a name to an alphanumeric, uppercase key for matching.
+
+        ``"IL-17A"`` and ``"IL17A"`` both map to ``"IL17A"``; ``"TNF-alpha"``
+        and ``"TNF alpha"`` both map to ``"TNFALPHA"``.
+        """
+        return re.sub(r"[^A-Z0-9]", "", (name or "").upper())
+
+    @classmethod
+    def _candidate_keys(cls, name: str) -> List[str]:
+        """Generate the normalised keys a name might match in the graph.
+
+        Greek subunit words are inconsistent across HGNC symbols — ``IFN-gamma``
+        is ``IFNG`` (letter kept) but ``TNF-alpha`` is ``TNF`` (dropped) — so we
+        emit *both* a letter-substituted and a stripped variant and let the
+        caller pick whichever actually exists.
+        """
+        base = cls._normalize_node_key(name)
+        keys = [base]
+        for word, letter in cls._GREEK_WORDS.items():
+            if base.endswith(word):
+                stem = base[: -len(word)]
+                keys.append(stem + letter)  # IFNGAMMA -> IFNG
+                keys.append(stem)           # TNFALPHA -> TNF
+        # de-dupe, preserve order, drop empties
+        seen: set[str] = set()
+        return [k for k in keys if k and not (k in seen or seen.add(k))]
+
+    def _build_alias_index(self) -> Dict[str, str]:
+        """Build a normalised-name -> canonical-node-ID lookup.
+
+        The graph carries the same molecule under more than one label (e.g. the
+        cytokine-edge ``"IL-17A"`` and the pathway gene symbol ``"IL17A"``). When
+        two labels normalise to the same key we keep the one with the most
+        outgoing edges, so seeds resolve to the node that can actually propagate
+        a signal rather than a dead-end synonym.
+        """
+        self.ensure_loaded()
+        self._out_degree = {}
+        for src, _tgt, _etype, _meta in self._edge_tuples:
+            self._out_degree[src] = self._out_degree.get(src, 0) + 1
+
+        index: Dict[str, str] = {}
+        for node_id in self._builder.get_nodes():
+            key = self._normalize_node_key(node_id)
+            if not key:
+                continue
+            incumbent = index.get(key)
+            if incumbent is None or self._out_degree.get(node_id, 0) > self._out_degree.get(incumbent, 0):
+                index[key] = node_id
+        return index
+
+    def resolve_node_id(self, name: str) -> Optional[str]:
+        """Map a free-text node name onto a canonical graph node ID.
+
+        Handles punctuation/case differences and greek-subunit aliases
+        (``"TNF-alpha"`` -> ``"TNF"``, ``"IL-17A"`` -> ``"IL17A"``). When several
+        labels match, returns the one with the most outgoing edges so propagation
+        starts from a node that can actually carry a signal rather than a
+        dead-end synonym. Returns ``None`` if nothing in the graph matches.
+        """
+        self.ensure_loaded()
+        if self._node_alias_index is None:
+            self._node_alias_index = self._build_alias_index()
+
+        candidates: List[str] = []
+        if name in self._builder.get_nodes():
+            candidates.append(name)
+        for key in self._candidate_keys(name):
+            hit = self._node_alias_index.get(key)
+            if hit is not None:
+                candidates.append(hit)
+        if not candidates:
+            return None
+        return max(candidates, key=lambda nid: self._out_degree.get(nid, 0))
 
     def rank_interventions(
         self,
