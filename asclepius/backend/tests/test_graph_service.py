@@ -2,10 +2,12 @@
 
 Two regressions are guarded here:
 
-  1. ``_find_project_root`` must not assume a fixed directory depth. The old
-     ``Path(__file__).parents[4]`` raised ``IndexError: 4`` on the deployed
-     (shallower) layout, which took down every graph-backed tool — most visibly
-     ``causal_propagate``.
+  1. The backend must be **self-contained**: its graph + causal logic must be
+     imported from the vendored ``app.kg`` package, not the repo-root
+     ``graph``/``causal`` packages. Production deploys ``asclepius/backend`` as
+     the root directory, where those siblings don't exist — importing them there
+     raised ``ModuleNotFoundError: No module named 'graph'`` and took down every
+     graph-backed tool (most visibly ``causal_propagate``).
   2. ``resolve_node_id`` must map paper-style seed names ("TNF-alpha", "IL-17A")
      onto the canonical graph node that actually has outgoing edges ("TNF",
      "IL17A"), or propagation starts from a dead-end synonym and returns nothing
@@ -16,13 +18,26 @@ Run with: pytest tests/test_graph_service.py -v
 
 from __future__ import annotations
 
-from app.services.graph_service import _find_project_root, knowledge_graph
+import app.kg
+from app.services import graph_service
+from app.services.graph_service import knowledge_graph
 
 
-def test_project_root_contains_graph_and_causal_packages():
-    root = _find_project_root()
-    assert (root / "graph").is_dir()
-    assert (root / "causal").is_dir()
+def test_graph_service_uses_vendored_self_contained_package():
+    # The service must bind to the vendored in-package implementations, never
+    # the repo-root packages that are absent from the production image.
+    assert graph_service.ImmuneGraphBuilder is app.kg.ImmuneGraphBuilder
+    assert graph_service.CausalPropagator is app.kg.CausalPropagator
+    assert graph_service.GraphQueryEngine is app.kg.GraphQueryEngine
+    assert graph_service.InterventionRanker is app.kg.InterventionRanker
+
+
+def test_graph_builds_a_non_trivial_graph():
+    # The vendored package must actually build the immune graph from datasets.
+    knowledge_graph.ensure_loaded()
+    stats = knowledge_graph.get_stats()
+    assert stats["total_nodes"] > 0
+    assert stats["total_edges"] > 0
 
 
 def test_resolve_maps_greek_aliases_to_canonical_symbols():

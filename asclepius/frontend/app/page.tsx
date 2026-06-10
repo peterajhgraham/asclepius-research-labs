@@ -173,6 +173,10 @@ function ImageResponseCard({ response }: { response: QueryResponse }) {
   );
 }
 
+// DMI reports take a domain "vertical". The per-mode domain selector was removed
+// for a consistent input bar, so it is fixed to the established default.
+const DMI_VERTICAL = "general";
+
 // ------------------------------------------------------------------
 // Main Page
 // ------------------------------------------------------------------
@@ -180,12 +184,9 @@ export default function HomePage() {
   const [question, setQuestion] = useState("");
   const [diseaseB, setDiseaseB] = useState("");
   const [targetName, setTargetName] = useState("");
-  const [vertical, setVertical] = useState("general");
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("disease-report");
-  const [includePubmed, setIncludePubmed] = useState(false);
-  const [verify, setVerify] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [panelCitations, setPanelCitations] = useState<Citation[]>([]);
@@ -288,7 +289,6 @@ export default function HomePage() {
     setDiseaseB("");
     setTargetName("");
     setMode("disease-report");
-    setVertical("general");
     setSidebarOpen(false);
     setShowCitationPanel(false);
     setLoading(false);
@@ -395,8 +395,7 @@ export default function HomePage() {
       if (!trimmed || loading) return;
 
       let displayQ = trimmed;
-      if (mode === "disease-report") displayQ = `${trimmed} [${vertical}]`;
-      else if (mode === "target-risk") displayQ = `${targetName.trim()} in ${trimmed}`;
+      if (mode === "target-risk") displayQ = `${targetName.trim()} in ${trimmed}`;
       else if (mode === "compare" && diseaseB.trim()) displayQ = `${trimmed} vs ${diseaseB.trim()}`;
 
       const capturedImage = uploadedImage;
@@ -429,7 +428,7 @@ export default function HomePage() {
             question: trimmed,
             image_base64: capturedImage.base64,
             media_type: capturedImage.mediaType,
-            include_pubmed: includePubmed,
+            include_pubmed: false,
           });
           setEntries((prev) =>
             prev.map((e) =>
@@ -453,13 +452,13 @@ export default function HomePage() {
         if (mode === "research") {
           agent.reset();
           setAgentEntryId(entry.id);
-          agent.stream(trimmed, verify);
+          agent.stream(trimmed, false);
           // keep loading flag true; the agent freezing effect clears it on done/error
           return;
         }
 
         if (mode === "disease-report") {
-          const result = await generateDiseaseReport({ disease_name: trimmed, vertical });
+          const result = await generateDiseaseReport({ disease_name: trimmed, vertical: DMI_VERTICAL });
           setEntries((prev) =>
             prev.map((e) =>
               e.id === entry.id ? { ...e, diseaseReportResponse: result, loading: false } : e,
@@ -469,7 +468,7 @@ export default function HomePage() {
           const result = await generateTargetRiskReport({
             disease_name: trimmed,
             target_name: targetName.trim(),
-            vertical,
+            vertical: DMI_VERTICAL,
           });
           setEntries((prev) =>
             prev.map((e) =>
@@ -513,7 +512,7 @@ export default function HomePage() {
     // streaming.stream / streaming.reset are stable useCallback refs; including
     // the entire streaming object would recreate handleSubmit on every SSE token.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [question, loading, mode, vertical, targetName, diseaseB, uploadedImage, includePubmed, verify, streaming.stream, streaming.reset, agent.stream, agent.reset],
+    [question, loading, mode, targetName, diseaseB, uploadedImage, streaming.stream, streaming.reset, agent.stream, agent.reset],
   );
 
   function handleShowCitations(citations: Citation[]) {
@@ -795,12 +794,6 @@ export default function HomePage() {
           onDiseaseBChange={setDiseaseB}
           targetName={targetName}
           onTargetNameChange={setTargetName}
-          vertical={vertical}
-          onVerticalChange={setVertical}
-          includePubmed={includePubmed}
-          onIncludePubmedChange={setIncludePubmed}
-          verify={verify}
-          onVerifyChange={setVerify}
           uploadedImage={uploadedImage}
           onClearImage={() => setUploadedImage(null)}
           uploadedPdf={uploadedPdf}

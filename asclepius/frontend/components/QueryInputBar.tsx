@@ -21,12 +21,6 @@ interface Props {
   onDiseaseBChange: (v: string) => void;
   targetName: string;
   onTargetNameChange: (v: string) => void;
-  vertical: string;
-  onVerticalChange: (v: string) => void;
-  includePubmed: boolean;
-  onIncludePubmedChange: (v: boolean) => void;
-  verify: boolean;
-  onVerifyChange: (v: boolean) => void;
   uploadedImage: UploadedImage | null;
   onClearImage: () => void;
   uploadedPdf: UploadedPdf | null;
@@ -44,9 +38,6 @@ export default function QueryInputBar({
   question, onQuestionChange,
   diseaseB, onDiseaseBChange,
   targetName, onTargetNameChange,
-  vertical, onVerticalChange,
-  includePubmed, onIncludePubmedChange,
-  verify, onVerifyChange,
   uploadedImage, onClearImage,
   uploadedPdf, onClearPdf,
   imageInputRef, pdfInputRef,
@@ -54,8 +45,6 @@ export default function QueryInputBar({
   isLoading,
   onSubmit,
 }: Props) {
-  const isDmiMode = mode === "disease-report" || mode === "target-risk";
-
   const submitDisabled =
     isLoading ||
     !question.trim() ||
@@ -66,69 +55,12 @@ export default function QueryInputBar({
     <div className="border-t border-line bg-bg/95 backdrop-blur-md">
       <form onSubmit={onSubmit} className="mx-auto max-w-3xl px-4 py-3 sm:px-5">
 
-        {/* Top row: mode switcher + options */}
+        {/* Top row: mode switcher + a static engine label (consistent across all
+            modes — no per-mode controls that pop in and out as you switch). */}
         <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
           <ModeSwitcher mode={mode} onModeChange={onModeChange} />
 
           <div className="flex items-center gap-3 shrink-0">
-            {isDmiMode && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-faint font-mono">domain:</span>
-                <input
-                  type="text"
-                  value={vertical}
-                  onChange={(e) => onVerticalChange(e.target.value)}
-                  placeholder="general"
-                  className="w-28 h-7 rounded-md border border-line-2 bg-bg-3 px-2 text-[11px] text-ink-2 placeholder-muted outline-none transition focus:border-green/70 font-mono"
-                />
-              </div>
-            )}
-
-            {mode === "standard" && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <div
-                  role="switch"
-                  aria-checked={includePubmed}
-                  aria-label="Include PubMed results"
-                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${
-                    includePubmed ? "bg-green" : "bg-bg-4"
-                  }`}
-                  onClick={() => onIncludePubmedChange(!includePubmed)}
-                >
-                  <span
-                    className={`inline-block h-3 w-3 rounded-full shadow transition-transform ${
-                      includePubmed ? "translate-x-3.5 bg-bg" : "translate-x-0.5 bg-muted"
-                    }`}
-                  />
-                </div>
-                <span className={`text-[11px] select-none font-mono ${includePubmed ? "text-green" : "text-muted"}`}>PubMed live</span>
-              </label>
-            )}
-
-            {(mode === "standard" || mode === "research") && (
-              <label
-                className="flex items-center gap-2 cursor-pointer"
-                title="Re-check the generated answer against retrieved figures with Claude vision. Adds a verification pass after generation."
-              >
-                <div
-                  role="switch"
-                  aria-checked={verify}
-                  aria-label="Verify answer against retrieved figures"
-                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${
-                    verify ? "bg-green" : "bg-bg-4"
-                  }`}
-                  onClick={() => onVerifyChange(!verify)}
-                >
-                  <span
-                    className={`inline-block h-3 w-3 rounded-full shadow transition-transform ${
-                      verify ? "translate-x-3.5 bg-bg" : "translate-x-0.5 bg-muted"
-                    }`}
-                  />
-                </div>
-                <span className={`text-[11px] select-none font-mono ${verify ? "text-green" : "text-muted"}`}>Verify figures</span>
-              </label>
-            )}
-
             <span className="hidden sm:inline font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
               sonnet-4.6 · tier I
             </span>
