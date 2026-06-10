@@ -342,3 +342,104 @@ def test_dedup_keeps_evidence_when_every_hit_is_a_repeat():
     assert again["count"] == 1
     assert again["results"][0]["text"] == "Infliximab targets TNF"
     assert "overlap" in again["note"]
+
+
+# ------------------------------------------------------------------
+# PubMed over-long queries are simplified, not silently empty
+# ------------------------------------------------------------------
+
+def test_simplify_pubmed_query_drops_years_and_filler():
+    out = agent._simplify_pubmed_query(
+        "TNF inhibitor vs IL-17 inhibitor psoriatic arthritis head-to-head "
+        "efficacy safety comparison 2022 2023 2024"
+    )
+    terms = out.split()
+    assert "2024" not in terms and "vs" not in terms and "comparison" not in terms
+    assert "TNF" in terms and "IL-17" in terms and "psoriatic" in terms
+    assert len(terms) <= 6  # capped so PubMed's AND has a chance of hitting
+
+
+def test_pubmed_retries_simplified_query_when_verbatim_is_empty(monkeypatch):
+    """A long verbatim query that returns nothing should trigger one retry with a
+    simplified keyword query; if that hits, those results are returned with a note."""
+    import app.services.pubmed_service as pubmed_module
+
+    class _Article:
+        pmid, title, abstract, journal, year = "123", "T", "A", "J", "2024"
+
+    class _PickyService:
+        last_error = None
+
+        def __init__(self):
+            self.calls: list[str] = []
+
+        def search(self, query, max_results=5):
+            self.calls.append(query)
+            # Only the short (simplified) query returns hits.
+            return [_Article()] if len(query.split()) <= 6 else []
+
+    svc = _PickyService()
+    monkeypatch.setattr(pubmed_module, "pubmed", svc)
+
+    out = _tool_search_pubmed(
+        "TNF inhibitor vs IL-17 inhibitor psoriatic arthritis head-to-head "
+        "efficacy safety comparison 2022 2023 2024"
+    )
+    assert out["count"] == 1
+    assert "simplified" in out.get("note", "").lower()
+    assert len(svc.calls) == 2  # verbatim attempt, then simplified retry
+
+
+# ------------------------------------------------------------------
+# compare_topics must reject a disease-vs-itself comparison
+# ------------------------------------------------------------------
+
+def test_compare_topics_rejects_same_disease_self_comparison(monkeypatch):
+    """Two phrases that fuzzy-match the same disease (e.g. two drug classes 'in
+    psoriatic arthritis') must not yield a degenerate disease-vs-itself result —
+    the tool should steer the planner to search_knowledge_base instead."""
+    import app.services.comparative_service as comp
+
+    def fake_compare(a, b):
+        return {
+            "disease_a": {"disease_name": "Psoriatic arthritis"},
+            "disease_b": {"disease_name": "Psoriatic arthritis"},
+            "similarity_score": 1.0,
+            "summary": "x",
+            "overlaps": {},
+        }
+
+    monkeypatch.setattr(comp, "compare_diseases", fake_compare)
+
+    out = agent._tool_compare_topics(
+        "TNF blockade in psoriatic arthritis", "IL-17 blockade in psoriatic arthritis"
+    )
+    assert "error" in out and "same disease" in out["error"].lower()
+    assert "search_knowledge_base" in out["hint"]
+
+
+# ------------------------------------------------------------------
+# Forced finalization never dead-ends on an empty coerced tool call
+# ------------------------------------------------------------------
+
+def test_forced_finalization_falls_back_to_freeform_when_tool_empty(patched_agent, monkeypatch):
+    """When the budget is exhausted and the coerced final_answer comes back empty,
+    the agent must fall back to a free-form synthesis rather than the canned
+    'ran out of time' message."""
+    monkeypatch.setitem(
+        agent._TOOL_FNS,
+        "search_knowledge_base",
+        lambda query, top_k=6: {"results": [{"text": "TNF and IL-17 evidence"}], "count": 1},
+    )
+
+    patched_agent.state["script"] = [
+        # iter 1: planner calls a tool but never final_answer → exhausts max_iters
+        _Response([_Block("tool_use", name="search_knowledge_base", id="a", input={"query": "x"})]),
+        # forced finalization attempt 1 (tool_choice): empty answer
+        _Response([_Block("tool_use", name="final_answer", id="f", input={"answer": "   "})]),
+        # forced finalization attempt 2 (free-form): real prose
+        _Response([_Block("text", text="Synthesized despite the budget.")]),
+    ]
+
+    events = _collect("complex multi-part question", max_iters=1)
+    assert _final_answer(events) == "Synthesized despite the budget."

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 
-from causal.propagation import CausalPropagator
+from app.kg.propagation import CausalPropagator
 
 
 def _meta(conf: float = 0.8) -> dict:

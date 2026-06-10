@@ -4,7 +4,7 @@
     "description": "Curated disease-gene associations for major autoimmune diseases, including pathogenic mechanisms, key cell types, HLA associations, autoantibodies, and approved therapies. Gene associations include GWAS hits, functional variants, and expression studies.",
     "sources": ["GWAS Catalog", "DisGeNET", "OMIM", "ClinVar", "PubMed", "ImmunoBase"],
     "version": "1.0.0",
-    "record_count": 12
+    "record_count": 13
   },
   "diseases": [
     {
@@ -685,6 +685,69 @@
         "PMID:28244676",
         "PMID:31431149"
       ]
+    },
+    {
+      "disease_id": "DOID:9008",
+      "disease_name": "Psoriatic arthritis",
+      "description": "Chronic immune-mediated inflammatory arthritis associated with psoriasis and part of the seronegative spondyloarthritis spectrum. Heterogeneous presentation spanning peripheral arthritis, axial disease, enthesitis, dactylitis, and nail involvement. Pathology centers on the IL-23/IL-17 axis and TNF-alpha, with enthesitis as the primary lesion. Develops in roughly 20-30% of psoriasis patients and is characteristically seronegative for rheumatoid factor and anti-CCP.",
+      "prevalence": "0.1-0.25% of the general population; arises in ~20-30% of psoriasis patients; male:female ratio ~1:1",
+      "pathogenic_mechanisms": [
+        "IL-23/IL-17 axis driving enthesitis and synovitis",
+        "TNF-alpha-driven synovial inflammation and joint destruction",
+        "Enthesitis as the primary lesion (entheseal resident IL-23R+ cells)",
+        "Dysregulated osteoproliferation (new bone formation) alongside osteoclast-mediated erosion",
+        "Skin-joint axis of shared psoriatic inflammation",
+        "Innate and innate-like immune activation (gamma-delta T cells, ILC3, MAIT cells)",
+        "Gut-joint axis with subclinical bowel inflammation and dysbiosis"
+      ],
+      "key_cell_types": [
+        "Th17 cells",
+        "CD8+ tissue-resident T cells (synovial/entheseal)",
+        "Gamma-delta T cells (IL-17 source)",
+        "ILC3 (IL-17/IL-22 source)",
+        "MAIT cells",
+        "Entheseal resident cells",
+        "Neutrophils",
+        "Synovial macrophages"
+      ],
+      "associated_genes": [
+        {"gene": "HLA-C", "locus": "6p21.33", "association_type": "GWAS", "score": 0.90, "description": "HLA-C*06:02 is the major psoriasis risk allele; associated with earlier skin onset and the cutaneous-predominant psoriatic arthritis phenotype"},
+        {"gene": "HLA-B", "locus": "6p21.33", "association_type": "GWAS", "score": 0.88, "description": "HLA-B*27 (axial disease), B*08, B*38 and B*39 associate with distinct articular and peripheral phenotypes"},
+        {"gene": "IL23R", "locus": "1p31.3", "association_type": "GWAS", "score": 0.85, "description": "IL-23 receptor; protective R381Q variant dampens Th17 differentiation and IL-17 production"},
+        {"gene": "IL12B", "locus": "5q33.3", "association_type": "GWAS", "score": 0.84, "description": "Encodes the p40 subunit shared by IL-12 and IL-23; central to the IL-23/IL-17 axis"},
+        {"gene": "IL23A", "locus": "12q13.3", "association_type": "GWAS", "score": 0.78, "description": "Encodes the IL-23-specific p19 subunit driving maintenance of pathogenic Th17 cells"},
+        {"gene": "TRAF3IP2", "locus": "6q21", "association_type": "GWAS", "score": 0.80, "description": "Encodes the Act1 adaptor that transduces IL-17 receptor signaling; risk variant links skin and joint disease"},
+        {"gene": "TNIP1", "locus": "5q33.1", "association_type": "GWAS", "score": 0.76, "description": "TNFAIP3-interacting protein 1; negative regulator of NF-kB downstream of TNF"},
+        {"gene": "TYK2", "locus": "19p13.2", "association_type": "GWAS", "score": 0.75, "description": "JAK-family kinase downstream of IL-23R and IL-12; protective loss-of-function variants reduce signaling"},
+        {"gene": "ERAP1", "locus": "5q15", "association_type": "GWAS", "score": 0.74, "description": "ER aminopeptidase trimming peptides for MHC-I loading; epistatic interaction with HLA-B*27 and HLA-C*06"},
+        {"gene": "REL", "locus": "2p16.1", "association_type": "GWAS", "score": 0.66, "description": "c-Rel NF-kB subunit; risk locus shared across psoriatic and other immune-mediated disease"}
+      ],
+      "hla_associations": [
+        "HLA-C*06:02",
+        "HLA-B*27",
+        "HLA-B*08",
+        "HLA-B*38",
+        "HLA-B*39"
+      ],
+      "autoantibodies": [],
+      "approved_therapies": [
+        {"drug": "Adalimumab", "class": "Anti-TNF biologic"},
+        {"drug": "Etanercept", "class": "Anti-TNF biologic (TNF receptor fusion protein)"},
+        {"drug": "Infliximab", "class": "Anti-TNF biologic"},
+        {"drug": "Golimumab", "class": "Anti-TNF biologic"},
+        {"drug": "Certolizumab pegol", "class": "Anti-TNF biologic"},
+        {"drug": "Secukinumab", "class": "Anti-IL-17A biologic"},
+        {"drug": "Ixekizumab", "class": "Anti-IL-17A biologic"},
+        {"drug": "Bimekizumab", "class": "Anti-IL-17A/F biologic"},
+        {"drug": "Ustekinumab", "class": "Anti-IL-12/23 p40 biologic"},
+        {"drug": "Guselkumab", "class": "Anti-IL-23 p19 biologic"},
+        {"drug": "Risankizumab", "class": "Anti-IL-23 p19 biologic"},
+        {"drug": "Tofacitinib", "class": "JAK inhibitor"},
+        {"drug": "Upadacitinib", "class": "JAK inhibitor"},
+        {"drug": "Apremilast", "class": "PDE4 inhibitor"},
+        {"drug": "Abatacept", "class": "T-cell costimulation modulator (CTLA4-Ig)"}
+      ],
+      "key_references": []
     }
   ]
 }

@@ -34,6 +34,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Generator
@@ -125,20 +126,43 @@ _SYSTEM_PROMPT = (
     "You are Asclepius Research Agent — a scientific research planner that answers "
     "complex multi-part questions by decomposing them into sub-queries and dispatching "
     "the right tool for each one.\n\n"
-    "Rules:\n"
-    "  • Always prefer `search_knowledge_base` first — it is the indexed corpus with "
-    "    hybrid lexical+semantic+image retrieval, and it is the source of truth for "
-    "    grounded citations.\n"
-    "  • Use `search_pubmed` only when the question asks for recent or unindexed "
-    "    primary literature (e.g. 'latest 2025 trials').\n"
-    "  • Use `causal_propagate` / `rank_interventions` for mechanism / target questions.\n"
-    "  • Use `compare_topics` only for explicit comparisons between two diseases.\n"
-    "  • Vary your queries — if a result is marked as already retrieved, re-target "
-    "    rather than repeating it. Stop as soon as you have enough evidence; do not "
-    "    pad with extra tool calls.\n"
-    "  • End the loop with `final_answer`, providing a well-structured response that "
-    "    cites the tool results you actually used. Cite figures by their image_hash "
-    "    when they appear in retrieval results.\n"
+    "Tool selection:\n"
+    "  • Prefer `search_knowledge_base` first — it is the indexed corpus with hybrid "
+    "lexical+semantic+image retrieval and the source of truth for grounded citations. "
+    "Decompose a multi-part question (e.g. efficacy / safety / biomarkers) into one "
+    "focused query per facet.\n"
+    "  • `search_pubmed` is for recent or unindexed primary literature only (e.g. "
+    "'latest 2025 trials'). Give it SHORT keyword queries — 2–5 salient terms (drug, "
+    "disease, outcome). Full-sentence queries with many words and years get AND-ed "
+    "together and return nothing.\n"
+    "  • `causal_propagate` / `rank_interventions` are for mechanism / target questions "
+    "('what is downstream of X?', 'what would I knock down to modulate X?'). Seed them "
+    "with gene/protein symbols (TNF, IL17A).\n"
+    "  • `compare_topics` compares TWO DISTINCT DISEASES only. Do NOT use it to contrast "
+    "two drugs or drug classes within a single disease (e.g. 'TNF vs IL-17 blockade in "
+    "psoriatic arthritis' is ONE disease — use `search_knowledge_base` for each arm "
+    "instead).\n\n"
+    "Working style:\n"
+    "  • Vary your queries — if a result is flagged as already retrieved, re-target "
+    "rather than repeating it. Stop as soon as you have enough evidence; do not pad "
+    "with extra tool calls.\n"
+    "  • Evidence is often adjacent rather than exact. If the corpus lacks the precise "
+    "entity, synthesize from the closest available evidence (related diseases, shared "
+    "pathways, drug mechanism and trial data) and state that limitation explicitly. "
+    "A failed or empty tool result is not a dead end — never refuse; always deliver the "
+    "best grounded answer the gathered evidence supports.\n"
+    "  • End the loop with `final_answer`: a well-structured response that cites the "
+    "tool results you actually used. Cite figures by their image_hash when they appear "
+    "in retrieval results.\n"
+)
+
+# Appended to the system prompt when forcing a closing synthesis after the tool
+# budget is spent. The instruction is deliberately insistent: the agent must
+# turn whatever evidence it has into an answer rather than deferring.
+_FINALIZE_INSTRUCTION = (
+    "\n\nYou have used your tool budget. Compose the best possible answer NOW from "
+    "the evidence already gathered — synthesize from the closest available results "
+    "and state any gaps explicitly. Do not refuse or defer to a future query."
 )
 
 
@@ -347,10 +371,76 @@ def _tool_search_knowledge_base(query: str, top_k: int = 6) -> dict[str, Any]:
     }
 
 
+# Generic filler dropped when simplifying an over-long PubMed query. These add
+# AND-clauses that match nothing without narrowing the biomedical intent.
+_PUBMED_STOPWORDS = frozenset({
+    "vs", "versus", "comparison", "compare", "compared", "across", "between",
+    "and", "or", "the", "of", "for", "in", "on", "with", "to", "an",
+    "head-to-head", "data", "study", "studies", "review", "evidence",
+})
+
+
+def _simplify_pubmed_query(query: str) -> str:
+    """Reduce a long natural-language query to a few salient keywords.
+
+    PubMed AND-s unquoted terms, so a full-sentence query with years attached
+    (e.g. "TNF inhibitor vs IL-17 inhibitor psoriatic arthritis head-to-head
+    efficacy safety comparison 2022 2023 2024") matches nothing. Drop 4-digit
+    years and generic filler, keep the leading (most intent-bearing) terms in
+    order, and cap the count so the search has a chance of hitting.
+    """
+    tokens = re.findall(r"[A-Za-z0-9\-]+", query)
+    kept: list[str] = []
+    seen: set[str] = set()
+    for t in tokens:
+        low = t.lower()
+        if re.fullmatch(r"(19|20)\d{2}", t):  # a bare year
+            continue
+        if low in _PUBMED_STOPWORDS or len(t) <= 2:
+            continue
+        if low in seen:
+            continue
+        seen.add(low)
+        kept.append(t)
+    return " ".join(kept[:6])
+
+
+def _serialize_pubmed(articles: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "pmid": a.pmid,
+            "title": a.title,
+            "abstract": a.abstract[:600],
+            "journal": a.journal,
+            "year": a.year,
+        }
+        for a in articles
+    ]
+
+
 def _tool_search_pubmed(query: str, max_results: int = 5) -> dict[str, Any]:
     try:
         from app.services.pubmed_service import pubmed
         articles = pubmed.search(query, max_results=int(max_results))
+
+        # A clean empty result (NCBI reachable, no transport error) on a long
+        # query is almost always over-specification: PubMed AND-ed a dozen
+        # words and matched nothing. Retry once with a simplified keyword query
+        # before reporting "no literature".
+        if not articles and not pubmed.last_error:
+            simplified = _simplify_pubmed_query(query)
+            if simplified and simplified.lower() != query.strip().lower():
+                retried = pubmed.search(simplified, max_results=int(max_results))
+                if retried:
+                    return {
+                        "results": _serialize_pubmed(retried),
+                        "count": len(retried),
+                        "note": (
+                            f"No hits for the verbatim query; showing results for the "
+                            f"simplified keyword query '{simplified}'."
+                        ),
+                    }
+
         # Distinguish a genuine "no hits" from "couldn't reach NCBI" — otherwise
         # the planner reads a transport failure as an authoritative empty result
         # and wrongly concludes the literature has nothing to say.
@@ -365,16 +455,7 @@ def _tool_search_pubmed(query: str, max_results: int = 5) -> dict[str, Any]:
                 ),
             }
         return {
-            "results": [
-                {
-                    "pmid": a.pmid,
-                    "title": a.title,
-                    "abstract": a.abstract[:600],
-                    "journal": a.journal,
-                    "year": a.year,
-                }
-                for a in articles
-            ],
+            "results": _serialize_pubmed(articles),
             "count": len(articles),
         }
     except Exception as e:
@@ -457,6 +538,21 @@ def _tool_compare_topics(topic_a: str, topic_b: str) -> dict[str, Any]:
                     "compare_topics only compares two diseases from the list above. "
                     "For a within-disease comparison (e.g. two drug classes), use "
                     "search_knowledge_base instead."
+                ),
+            }
+        name_a = (result.get("disease_a") or {}).get("disease_name")
+        name_b = (result.get("disease_b") or {}).get("disease_name")
+        if name_a and name_a == name_b:
+            # Both phrases fuzzy-matched the *same* disease — e.g. "TNF blockade
+            # in psoriatic arthritis" vs "IL-17 blockade in psoriatic arthritis"
+            # both resolve to Psoriatic arthritis. A disease-vs-itself comparison
+            # is meaningless; this is a within-disease drug-class question.
+            return {
+                "error": f"Both topics resolve to the same disease ({name_a}).",
+                "hint": (
+                    "compare_topics contrasts two DIFFERENT diseases. This looks "
+                    "like a within-disease comparison (e.g. two drug classes in the "
+                    "same disease) — use search_knowledge_base for each arm instead."
                 ),
             }
         # Trim to keep planner context compact
@@ -707,19 +803,20 @@ def run_agent(
     # synthesize one from the evidence gathered so far. Always emit a usable
     # answer rather than surfacing an error to the user.
     final_answer = ""
+
+    # Attempt 1: a structured final_answer tool call.
     try:
         forced = client.messages.create(
             model=_ANSWERER_MODEL,
             max_tokens=MAX_ANSWER_TOKENS,
-            system=_SYSTEM_PROMPT + "\n\nYou have used your tool budget. Emit `final_answer` now.",
+            system=_SYSTEM_PROMPT + _FINALIZE_INSTRUCTION,
             tools=[TOOLS[-1]],  # only final_answer
             tool_choice={"type": "tool", "name": "final_answer"},
             messages=messages,
         )
         for b in forced.content:
             if getattr(b, "type", None) == "tool_use" and b.name == "final_answer":
-                args = b.input or {}
-                final_answer = (args.get("answer", "") or "").strip()
+                final_answer = ((b.input or {}).get("answer", "") or "").strip()
                 break
         try:
             total_cost += record_query(
@@ -731,14 +828,49 @@ def run_agent(
         except Exception:
             pass
     except Exception:
-        logger.warning("Forced finalization call failed", exc_info=True)
+        logger.warning("Forced finalization (tool) call failed", exc_info=True)
+
+    # Attempt 2: a coerced tool call can come back empty (the model emits an empty
+    # argument) or fail outright. Fall back to a plain free-form synthesis — no
+    # tool_choice, just prose — which is more reliable and still grounded in the
+    # transcript the planner accumulated.
+    if not final_answer:
+        try:
+            freeform = client.messages.create(
+                model=_ANSWERER_MODEL,
+                max_tokens=MAX_ANSWER_TOKENS,
+                system=_SYSTEM_PROMPT + _FINALIZE_INSTRUCTION,
+                messages=messages + [{
+                    "role": "user",
+                    "content": (
+                        "Write the final answer now as Markdown, grounded in the tool "
+                        "results above. Synthesize from the closest available evidence "
+                        "and note any gaps; do not refuse."
+                    ),
+                }],
+            )
+            final_answer = " ".join(
+                (getattr(b, "text", "") or "").strip()
+                for b in freeform.content
+                if getattr(b, "type", None) == "text"
+            ).strip()
+            try:
+                total_cost += record_query(
+                    model=_ANSWERER_MODEL,
+                    query=f"agent_force_final_freeform: {question[:60]}",
+                    input_tokens=freeform.usage.input_tokens,
+                    output_tokens=freeform.usage.output_tokens,
+                )
+            except Exception:
+                pass
+        except Exception:
+            logger.warning("Forced finalization (free-form) call failed", exc_info=True)
 
     if not final_answer:
         final_answer = (
-            "I gathered evidence across several tools but ran out of time before "
-            "composing a complete synthesis. Based on what was retrieved, please "
-            "narrow the question or try again — the indexed corpus did return "
-            "relevant results."
+            "I could not complete a full synthesis within the time budget. Please "
+            "retry, or narrow the question to a single facet (e.g. just efficacy, or "
+            "just safety) so I can focus the search."
         )
 
     yield AgentEvent("final", {

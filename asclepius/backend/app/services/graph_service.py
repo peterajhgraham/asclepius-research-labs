@@ -9,45 +9,21 @@ from __future__ import annotations
 
 import logging
 import re
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-
-def _find_project_root() -> Path:
-    """Locate the repo root that holds the ``graph/`` and ``causal/`` packages.
-
-    We must put that directory on ``sys.path`` so ``import graph`` / ``import
-    causal`` resolve. The previous implementation hard-coded
-    ``Path(__file__).resolve().parents[4]``, which assumes this file is always
-    exactly five levels below the repo root. That holds for a local checkout but
-    *not* for the deployed image: there the package is rooted shallower, so
-    ``parents[4]`` walked off the end of the path and raised ``IndexError: 4`` —
-    which surfaced as the ``causal_propagate`` tool failing on every call (the
-    graph modules could never be imported).
-
-    Walk upward from this file instead and return the first ancestor that
-    actually contains both packages; fall back to the historical depth only if
-    the search comes up empty.
-    """
-    here = Path(__file__).resolve()
-    for ancestor in here.parents:
-        if (ancestor / "graph").is_dir() and (ancestor / "causal").is_dir():
-            return ancestor
-    # Defensive fallback: never raise from module import.
-    parents = here.parents
-    return parents[4] if len(parents) > 4 else parents[-1]
-
-
-# Add project root to path so we can import the graph/ and causal/ modules
-_PROJECT_ROOT = _find_project_root()
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
-from graph.graph_builder import ImmuneGraphBuilder
-from graph.graph_queries import GraphQueryEngine
-from causal.propagation import CausalPropagator
-from causal.intervention_ranker import InterventionRanker
+# Graph + causal reasoning live in `app.kg`, vendored *inside* the backend
+# package. They used to be imported from the repo-root ``graph``/``causal``
+# packages via a runtime ``sys.path`` insertion — but production deploys the
+# backend with ``asclepius/backend`` as its root directory, where those
+# sibling packages do not exist. The import therefore raised
+# ``ModuleNotFoundError: No module named 'graph'`` and every graph-backed agent
+# tool (``causal_propagate``, ``rank_interventions``) failed on every call.
+# Importing from within the package makes the service self-contained and the
+# import resolvable regardless of deployment topology.
+from app.kg.graph_builder import ImmuneGraphBuilder
+from app.kg.graph_queries import GraphQueryEngine
+from app.kg.propagation import CausalPropagator
+from app.kg.intervention_ranker import InterventionRanker
 
 from app.data.ingestion import STORE
 
