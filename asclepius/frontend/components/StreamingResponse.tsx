@@ -39,7 +39,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-risk/25 bg-risk/5 px-4 py-3 text-sm text-risk">
+      <div className="rounded-md border border-risk/25 bg-risk/5 px-3 py-2 text-sm text-risk">
         {error}
       </div>
     );
@@ -51,24 +51,23 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
   const displayedSources = sourcesExpanded ? sources : sources.slice(0, 5);
 
   return (
-    <div className="rounded-xl border border-line bg-bg-2 shadow-card overflow-hidden animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-line px-4 py-2.5">
-        <div className="flex items-center gap-1.5 rounded-md border border-line bg-bg-2 px-2 py-1 text-[11px] font-medium text-ink-2">
-          <Logo size={13} />
-          <span className="font-sans tracking-tight">
-            {done ? modelDisplayName(done.model) : "Asclepius"}
-          </span>
-          {done?.cost != null && done.cost > 0 && (
-            <span className="text-faint font-mono tabular-nums ml-0.5">${done.cost.toFixed(5)}</span>
-          )}
-        </div>
+    <div className="animate-fade-in">
+      {/* Assistant turn header — ⏺ marker + model + status */}
+      <div className="mb-2 flex items-center gap-2 text-[11px]">
+        <span className={`cc-dot ${isStreaming ? "is-active" : "is-done"}`} aria-hidden="true" />
+        <Logo size={13} />
+        <span className="font-sans tracking-tight text-ink-2">
+          {done ? modelDisplayName(done.model) : "Asclepius"}
+        </span>
+        {done?.cost != null && done.cost > 0 && (
+          <span className="font-mono tabular-nums text-faint">${done.cost.toFixed(5)}</span>
+        )}
 
         {isStreaming ? (
-          <span className="hx-spin" aria-label="Generating" />
+          <span className="hx-spin ml-1" aria-label="Generating" />
         ) : done && citations.length > 0 ? (
-          <span className="flex items-center gap-1.5 rounded-full border border-green/30 bg-green-faint px-2 py-0.5 text-[11px] font-medium text-green">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+          <span className="flex items-center gap-1 rounded-full border border-green/30 bg-green-faint px-1.5 py-0.5 text-[10px] font-medium text-green">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
             Verified
@@ -79,9 +78,9 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
           <button
             onClick={onShowCitations}
             aria-label={`View ${citations.length} retrieved citations`}
-            className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:text-ink-2 hover:border-green/30 transition"
+            className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2 py-0.5 font-mono text-[10px] text-muted transition hover:border-green/30 hover:text-ink-2"
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
               <polyline points="14 2 14 8 20 8" />
             </svg>
@@ -91,29 +90,29 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
       </div>
 
       {/* Answer body */}
-      <div className="px-5 py-4">
+      <div className="pl-[18px]">
         <div className={PROSE_CLS}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
           {isStreaming && <span className="hx-cursor" />}
         </div>
-      </div>
 
-      {/* Sources footer */}
-      {sources.length > 0 && done && (
-        <div className="border-t border-line bg-bg/40 px-4 py-2.5 flex flex-wrap items-center gap-1.5">
-          {displayedSources.map((s) => (
-            <SourceBadge key={s} source={s} />
-          ))}
-          {sources.length > 5 && (
-            <button
-              onClick={() => setSourcesExpanded(!sourcesExpanded)}
-              className="text-[10px] text-muted hover:text-gray-300 transition"
-            >
-              {sourcesExpanded ? "show less" : `+${sources.length - 5} more`}
-            </button>
-          )}
-        </div>
-      )}
+        {/* Sources */}
+        {sources.length > 0 && done && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-2.5">
+            {displayedSources.map((s) => (
+              <SourceBadge key={s} source={s} />
+            ))}
+            {sources.length > 5 && (
+              <button
+                onClick={() => setSourcesExpanded(!sourcesExpanded)}
+                className="font-mono text-[10px] text-muted transition hover:text-ink-2"
+              >
+                {sourcesExpanded ? "show less" : `+${sources.length - 5} more`}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

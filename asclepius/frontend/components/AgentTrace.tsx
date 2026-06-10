@@ -5,51 +5,17 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
 
-import ClaudeBadge from "@/components/ClaudeBadge";
-import { PROSE_CLS } from "@/lib/utils";
-import type { AgentState } from "@/hooks/useAgentStream";
+import { Logo } from "@/components/Logo";
+import { PROSE_CLS, modelDisplayName } from "@/lib/utils";
+import type { AgentState, AgentToolCall, AgentToolResult } from "@/hooks/useAgentStream";
 
 const TOOL_LABELS: Record<string, string> = {
-  search_knowledge_base: "Search knowledge base",
-  search_pubmed: "Search PubMed",
-  causal_propagate: "Causal propagation",
-  rank_interventions: "Rank interventions",
-  compare_topics: "Compare topics",
-  final_answer: "Compose answer",
-};
-
-const TOOL_ICONS: Record<string, JSX.Element> = {
-  search_knowledge_base: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-    </svg>
-  ),
-  search_pubmed: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-      <polyline points="14 2 14 8 20 8" />
-    </svg>
-  ),
-  causal_propagate: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="6" cy="6" r="2" /><circle cx="18" cy="18" r="2" /><path d="M7.5 7.5L16.5 16.5" />
-    </svg>
-  ),
-  rank_interventions: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" />
-    </svg>
-  ),
-  compare_topics: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <rect x="3" y="3" width="7" height="18" /><rect x="14" y="3" width="7" height="18" />
-    </svg>
-  ),
-  final_answer: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  ),
+  search_knowledge_base: "search knowledge base",
+  search_pubmed: "search PubMed",
+  causal_propagate: "causal propagation",
+  rank_interventions: "rank interventions",
+  compare_topics: "compare topics",
+  final_answer: "compose answer",
 };
 
 const VERDICT_STYLE: Record<string, { label: string; cls: string }> = {
@@ -64,60 +30,129 @@ interface Props {
   question?: string;
 }
 
-export default function AgentTrace({ state }: Props) {
-  const [traceOpen, setTraceOpen] = useState(true);
-  const groupedByIter = new Map<number, { calls: typeof state.toolCalls; results: typeof state.toolResults; step?: typeof state.steps[0] }>();
-  for (const step of state.steps) {
-    if (step.iteration > 0) {
-      const e = groupedByIter.get(step.iteration) ?? { calls: [], results: [] };
-      e.step = step;
-      groupedByIter.set(step.iteration, e);
-    }
-  }
-  for (const c of state.toolCalls) {
-    const e = groupedByIter.get(c.iteration) ?? { calls: [], results: [] };
-    e.calls = [...e.calls, c];
-    groupedByIter.set(c.iteration, e);
-  }
-  for (const r of state.toolResults) {
-    const e = groupedByIter.get(r.iteration) ?? { calls: [], results: [] };
-    e.results = [...e.results, r];
-    groupedByIter.set(r.iteration, e);
-  }
-  const iters = [...groupedByIter.keys()].sort((a, b) => a - b);
+/** Render a tool call's args inline, terminal-style: name(key: value, …). */
+function formatArgs(args: Record<string, unknown>): string {
+  const entries = Object.entries(args);
+  if (!entries.length) return "";
+  return entries
+    .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+    .join(", ")
+    .slice(0, 120);
+}
+
+function ToolRow({
+  call,
+  result,
+  active,
+}: {
+  call: AgentToolCall;
+  result?: AgentToolResult;
+  active: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const isFinal = call.tool === "final_answer";
+  const args = formatArgs(call.args);
+  const preview = result?.result_preview ?? "";
+  const done = !!result || isFinal;
 
   return (
-    <div className="mt-3 rounded-xl border border-line bg-bg-2 shadow-card overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-        <ClaudeBadge model={state.done?.model ?? "claude-sonnet-4-6"} isStreaming={state.isStreaming} />
-        <span className="text-[11px] text-muted font-mono">research agent</span>
+    <div className="cc-row py-1">
+      {/* The ⏺ call line */}
+      <div className="flex items-start gap-2.5">
+        <span
+          className={`cc-dot mt-[6px] ${
+            isFinal ? "is-final" : active && !done ? "is-active" : done ? "is-done" : ""
+          }`}
+          aria-hidden="true"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] leading-relaxed text-ink-2">
+            <span className="text-ink">{call.tool}</span>
+            {args && <span className="text-faint">({args})</span>}
+          </p>
+
+          {/* The ⎿ result branch */}
+          {isFinal ? (
+            <p className="cc-branch mt-0.5 text-[11px] text-muted">composing final answer…</p>
+          ) : result ? (
+            <div className="cc-branch mt-0.5">
+              <button
+                type="button"
+                onClick={() => preview.length > 140 && setOpen((v) => !v)}
+                className={`text-left text-[11px] leading-relaxed text-muted ${
+                  preview.length > 140 ? "hover:text-ink-2 transition" : "cursor-default"
+                } ${open ? "" : "line-clamp-2"}`}
+              >
+                {preview || "(no output)"}
+              </button>
+            </div>
+          ) : active ? (
+            <p className="cc-branch mt-0.5 flex items-center gap-1.5 text-[11px] text-faint">
+              <span className="hx-spin" /> running…
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AgentTrace({ state }: Props) {
+  const [traceOpen, setTraceOpen] = useState(true);
+
+  // Group calls/results/thinking by planner iteration, preserving order.
+  const grouped = new Map<
+    number,
+    { calls: AgentToolCall[]; results: AgentToolResult[]; thinking?: string }
+  >();
+  const ensure = (it: number) => {
+    let e = grouped.get(it);
+    if (!e) {
+      e = { calls: [], results: [] };
+      grouped.set(it, e);
+    }
+    return e;
+  };
+  for (const step of state.steps) if (step.iteration > 0) ensure(step.iteration).thinking = step.thinking;
+  for (const c of state.toolCalls) ensure(c.iteration).calls.push(c);
+  for (const r of state.toolResults) ensure(r.iteration).results.push(r);
+  const iters = [...grouped.keys()].sort((a, b) => a - b);
+  const stepCount = iters.length;
+
+  const model = state.done?.model ?? "claude-sonnet-4-6";
+
+  return (
+    <div className="mt-3 animate-fade-in">
+      {/* Assistant turn header — a single ⏺ marker, model + run meta */}
+      <div className="mb-2 flex items-center gap-2 text-[11px]">
+        <span className={`cc-dot ${state.isStreaming ? "is-active" : "is-done"}`} aria-hidden="true" />
+        <Logo size={13} />
+        <span className="font-sans tracking-tight text-ink-2">Research Agent</span>
+        <span className="font-mono text-faint">· {modelDisplayName(model)}</span>
         {state.done && (
-          <span className="text-[10px] text-muted ml-auto font-mono tabular-nums">
+          <span className="ml-auto font-mono tabular-nums text-faint">
             {state.done.iterations} iter · ${state.done.cost_usd.toFixed(4)}
           </span>
         )}
+        {state.isStreaming && <span className="hx-spin ml-auto" aria-label="Working" />}
       </div>
 
-      {/* Trace */}
-      <div className="border-b border-line">
+      {/* Tool transcript — flat ⏺/⎿ stream, collapsible */}
+      <div className="rounded-lg border border-line bg-bg-2/60">
         <button
           type="button"
           onClick={() => setTraceOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-mono text-muted hover:bg-bg-3/40 transition"
+          className="flex w-full items-center gap-2 px-3 py-2 font-mono text-[11px] text-muted transition hover:text-ink-2"
         >
           <svg
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+            width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2"
             className={`transition-transform ${traceOpen ? "rotate-90" : ""}`}
           >
             <polyline points="9 18 15 12 9 6" />
           </svg>
-          Planner trace ({iters.length} step{iters.length !== 1 ? "s" : ""})
+          {stepCount > 0 ? `${stepCount} step${stepCount !== 1 ? "s" : ""}` : "planning"}
+          <span className="text-faint">· tool calls</span>
         </button>
 
         <AnimatePresence initial={false}>
@@ -129,71 +164,33 @@ export default function AgentTrace({ state }: Props) {
               transition={{ duration: 0.15 }}
               className="overflow-hidden"
             >
-              <div className="px-4 pb-4 pt-1">
+              <div className="border-t border-line px-3 py-2">
                 {iters.map((iter, idx) => {
-                  const g = groupedByIter.get(iter)!;
-                  const isLast = idx === iters.length - 1;
-                  const active = state.isStreaming && isLast;
+                  const g = grouped.get(iter)!;
+                  const isLastIter = idx === iters.length - 1;
                   return (
-                    <div key={iter} className="relative flex gap-3 pb-4 last:pb-0">
-                      {/* Connector line */}
-                      {!isLast && (
-                        <span className="absolute left-[15px] top-[30px] bottom-0 w-px bg-line" aria-hidden="true" />
-                      )}
-                      {/* Serif numeral bullet */}
-                      <span
-                        className={`relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border bg-bg-2 font-display tabular-nums ${
-                          active ? "border-green/60 text-green" : "border-line-2 text-muted"
-                        }`}
-                        style={{ fontSize: 15 }}
-                      >
-                        {iter}
-                      </span>
-                      <div className="min-w-0 flex-1 pt-1">
-                        <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.14em" }}>
-                          Planner · iteration {iter}
+                    <div key={iter} className={idx > 0 ? "mt-1.5" : ""}>
+                      {g.thinking && (
+                        <p className="mb-1 pl-[18px] text-[11px] italic leading-relaxed text-muted">
+                          {g.thinking}
                         </p>
-                        {g.step?.thinking && (
-                          <p className="mt-1 text-[12px] italic text-ink-2 leading-relaxed">{g.step.thinking}</p>
-                        )}
-                        {g.calls.map((c, i) => {
-                          const result = g.results.find((r) => r.tool === c.tool && r.iteration === c.iteration);
-                          const isFinal = c.tool === "final_answer";
-                          return (
-                            <div key={`${iter}-${i}`} className="mt-2">
-                              <span className="inline-flex items-center gap-1.5 rounded-md border border-line-2 bg-bg-3 px-2 py-1 font-mono text-[11px] text-ink-2">
-                                <span className="text-green">→</span>
-                                <span className="shrink-0 text-muted">{TOOL_ICONS[c.tool] ?? TOOL_ICONS.search_knowledge_base}</span>
-                                {c.tool}
-                              </span>
-                              {!isFinal && Object.keys(c.args).length > 0 && (
-                                <p className="mt-1 text-[10px] text-muted font-mono truncate">
-                                  {Object.entries(c.args)
-                                    .map(([k, v]) => `${k}=${JSON.stringify(v).slice(0, 40)}`)
-                                    .join(" · ")}
-                                </p>
-                              )}
-                              {result && (
-                                <div className="mt-1.5 rounded-md border border-line bg-bg-3 px-3 py-2">
-                                  <p className="font-mono uppercase text-faint mb-1" style={{ fontSize: 9, letterSpacing: "0.12em" }}>result</p>
-                                  <p className="text-[11px] text-ink-2 leading-relaxed line-clamp-3">{result.result_preview}</p>
-                                </div>
-                              )}
-                              {isFinal && (
-                                <p className="mt-1.5 text-[11px] text-muted font-mono">
-                                  Composing answer…
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      )}
+                      {g.calls.map((c, i) => {
+                        const result = g.results.find((r) => r.tool === c.tool);
+                        const active =
+                          state.isStreaming && isLastIter && i === g.calls.length - 1;
+                        return (
+                          <ToolRow key={`${iter}-${i}`} call={c} result={result} active={active} />
+                        );
+                      })}
                     </div>
                   );
                 })}
 
                 {iters.length === 0 && state.isStreaming && (
-                  <p className="text-[11px] text-muted text-center py-2 font-mono">Planner thinking…</p>
+                  <p className="flex items-center gap-2 py-1 font-mono text-[11px] text-muted">
+                    <span className="hx-spin" /> planner thinking…
+                  </p>
                 )}
               </div>
             </motion.div>
@@ -203,7 +200,7 @@ export default function AgentTrace({ state }: Props) {
 
       {/* Final answer */}
       {state.finalAnswer && (
-        <div className="px-5 py-4">
+        <div className="mt-3 pl-[18px]">
           <div className={PROSE_CLS}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.finalAnswer}</ReactMarkdown>
           </div>
@@ -213,7 +210,7 @@ export default function AgentTrace({ state }: Props) {
       {/* Verification banner */}
       {state.verification && (
         <div
-          className={`border-t border-line px-4 py-2.5 text-[11px] ${
+          className={`mt-3 ml-[18px] rounded-md border px-3 py-2 text-[11px] ${
             VERDICT_STYLE[state.verification.verdict]?.cls ?? VERDICT_STYLE.no_images.cls
           }`}
         >
@@ -232,23 +229,19 @@ export default function AgentTrace({ state }: Props) {
             )}
           </div>
           {state.verification.notes && (
-            <p className="mt-1 text-current opacity-80 leading-relaxed">
-              {state.verification.notes}
-            </p>
+            <p className="mt-1 leading-relaxed text-current opacity-80">{state.verification.notes}</p>
           )}
         </div>
       )}
 
-      {/* Streaming placeholder when no final answer yet */}
+      {/* Streaming placeholder before any final answer */}
       {state.isStreaming && !state.finalAnswer && (
-        <div className="px-5 py-4">
-          <p className="text-xs text-muted">Reasoning across the corpus and live tools…</p>
-        </div>
+        <p className="mt-3 pl-[18px] text-xs text-muted">Reasoning across the corpus and live tools…</p>
       )}
 
       {/* Error */}
       {state.error && (
-        <div className="border-t border-risk/25 bg-risk/8 px-4 py-2.5 text-xs text-risk">
+        <div className="mt-3 ml-[18px] rounded-md border border-risk/25 bg-risk/8 px-3 py-2 text-xs text-risk">
           {state.error}
         </div>
       )}

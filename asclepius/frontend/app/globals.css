@@ -101,6 +101,30 @@ body {
 }
 @keyframes hx-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
+/* ---- Claude Code-style tool transcript ----
+   A flat, monospace call/result stream: a filled status dot (⏺) marks each
+   tool call, an L-branch (⎿) marks its result, indented beneath. Green is
+   reserved for "done"/"live"; everything else stays neutral. */
+.cc-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--faint); flex-shrink: 0;
+}
+.cc-dot.is-done   { background: var(--green-2); box-shadow: 0 0 0 3px var(--green-faint); }
+.cc-dot.is-active { background: var(--green); animation: hx-pulse 1.4s ease-in-out infinite; }
+.cc-dot.is-final  { background: var(--green); box-shadow: 0 0 0 3px var(--green-faint); }
+
+/* The ⎿ result branch glyph, drawn so it renders identically everywhere. */
+.cc-branch {
+  position: relative; padding-left: 18px;
+  font-family: var(--font-data);
+}
+.cc-branch::before {
+  content: ""; position: absolute; left: 3px; top: 0; bottom: 50%;
+  width: 7px; border-left: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+  border-bottom-left-radius: 3px;
+}
+
 /* Inline citation marker: superscript green chips */
 .hx-cite-ref {
   display: inline-flex; align-items: center; justify-content: center;

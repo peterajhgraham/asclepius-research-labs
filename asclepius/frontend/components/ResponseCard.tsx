@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { QueryResponse, StructuredReasoning } from "@/lib/api";
+import { PROSE_CLS } from "@/lib/utils";
 import PubMedPanel from "./PubMedPanel";
 
 function formatPubMedLink(source: string): { text: string; href: string | null } {
@@ -119,14 +122,8 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
       {/* Full LLM answer (markdown rendered) */}
       {data.answer && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
-          <div className="prose prose-invert prose-sm max-w-none
-            prose-headings:text-gray-100 prose-headings:font-semibold
-            prose-p:text-gray-300 prose-p:leading-relaxed
-            prose-strong:text-gray-100
-            prose-code:text-accent-300 prose-code:bg-surface-2 prose-code:rounded prose-code:px-1 prose-code:text-xs
-            prose-ul:text-gray-300 prose-li:my-0.5
-            prose-h2:text-base prose-h3:text-sm">
-            {data.answer}
+          <div className={PROSE_CLS}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.answer}</ReactMarkdown>
           </div>
           {/* Model + cost footer */}
           {(data.model_used || (data.cost_usd ?? 0) > 0) && (
