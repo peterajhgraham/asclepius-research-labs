@@ -712,6 +712,10 @@ def run_agent(
         tool_results_for_planner: list[dict[str, Any]] = []
         finished = False
         final_payload: dict[str, Any] | None = None
+        # Set when the planner calls final_answer but leaves the answer blank —
+        # we then fall through to the forced-synthesis path instead of emitting
+        # an empty placeholder and discarding the evidence gathered so far.
+        empty_final = False
 
         # Announce every call first (in the planner's emitted order) so the UI
         # shows the full fan-out, then dispatch the real tools concurrently.
@@ -725,11 +729,19 @@ def run_agent(
         for tu in tool_uses:
             if tu.name == "final_answer":
                 args = tu.input or {}
-                final_payload = {
-                    "answer": args.get("answer", "").strip() or "(empty answer)",
-                    "image_hashes": list(args.get("image_hashes") or []) + image_hashes_used,
-                }
-                finished = True
+                answer_text = (args.get("answer") or "").strip()
+                if answer_text:
+                    final_payload = {
+                        "answer": answer_text,
+                        "image_hashes": list(args.get("image_hashes") or []) + image_hashes_used,
+                    }
+                    finished = True
+                else:
+                    # The planner terminated the loop but emitted an empty answer.
+                    # Don't surface the placeholder — flag it so we drop into the
+                    # forced-synthesis path below and recompose from the transcript.
+                    logger.info("Planner emitted final_answer with empty content; forcing synthesis")
+                    empty_final = True
                 continue
             fn = _TOOL_FNS.get(tu.name)
             if fn is not None:
@@ -798,6 +810,11 @@ def run_agent(
                 "cost_usd": round(total_cost, 6),
             })
             return
+
+        # The planner signalled it was done but gave no answer — stop planning
+        # and synthesize one from the transcript via the forced-finalization path.
+        if empty_final:
+            break
 
     # Loop ended without a final_answer (tool budget or wall-clock budget) —
     # synthesize one from the evidence gathered so far. Always emit a usable
