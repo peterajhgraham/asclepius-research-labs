@@ -443,3 +443,28 @@ def test_forced_finalization_falls_back_to_freeform_when_tool_empty(patched_agen
 
     events = _collect("complex multi-part question", max_iters=1)
     assert _final_answer(events) == "Synthesized despite the budget."
+
+
+def test_empty_final_answer_triggers_synthesis_not_placeholder(patched_agent, monkeypatch):
+    """If the planner terminates the loop with an empty `answer`, the agent must
+    NOT emit the '(empty answer)' placeholder — it should recompose from the
+    transcript via the forced-synthesis path."""
+    monkeypatch.setitem(
+        agent._TOOL_FNS,
+        "search_knowledge_base",
+        lambda query, top_k=6: {"results": [{"text": "amyloid clearance evidence"}], "count": 1},
+    )
+
+    patched_agent.state["script"] = [
+        # iter 1: gather some evidence
+        _Response([_Block("tool_use", name="search_knowledge_base", id="a", input={"query": "x"})]),
+        # iter 2: planner calls final_answer but leaves the answer blank
+        _Response([_Block("tool_use", name="final_answer", id="f", input={"answer": ""})]),
+        # forced finalization (tool_choice) produces the real answer
+        _Response([_Block("tool_use", name="final_answer", id="g", input={"answer": "recomposed answer"})]),
+    ]
+
+    events = _collect("multi-part question")
+    answer = _final_answer(events)
+    assert answer == "recomposed answer"
+    assert answer != "(empty answer)"
