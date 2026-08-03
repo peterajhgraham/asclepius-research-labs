@@ -6,6 +6,7 @@ export interface GraphNode {
   id: string;
   label?: string;
   type?: string;
+  degree?: number;
 }
 
 export interface GraphEdge {
@@ -27,9 +28,10 @@ interface Props {
   edges: GraphEdge[];
   height?: number;
   highlightNode?: string;
+  onNodeClick?: (nodeId: string) => void;
 }
 
-const TYPE_COLORS: Record<string, string> = {
+export const TYPE_COLORS: Record<string, string> = {
   cytokine:    "#87f085",
   gene:        "#f5c062",
   therapeutic: "#f08987",
@@ -39,11 +41,30 @@ const TYPE_COLORS: Record<string, string> = {
   Unknown:     "#6b7280",
 };
 
-const EDGE_COLOR = "rgba(255,255,255,0.12)";
-const LABEL_COLOR = "#b0bec5";
-
 function nodeColor(type: string | undefined): string {
   return TYPE_COLORS[type ?? "Unknown"] ?? TYPE_COLORS.Unknown;
+}
+
+function nodeRadius(n: LayoutNode): number {
+  const base = 7;
+  if (!n.degree) return base;
+  return base + Math.min(n.degree / 5, 7);
+}
+
+function hitTest(nodes: LayoutNode[], x: number, y: number): LayoutNode | null {
+  let hit: LayoutNode | null = null;
+  let minDist = Infinity;
+  for (const n of nodes) {
+    const dx = n.x - x;
+    const dy = n.y - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const r = nodeRadius(n) + 6;
+    if (dist < r && dist < minDist) {
+      minDist = dist;
+      hit = n;
+    }
+  }
+  return hit;
 }
 
 function runForce(
@@ -55,14 +76,13 @@ function runForce(
 ) {
   const idxMap = new Map(nodes.map((n, i) => [n.id, i]));
   const k = Math.sqrt((width * height) / Math.max(nodes.length, 1));
-  const repulsion = k * k * 2;
+  const repulsion = k * k * 2.2;
   const spring = 0.04;
   const damping = 0.8;
 
   for (let iter = 0; iter < iterations; iter++) {
     const temp = 1 - iter / iterations;
 
-    // Repulsion: all pairs
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[i].x - nodes[j].x;
@@ -78,7 +98,6 @@ function runForce(
       }
     }
 
-    // Spring attraction: edges
     for (const edge of edges) {
       const si = idxMap.get(edge.source);
       const ti = idxMap.get(edge.target);
@@ -95,13 +114,11 @@ function runForce(
       nodes[ti].vy -= fy;
     }
 
-    // Center gravity
     for (const n of nodes) {
       n.vx += (width / 2 - n.x) * 0.005;
       n.vy += (height / 2 - n.y) * 0.005;
     }
 
-    // Integrate + damp + clamp
     for (const n of nodes) {
       n.vx *= damping;
       n.vy *= damping;
@@ -111,8 +128,8 @@ function runForce(
         n.vx = (n.vx / speed) * maxSpeed;
         n.vy = (n.vy / speed) * maxSpeed;
       }
-      n.x = Math.max(32, Math.min(width - 32, n.x + n.vx));
-      n.y = Math.max(24, Math.min(height - 24, n.y + n.vy));
+      n.x = Math.max(40, Math.min(width - 40, n.x + n.vx));
+      n.y = Math.max(30, Math.min(height - 30, n.y + n.vy));
     }
   }
 }
@@ -123,43 +140,83 @@ function drawGraph(
   edges: GraphEdge[],
   idxMap: Map<string, number>,
   highlightId: string | undefined,
-  dpr: number,
 ) {
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
 
-  // Edges
+  // Edges — highlight edges connected to the selected hub
   for (const edge of edges) {
     const si = idxMap.get(edge.source);
     const ti = idxMap.get(edge.target);
     if (si == null || ti == null) continue;
     const s = nodes[si];
     const t = nodes[ti];
+    const isConnected = highlightId && (edge.source === highlightId || edge.target === highlightId);
     ctx.beginPath();
     ctx.moveTo(s.x, s.y);
     ctx.lineTo(t.x, t.y);
-    ctx.strokeStyle = EDGE_COLOR;
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = isConnected ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.07)";
+    ctx.lineWidth = isConnected ? 1.5 : 1;
     ctx.stroke();
   }
 
-  // Nodes
-  const R = 7;
-  for (const n of nodes) {
+  // Nodes — draw in two passes so highlighted node renders on top
+  const normalNodes = nodes.filter((n) => n.id !== highlightId);
+  const highlightedNode = nodes.find((n) => n.id === highlightId);
+  const drawOrder = highlightedNode ? [...normalNodes, highlightedNode] : normalNodes;
+
+  const showLabels = nodes.length <= 45;
+
+  for (const n of drawOrder) {
     const isHighlight = n.id === highlightId;
+    const r = nodeRadius(n);
+    const color = nodeColor(n.type);
+
+    // Outer glow for highlighted node
+    if (isHighlight) {
+      const grad = ctx.createRadialGradient(n.x, n.y, r, n.x, n.y, r + 14);
+      grad.addColorStop(0, color + "40");
+      grad.addColorStop(1, color + "00");
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r + 14, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    // Node circle
     ctx.beginPath();
-    ctx.arc(n.x, n.y, isHighlight ? R * 1.6 : R, 0, Math.PI * 2);
-    ctx.fillStyle = nodeColor(n.type);
-    ctx.globalAlpha = isHighlight ? 1 : 0.8;
+    ctx.arc(n.x, n.y, isHighlight ? r * 1.5 : r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = isHighlight ? 1 : 0.82;
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    if (isHighlight || nodes.length <= 40) {
-      const label = (n.label ?? n.id).slice(0, 18);
-      ctx.font = "10px monospace";
-      ctx.fillStyle = LABEL_COLOR;
+    // Stroke ring on highlight
+    if (isHighlight) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r * 1.5 + 2.5, 0, Math.PI * 2);
+      ctx.strokeStyle = color + "80";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Labels
+    const shouldLabel = isHighlight || showLabels;
+    if (shouldLabel) {
+      const label = (n.label ?? n.id).slice(0, 22);
+      const finalR = isHighlight ? r * 1.5 : r;
+      ctx.font = `10px 'Geist Mono', ui-monospace, monospace`;
       ctx.textAlign = "center";
-      ctx.fillText(label, n.x, n.y + R + 12);
+      const metrics = ctx.measureText(label);
+      const lx = n.x;
+      const ly = n.y + finalR + 14;
+
+      // Label background for readability
+      ctx.fillStyle = "rgba(12, 16, 20, 0.80)";
+      ctx.fillRect(lx - metrics.width / 2 - 3, ly - 11, metrics.width + 6, 14);
+
+      ctx.fillStyle = isHighlight ? color : "#9aa5b4";
+      ctx.fillText(label, lx, ly);
     }
   }
 }
@@ -167,28 +224,24 @@ function drawGraph(
 export default function KnowledgeGraph({
   nodes,
   edges,
-  height = 380,
+  height = 420,
   highlightNode,
+  onNodeClick,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const layoutRef = useRef<LayoutNode[]>([]);
-  // Sync highlightNode into a ref so draw() can read it without being a dep
   const highlightRef = useRef<string | undefined>(highlightNode);
   highlightRef.current = highlightNode;
 
-  // Stable draw function: reads positions from layoutRef, highlight from highlightRef
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
     const idxMap = new Map(layoutRef.current.map((n, i) => [n.id, i]));
-    drawGraph(ctx, layoutRef.current, edges, idxMap, highlightRef.current, dpr);
+    drawGraph(ctx, layoutRef.current, edges, idxMap, highlightRef.current);
   }, [edges]);
 
-  // Layout effect: randomizes positions and runs force sim — only reruns when
-  // nodes or edges change, NOT when highlightNode changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -203,7 +256,6 @@ export default function KnowledgeGraph({
 
     if (!nodes.length) return;
 
-    // Initialize layout positions
     layoutRef.current = nodes.map((n) => ({
       ...n,
       x: Math.random() * w * 0.8 + w * 0.1,
@@ -212,16 +264,14 @@ export default function KnowledgeGraph({
       vy: 0,
     }));
 
-    runForce(layoutRef.current, edges, w, h, 200);
+    runForce(layoutRef.current, edges, w, h, 220);
     draw();
   }, [nodes, edges, height, draw]);
 
-  // Draw-only effect: repaints with updated highlight without re-laying out
   useEffect(() => {
     draw();
   }, [highlightNode, draw]);
 
-  // ResizeObserver: resize canvas and redraw without re-laying out
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -236,6 +286,39 @@ export default function KnowledgeGraph({
     ro.observe(canvas.parentElement ?? canvas);
     return () => ro.disconnect();
   }, [draw]);
+
+  // Click handler: find the nearest node and fire onNodeClick
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !onNodeClick) return;
+    const handler = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.offsetWidth / rect.width;
+      const scaleY = canvas.offsetHeight / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      const hit = hitTest(layoutRef.current, x, y);
+      if (hit) onNodeClick(hit.id);
+    };
+    canvas.addEventListener("click", handler);
+    return () => canvas.removeEventListener("click", handler);
+  }, [onNodeClick]);
+
+  // Hover cursor: pointer when over a node
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.offsetWidth / rect.width;
+      const scaleY = canvas.offsetHeight / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      canvas.style.cursor = hitTest(layoutRef.current, x, y) ? "pointer" : "default";
+    };
+    canvas.addEventListener("mousemove", handler);
+    return () => canvas.removeEventListener("mousemove", handler);
+  }, []);
 
   if (!nodes.length) {
     return (

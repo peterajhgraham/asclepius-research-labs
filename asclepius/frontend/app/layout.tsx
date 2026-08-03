@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Newsreader, Inter } from "next/font/google";
-import { GeistSans } from "geist/font/sans";
+import { Newsreader } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
@@ -10,13 +9,6 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
   weight: ["300", "400", "500", "600"],
   style: ["normal", "italic"],
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -42,7 +34,7 @@ export default function RootLayout({
   const content = (
     <html
       lang="en"
-      className={`${newsreader.variable} ${inter.variable} ${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${newsreader.variable} ${GeistMono.variable}`}
     >
       <body className="min-h-screen bg-bg text-ink-2 antialiased font-sans">
         {children}

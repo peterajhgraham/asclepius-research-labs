@@ -200,23 +200,35 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-line px-4 py-3 space-y-2">
-          {onOpenGraph && (
+        {/* Knowledge Graph entry — prominent card above footer */}
+        {onOpenGraph && (
+          <div className="border-t border-line px-3 py-3">
             <button
               onClick={onOpenGraph}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-muted hover:bg-bg-3/60 hover:text-ink-2 transition"
+              className="group w-full rounded-lg border border-line bg-bg-2 px-3 py-2.5 text-left transition hover:border-green/25 hover:bg-bg-3"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-green/60">
-                <circle cx="12" cy="5" r="2" />
-                <circle cx="5" cy="19" r="2" />
-                <circle cx="19" cy="19" r="2" />
-                <line x1="12" y1="7" x2="5" y2="17" />
-                <line x1="12" y1="7" x2="19" y2="17" />
-              </svg>
-              <span className="font-mono text-[10px] uppercase tracking-widest">Knowledge Graph</span>
+              <div className="flex items-center gap-2.5">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-green/70 group-hover:text-green transition">
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="5" cy="19" r="2" />
+                  <circle cx="19" cy="19" r="2" />
+                  <line x1="12" y1="7" x2="5" y2="17" />
+                  <line x1="12" y1="7" x2="19" y2="17" />
+                </svg>
+                <span className="flex-1 text-xs font-mono text-ink-2">Knowledge Graph</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-faint group-hover:text-muted transition">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </div>
+              <p className="mt-1 font-mono text-faint" style={{ fontSize: 9, letterSpacing: "0.12em" }}>
+                CAUSAL ENTITY NETWORK · CLICK TO EXPLORE
+              </p>
             </button>
-          )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="border-t border-line px-4 py-3">
           <div className="flex items-center justify-between">
             <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.16em" }}>
               Sessions stored locally
