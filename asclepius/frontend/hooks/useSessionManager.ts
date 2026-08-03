@@ -17,8 +17,10 @@ function persistSessions(sessions: SavedSession[]) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(sessions));
-  } catch {
-    // QuotaExceededError: storage full, skip silently
+  } catch (e) {
+    if (e instanceof Error && e.name === "QuotaExceededError") {
+      console.warn("localStorage quota exceeded — session history could not be saved");
+    }
   }
 }
 
@@ -34,6 +36,11 @@ export function useSessionManager(entries: ConversationEntry[], mode: Mode) {
     if (!entries.length) return;
     // Strip imagePreviewUrl (base64 data URLs) before persisting to avoid quota exhaustion
     const stripped = entries.map(({ imagePreviewUrl: _omit, ...rest }) => rest);
+    // Generate the ID outside the updater so the same value is used in both
+    // setSessions and setActiveSessionId (React 18 may invoke the updater more
+    // than once, which would produce a different ID on each call if genId() were
+    // called inside it).
+    const newId = activeSessionId ? null : genId();
     setSessions((prev) => {
       let updated: SavedSession[];
       if (activeSessionId) {
@@ -43,10 +50,9 @@ export function useSessionManager(entries: ConversationEntry[], mode: Mode) {
             : s,
         );
       } else {
-        const newId = genId();
         updated = [
           {
-            id: newId,
+            id: newId!,
             title: sessionTitle(stripped),
             mode,
             entries: stripped,
@@ -55,15 +61,15 @@ export function useSessionManager(entries: ConversationEntry[], mode: Mode) {
           },
           ...prev,
         ];
-        setActiveSessionId(newId);
       }
       persistSessions(updated);
       return updated;
     });
+    if (newId) setActiveSessionId(newId);
   }, [entries, activeSessionId, mode]);
 
   useEffect(() => {
-    if (entries.length > 0 && entries.some((e) => !e.loading)) {
+    if (entries.length > 0 && entries.every((e) => !e.loading)) {
       saveCurrentSession();
     }
   }, [entries, saveCurrentSession]);

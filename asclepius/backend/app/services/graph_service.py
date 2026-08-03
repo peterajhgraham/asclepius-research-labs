@@ -80,25 +80,6 @@ class KnowledgeGraphService:
             "edge_count": len(result["edges"]),
         }
 
-    def find_paths(
-        self,
-        source: str,
-        target: str,
-        max_depth: int = 4,
-    ) -> List[List[str]]:
-        """Find all simple paths between two nodes."""
-        self.ensure_loaded()
-        return self._query_engine.find_paths(source, target, max_depth=max_depth)
-
-    def get_neighbours(
-        self,
-        node_id: str,
-        direction: str = "both",
-    ) -> List[str]:
-        """Get direct neighbours of a node."""
-        self.ensure_loaded()
-        return self._query_engine.get_neighbours(node_id, direction=direction)
-
     def get_hubs(self, n: int = 15) -> List[Dict[str, Any]]:
         """Return the most highly connected nodes (hubs) in the graph."""
         self.ensure_loaded()

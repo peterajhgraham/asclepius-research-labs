@@ -28,7 +28,7 @@ _daily_date: str = ""
 
 
 def _log_dir() -> Path:
-    p = Path("data/routing_logs")
+    p = Path(__file__).parents[2] / "data" / "routing_logs"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -58,27 +58,28 @@ def record_query(
             _daily_date = today
             _daily_total = _load_daily_total(today)
         _daily_total += cost
+        captured_total = _daily_total
 
-    record: dict[str, Any] = {
-        "date": date.today().isoformat(),
-        "model": model,
-        "query_preview": query[:100],
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "cost_usd": round(cost, 6),
-        "daily_total_usd": round(_daily_total, 6),
-    }
-    if escalated_from:
-        record["escalated_from"] = escalated_from
-    if extra:
-        record.update(extra)
+        record: dict[str, Any] = {
+            "date": today,
+            "model": model,
+            "query_preview": query[:100],
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost_usd": round(cost, 6),
+            "daily_total_usd": round(captured_total, 6),
+        }
+        if escalated_from:
+            record["escalated_from"] = escalated_from
+        if extra:
+            record.update(extra)
 
-    try:
-        log_file = _log_dir() / f"{date.today().isoformat()}.jsonl"
-        with log_file.open("a") as f:
-            f.write(json.dumps(record) + "\n")
-    except Exception:
-        logger.warning("Failed to write cost log", exc_info=True)
+        try:
+            log_file = _log_dir() / f"{today}.jsonl"
+            with log_file.open("a") as f:
+                f.write(json.dumps(record) + "\n")
+        except Exception:
+            logger.warning("Failed to write cost log", exc_info=True)
 
     logger.debug(
         "Query cost $%.6f | daily total $%.4f | model=%s",
@@ -89,15 +90,22 @@ def record_query(
 
 def get_daily_total() -> float:
     """Return today's cumulative LLM spend in USD."""
-    return _daily_total
+    with _lock:
+        return _daily_total
 
 
 def check_budget(budget_override: float | None = None) -> bool:
     """Return True if spend is under the daily budget cap."""
-    if budget_override is not None:
-        return _daily_total < budget_override
-    from app.core.config import settings
-    return _daily_total < settings.daily_budget_usd
+    global _daily_total, _daily_date
+    today = date.today().isoformat()
+    with _lock:
+        if _daily_date != today:
+            _daily_date = today
+            _daily_total = _load_daily_total(today)
+        if budget_override is not None:
+            return _daily_total < budget_override
+        from app.core.config import settings
+        return _daily_total < settings.daily_budget_usd
 
 
 def _load_daily_total(day: str) -> float:

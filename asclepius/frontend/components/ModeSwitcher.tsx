@@ -2,13 +2,13 @@
 
 import type { Mode } from "@/lib/types";
 
-export const MODE_CONFIG: Record<Mode, { label: string; description: string; group: "dmi" | "legacy" }> = {
-  "disease-report": { label: "Mechanism Report", description: "Map disease biology from literature",        group: "dmi" },
-  "target-risk":    { label: "Target Risk",       description: "Score therapeutic target tractability",     group: "dmi" },
-  standard:         { label: "Analyze",           description: "Real-time scientific reasoning",            group: "legacy" },
-  research:         { label: "Research Agent",    description: "Plans and runs retriever, PubMed, and graph tools", group: "legacy" },
-  compare:          { label: "Compare",           description: "Side-by-side biological comparison",        group: "legacy" },
-  hypothesis:       { label: "Hypothesize",       description: "Generate testable experimental hypotheses", group: "legacy" },
+export const MODE_CONFIG: Record<Mode, { label: string; description: string }> = {
+  "disease-report": { label: "Mechanism Report", description: "Map disease biology from literature" },
+  "target-risk":    { label: "Target Risk",       description: "Score therapeutic target tractability" },
+  standard:         { label: "Analyze",           description: "Real-time scientific reasoning" },
+  research:         { label: "Research Agent",    description: "Plans and runs retriever, PubMed, and graph tools" },
+  compare:          { label: "Compare",           description: "Side-by-side biological comparison" },
+  hypothesis:       { label: "Hypothesize",       description: "Generate testable experimental hypotheses" },
 };
 
 export const ALL_MODES: Mode[] = ["disease-report", "target-risk", "standard", "research", "compare", "hypothesis"];

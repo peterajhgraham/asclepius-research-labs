@@ -1,3 +1,17 @@
+import type { Mode } from "@/lib/types";
+
+export function getModelLabel(mode: Mode): string {
+  const labels: Record<Mode, string> = {
+    "disease-report": "haiku · dmi",
+    "target-risk": "haiku · dmi",
+    standard: "haiku · rag",
+    research: "sonnet-4.6 · agent",
+    compare: "sonnet · compare",
+    hypothesis: "sonnet · hypothesis",
+  };
+  return labels[mode] ?? "asclepius engine";
+}
+
 export function modelDisplayName(model: string): string {
   if (model.includes("haiku")) return "Rapid · Tier I";
   if (model.includes("sonnet")) return "Balanced · Tier II";

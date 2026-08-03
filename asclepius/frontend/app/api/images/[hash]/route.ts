@@ -18,10 +18,14 @@ export async function GET(
       );
     }
     const arrayBuffer = await res.arrayBuffer();
+    const ct = res.headers.get("Content-Type") ?? "image/jpeg";
+    const safeType = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"].includes(ct)
+      ? ct
+      : "image/jpeg";
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
-        "Content-Type": res.headers.get("Content-Type") ?? "image/jpeg",
+        "Content-Type": safeType,
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });

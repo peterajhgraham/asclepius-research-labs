@@ -1,5 +1,3 @@
-import axios from "axios";
-
 // ------------------------------------------------------------------
 // Domain type: any scientific domain (e.g., immunology, oncology, neuroscience)
 // ------------------------------------------------------------------
@@ -86,22 +84,34 @@ export interface TargetRiskResponse {
 // API functions
 // ------------------------------------------------------------------
 
+async function apiFetch<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let detail = text;
+    try { detail = JSON.parse(text)?.detail ?? text; } catch { /* raw text */ }
+    throw Object.assign(new Error(detail || `HTTP ${res.status}`), {
+      response: { data: { detail } },
+    });
+  }
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as unknown as T;
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function generateDiseaseReport(
   payload: DiseaseReportRequest
 ): Promise<DiseaseReportResponse> {
-  const response = await axios.post<DiseaseReportResponse>(
-    "/api/dmi/disease-report",
-    payload
-  );
-  return response.data;
+  return apiFetch<DiseaseReportResponse>("/api/dmi/disease-report", payload);
 }
 
 export async function generateTargetRiskReport(
   payload: TargetRiskRequest
 ): Promise<TargetRiskResponse> {
-  const response = await axios.post<TargetRiskResponse>(
-    "/api/dmi/target-risk",
-    payload
-  );
-  return response.data;
+  return apiFetch<TargetRiskResponse>("/api/dmi/target-risk", payload);
 }

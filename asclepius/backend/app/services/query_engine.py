@@ -258,14 +258,6 @@ def _search_therapeutics(query_tokens: set[str], top_k: int = 8) -> list[dict[st
 # Unified search (public API)
 # ---------------------------------------------------------------------------
 
-def search(query: str, top_k: int = 3, threshold: float = 0.05) -> list[ScoredEntry]:
-    """Backward-compatible: return KB hits only (used by existing LLM service)."""
-    tokens = _effective_tokens(query)
-    if not tokens:
-        return []
-    return _search_kb(tokens, top_k=top_k, threshold=threshold)
-
-
 def search_all(query: str) -> SearchResult:
     """Search across ALL data sources and return aggregated results."""
     tokens = _effective_tokens(query)

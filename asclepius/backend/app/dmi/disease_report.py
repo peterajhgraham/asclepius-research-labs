@@ -2,10 +2,9 @@
 
 Pipeline:
 1. Fetch literature from PubMed
-2. Embed + retrieve relevant abstracts
-3. Run extraction prompt (LLM or fallback)
-4. Validate and assemble structured report
-5. Aggregate PMIDs into all_citations
+2. Run extraction prompt (LLM or fallback) on all articles
+3. Validate and assemble structured report
+4. Aggregate PMIDs into all_citations
 """
 
 from __future__ import annotations
@@ -19,8 +18,7 @@ from app.dmi.schemas import (
     MechanisticContradiction,
     ValidatedTarget,
 )
-from app.dmi.pubmed import fetch_disease_literature
-from app.dmi.retriever import SimpleRetriever
+from app.dmi.pubmed import fetch_disease_literature, fetch_preprints
 from app.dmi.extractor import extract_disease_mechanisms
 from app.dmi.citation_utils import deduplicate_pmids
 
@@ -34,8 +32,10 @@ def generate_disease_report(
     """Generate a full mechanism report."""
     logger.info("Generating disease report: disease=%r vertical=%s", disease_name, vertical)
 
-    # 1. Fetch literature
+    # 1. Fetch literature (PubMed + bioRxiv/medRxiv preprints)
     articles = fetch_disease_literature(disease_name, max_results=75)
+    preprints = fetch_preprints(f"{disease_name} mechanism", max_results=10)
+    articles = articles + [p for p in preprints if p.pmid not in {a.pmid for a in articles}]
 
     if not articles:
         return DiseaseReportResponse(
@@ -45,15 +45,10 @@ def generate_disease_report(
             ),
         )
 
-    # 2. Build retriever and get top relevant abstracts
-    retriever = SimpleRetriever(articles)
-    query = f"{disease_name} mechanism pathway target therapy"
-    relevant = retriever.retrieve(query, top_k=25)
+    # 2. Run extraction directly on all articles
+    extracted = extract_disease_mechanisms(disease_name, vertical, articles)
 
-    # 3. Run extraction
-    extracted = extract_disease_mechanisms(disease_name, vertical, relevant)
-
-    # 4. Assemble response
+    # 3. Assemble response
     all_pmids: list[str] = []
 
     core_pathways = []
@@ -97,7 +92,7 @@ def generate_disease_report(
         ))
 
     # Also collect PMIDs from articles used
-    for a in relevant:
+    for a in articles:
         if a.pmid:
             all_pmids.append(a.pmid)
 

@@ -130,7 +130,19 @@ function EvidenceItem({
   );
 }
 
-export default function DiseaseReportCard({ data }: { data: DiseaseReportResponse }) {
+export default function DiseaseReportCard({ data: raw }: { data: DiseaseReportResponse }) {
+  const data = {
+    ...raw,
+    core_pathways: raw.core_pathways ?? [],
+    causal_genes: raw.causal_genes ?? [],
+    key_cell_types: raw.key_cell_types ?? [],
+    validated_targets: raw.validated_targets ?? [],
+    failed_targets: raw.failed_targets ?? [],
+    mechanistic_contradictions: raw.mechanistic_contradictions ?? [],
+    biomarkers: raw.biomarkers ?? [],
+    unresolved_questions: raw.unresolved_questions ?? [],
+    all_citations: raw.all_citations ?? [],
+  };
   return (
     <div className="space-y-3">
       {/* Disease Overview */}

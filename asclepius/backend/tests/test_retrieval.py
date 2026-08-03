@@ -228,9 +228,10 @@ class TestClassifier:
     def test_simple_query(self):
         assert classify_complexity("What is IL-6?") == "simple"
 
-    def test_medium_query(self):
+    def test_medium_query_is_now_complex(self):
+        # "mechanism" is a complex-pattern keyword under the binary classifier
         result = classify_complexity("What is the mechanism of TNF-alpha signaling?")
-        assert result in ("medium", "complex")
+        assert result == "complex"
 
     def test_complex_query(self):
         result = classify_complexity(

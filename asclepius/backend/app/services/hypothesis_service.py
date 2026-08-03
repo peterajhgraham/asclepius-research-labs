@@ -8,6 +8,7 @@ suggestions, biomarkers, and potential confounders.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -23,40 +24,46 @@ def generate_hypotheses(
 ) -> Dict[str, Any]:
     """Generate testable research hypotheses for a given topic.
 
-    Parameters
-    ----------
-    topic : str
-        Research topic or question (e.g., "IL-17 in psoriasis",
-        "JAK-STAT in lupus").
-    max_hypotheses : int
-        Maximum number of hypotheses to generate.
-
-    Returns
-    -------
-    dict with keys:
-        - topic: the input topic
-        - hypotheses: list of structured hypothesis dicts
-        - context: supporting evidence used to generate hypotheses
+    Retrieves biological context from the knowledge base, then calls the
+    Anthropic LLM via the complexity-routing pipeline to generate grounded
+    hypotheses. Falls back to rule-based templates if the LLM call fails.
     """
     results = search_all(topic)
+    context = _build_context_summary(results)
+
+    # Try LLM-enriched hypotheses first
+    llm_hypotheses = _llm_hypotheses(topic, context, results, max_hypotheses)
+    if llm_hypotheses:
+        return {
+            "topic": topic,
+            "hypotheses": llm_hypotheses,
+            "context": context,
+            "total_generated": len(llm_hypotheses),
+        }
+
+    # Fallback: rule-based templates
     hypotheses: List[Dict[str, Any]] = []
+    try:
+        hypotheses.extend(_pathway_gap_hypotheses(results, topic))
+    except Exception as _exc:
+        logger.warning("_pathway_gap_hypotheses failed: %s", _exc)
+    try:
+        hypotheses.extend(_repurposing_hypotheses(results, topic))
+    except Exception as _exc:
+        logger.warning("_repurposing_hypotheses failed: %s", _exc)
+    try:
+        hypotheses.extend(_cytokine_network_hypotheses(results, topic))
+    except Exception as _exc:
+        logger.warning("_cytokine_network_hypotheses failed: %s", _exc)
+    try:
+        hypotheses.extend(_genetic_hypotheses(results, topic))
+    except Exception as _exc:
+        logger.warning("_genetic_hypotheses failed: %s", _exc)
+    try:
+        hypotheses.extend(_combination_hypotheses(results, topic))
+    except Exception as _exc:
+        logger.warning("_combination_hypotheses failed: %s", _exc)
 
-    # Strategy 1: Target-based hypotheses from disease-pathway gaps
-    hypotheses.extend(_pathway_gap_hypotheses(results, topic))
-
-    # Strategy 2: Cross-disease repurposing hypotheses
-    hypotheses.extend(_repurposing_hypotheses(results, topic))
-
-    # Strategy 3: Cytokine network hypotheses (feedback loops)
-    hypotheses.extend(_cytokine_network_hypotheses(results, topic))
-
-    # Strategy 4: Genetic-mechanistic hypotheses
-    hypotheses.extend(_genetic_hypotheses(results, topic))
-
-    # Strategy 5: Combination therapy hypotheses
-    hypotheses.extend(_combination_hypotheses(results, topic))
-
-    # Deduplicate and limit
     seen_titles: set = set()
     unique: List[Dict[str, Any]] = []
     for h in hypotheses:
@@ -65,15 +72,106 @@ def generate_hypotheses(
             unique.append(h)
     hypotheses = unique[:max_hypotheses]
 
-    # Build context summary
-    context = _build_context_summary(results)
-
     return {
         "topic": topic,
         "hypotheses": hypotheses,
         "context": context,
         "total_generated": len(hypotheses),
     }
+
+
+def _llm_hypotheses(
+    topic: str,
+    context: Dict[str, Any],
+    results: Any,
+    max_hypotheses: int,
+) -> List[Dict[str, Any]]:
+    """Call Anthropic via the routing pipeline to generate LLM-grounded hypotheses.
+
+    Returns an empty list on any failure so the caller can fall back to templates.
+    """
+    try:
+        from app.routing.router import call_with_routing
+
+        ctx_lines: List[str] = []
+        if context.get("diseases_matched"):
+            ctx_lines.append(f"Diseases: {', '.join(context['diseases_matched'])}")
+        if context.get("pathways_matched"):
+            ctx_lines.append(f"Pathways: {', '.join(context['pathways_matched'])}")
+        if context.get("therapeutics_matched"):
+            ctx_lines.append(f"Therapeutic agents: {', '.join(context['therapeutics_matched'])}")
+
+        cytokine_lines: List[str] = []
+        for edge in results.cytokine_hits[:6]:
+            cytokine_lines.append(
+                f"  {edge['source']} → {edge['target']} ({edge.get('edge_type', 'interacts')})"
+            )
+
+        system = (
+            "You are a translational immunologist generating novel, testable research hypotheses. "
+            "Output only a valid JSON array — no prose, no markdown fences."
+        )
+
+        context_parts = "\n".join(ctx_lines) if ctx_lines else "(no disease/pathway context retrieved)"
+        if cytokine_lines:
+            context_parts += "\n\nCytokine network edges:\n" + "\n".join(cytokine_lines)
+
+        user_msg = (
+            f"<context>\n{context_parts}\n</context>\n\n"
+            f"<task>\nGenerate exactly {max_hypotheses} novel, specific, falsifiable hypotheses "
+            f"about '{topic}', grounded in the context above.\n</task>\n\n"
+            "<output_format>\n"
+            "Output only a JSON array. Each element must have exactly these keys:\n"
+            "[\n"
+            "  {\n"
+            '    "hypothesis": "string (one falsifiable sentence)",\n'
+            '    "category": "Drug Repurposing|Pathway Gap|Biomarker Discovery|Mechanistic|Novel Target",\n'
+            '    "rationale": "string (2-3 sentences citing the biological context)",\n'
+            '    "confidence": "Low|Medium|High",\n'
+            '    "experimental_design": {"approach": "string", "primary_endpoint": "string", "timeline": "string"},\n'
+            '    "biomarkers": ["string"],\n'
+            '    "confounders": ["string"],\n'
+            '    "supporting_evidence": ["string (pmid or citation)"]\n'
+            "  }\n"
+            "]\n"
+            "Output only valid JSON. No markdown fences, no commentary.\n"
+            "</output_format>"
+        )
+
+        answer, _model, _cost = call_with_routing(
+            messages=[{"role": "user", "content": user_msg}],
+            system=system,
+            query_preview=topic,
+        )
+
+        # Strip accidental markdown fences
+        clean = answer.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```", 2)[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+            clean = clean.rsplit("```", 1)[0].strip()
+
+        parsed = json.loads(clean)
+        if not isinstance(parsed, list):
+            return []
+
+        validated: List[Dict[str, Any]] = []
+        for item in parsed[:max_hypotheses]:
+            if isinstance(item, dict) and "hypothesis" in item:
+                item.setdefault("category", "Mechanistic")
+                item.setdefault("rationale", "")
+                item.setdefault("confidence", "Medium")
+                item.setdefault("supporting_evidence", [])
+                item.setdefault("experimental_design", {"approach": "", "primary_endpoint": "", "timeline": ""})
+                item.setdefault("biomarkers", [])
+                item.setdefault("confounders", [])
+                validated.append(item)
+        return validated
+
+    except Exception as exc:
+        logger.warning("LLM hypothesis generation failed, using templates: %s", exc)
+        return []
 
 
 # ------------------------------------------------------------------
@@ -214,7 +312,7 @@ def _repurposing_hypotheses(results: Any, topic: str) -> List[Dict[str, Any]]:
                     "Disease duration and severity",
                     "Concomitant medications",
                 ],
-                "confidence": "Medium-High" if len(indications) > 1 else "Medium",
+                "confidence": "High" if len(indications) > 1 else "Medium",
                 "supporting_evidence": [],
             })
 
@@ -388,25 +486,30 @@ def _combination_hypotheses(results: Any, topic: str) -> List[Dict[str, Any]]:
     rx_a = results.therapeutic_hits[0]
     rx_b = results.therapeutic_hits[1]
 
-    if rx_a["target"] != rx_b["target"]:
+    drug_a = rx_a.get("drug_name", "Drug A")
+    drug_b = rx_b.get("drug_name", "Drug B")
+    target_a = rx_a.get("target", "Target A")
+    target_b = rx_b.get("target", "Target B")
+
+    if target_a != target_b:
         hypotheses.append({
             "hypothesis": (
-                f"Combination of {rx_a['drug_name']} ({rx_a['target']} inhibitor) "
-                f"and {rx_b['drug_name']} ({rx_b['target']} inhibitor) may achieve "
+                f"Combination of {drug_a} ({target_a} inhibitor) "
+                f"and {drug_b} ({target_b} inhibitor) may achieve "
                 f"synergistic efficacy in {disease_name} by simultaneously "
                 f"targeting parallel pathogenic pathways"
             ),
             "category": "Combination Therapy",
             "rationale": (
-                f"{rx_a['drug_name']} targets {rx_a['target']} while {rx_b['drug_name']} "
-                f"targets {rx_b['target']}. Monotherapy resistance in {disease_name} "
+                f"{drug_a} targets {target_a} while {drug_b} "
+                f"targets {target_b}. Monotherapy resistance in {disease_name} "
                 f"often arises from compensatory pathway activation. Dual blockade "
                 f"may overcome this limitation."
             ),
             "experimental_design": {
                 "model": f"In vitro synergy assay + in vivo {disease_name} model",
                 "intervention": (
-                    f"2x2 factorial: {rx_a['drug_name']} alone, {rx_b['drug_name']} alone, "
+                    f"2x2 factorial: {drug_a} alone, {drug_b} alone, "
                     f"combination, vehicle"
                 ),
                 "readouts": [
@@ -417,13 +520,13 @@ def _combination_hypotheses(results: Any, topic: str) -> List[Dict[str, Any]]:
                 ],
                 "controls": [
                     "Vehicle control",
-                    f"{rx_a['drug_name']} monotherapy",
-                    f"{rx_b['drug_name']} monotherapy",
+                    f"{drug_a} monotherapy",
+                    f"{drug_b} monotherapy",
                 ],
                 "timeline": "12-16 weeks in vitro; 24+ weeks in vivo",
             },
             "biomarkers": [
-                f"Serum {rx_a['target']} and {rx_b['target']} levels",
+                f"Serum {target_a} and {target_b} levels",
                 "Composite inflammatory index",
                 "Patient-reported symptom scores",
             ],

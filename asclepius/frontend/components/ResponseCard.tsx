@@ -5,7 +5,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { QueryResponse, StructuredReasoning } from "@/lib/api";
 import { PROSE_CLS } from "@/lib/utils";
-import PubMedPanel from "./PubMedPanel";
 
 function formatPubMedLink(source: string): { text: string; href: string | null } {
   const pmidMatch = source.match(/PMID:\s*(\d+)/i);
@@ -215,11 +214,6 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
 
       {/* Causal network context */}
       <CausalNetworkSection graphContext={data.graph_context} />
-
-      {/* PubMed articles */}
-      {data.pubmed_articles && data.pubmed_articles.length > 0 && (
-        <PubMedPanel articles={data.pubmed_articles} />
-      )}
 
       {/* Sources */}
       {data.sources.length > 0 && (

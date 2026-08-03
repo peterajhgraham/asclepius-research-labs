@@ -159,9 +159,6 @@ class ClipIndex:
         except Exception:
             return []
 
-    def get_entry(self, idx: int) -> ClipEntry:
-        return self._entries[idx]
-
     @property
     def size(self) -> int:
         return len(self._entries)

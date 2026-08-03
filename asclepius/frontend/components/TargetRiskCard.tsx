@@ -218,7 +218,7 @@ export default function TargetRiskCard({ data }: { data: TargetRiskResponse }) {
       )}
 
       {/* Historical Failures */}
-      {data.historical_failures.length > 0 && (
+      {(data.historical_failures ?? []).length > 0 && (
         <div className="rounded-xl border border-red-500/20 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 bg-red-500/8 border-b border-red-500/15" style={{ backgroundColor: "rgba(239, 68, 68, 0.05)" }}>
             <p className="text-xs font-bold uppercase tracking-widest text-red-400">
@@ -252,7 +252,7 @@ export default function TargetRiskCard({ data }: { data: TargetRiskResponse }) {
       )}
 
       {/* Citations */}
-      {data.citations.length > 0 && (
+      {(data.citations ?? []).length > 0 && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-4 py-3">
           <div className="flex items-center gap-2 mb-2.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-light">

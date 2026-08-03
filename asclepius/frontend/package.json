@@ -1,5 +1,5 @@
 {
-  "name": "autoimmune-intelligence",
+  "name": "asclepius-frontend",
   "version": "2.0.0",
   "private": true,
   "scripts": {
@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
-    "axios": "^1.7.2",
-    "framer-motion": "^11.18.2",
     "geist": "^1.7.0",
     "next": "^15.5.10",
     "react": "^18.3.1",

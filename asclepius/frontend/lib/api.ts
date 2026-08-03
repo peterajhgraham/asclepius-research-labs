@@ -1,5 +1,3 @@
-import axios from "axios";
-
 // ------------------------------------------------------------------
 // Standard query types
 // ------------------------------------------------------------------
@@ -94,6 +92,7 @@ export interface DiseaseProfile {
   pathways: any[];
   therapeutics: any[];
   approved_therapies: any[];
+  cytokine_network?: Array<{ source: string; target: string; edge_type: string; description: string }>;
 }
 
 export interface Overlaps {
@@ -167,23 +166,6 @@ export interface HypothesisResponse {
 }
 
 // ------------------------------------------------------------------
-// PubMed search types
-// ------------------------------------------------------------------
-
-export interface PubMedSearchRequest {
-  query: string;
-  max_results?: number;
-  domain_enriched?: boolean;
-}
-
-export interface PubMedSearchResponse {
-  query: string;
-  articles: PubMedArticle[];
-  interactions: any[];
-  total_found: number;
-}
-
-// ------------------------------------------------------------------
 // Dossier types
 // ------------------------------------------------------------------
 
@@ -230,69 +212,86 @@ export interface DossierInsights {
 }
 
 // ------------------------------------------------------------------
+// Fetch wrapper
+// ------------------------------------------------------------------
+
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const { headers: initHeaders, ...restInit } = init ?? {};
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...initHeaders },
+    ...restInit,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let detail = text;
+    try {
+      const json = JSON.parse(text);
+      detail = json.detail ?? json.error ?? text;
+    } catch {
+      // use raw text
+    }
+    throw Object.assign(new Error(detail || `HTTP ${res.status}`), {
+      response: { data: { detail } },
+    });
+  }
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as unknown as T;
+  }
+  return res.json() as Promise<T>;
+}
+
+// ------------------------------------------------------------------
 // API functions
 // ------------------------------------------------------------------
 
 export async function submitQuery(payload: QueryRequest): Promise<QueryResponse> {
-  const response = await axios.post<QueryResponse>("/api/query", payload);
-  return response.data;
+  return apiFetch<QueryResponse>("/api/query", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function submitImageQuery(payload: ImageQueryRequest): Promise<QueryResponse> {
-  const response = await axios.post<QueryResponse>("/api/query/images", payload);
-  return response.data;
+  return apiFetch<QueryResponse>("/api/query/images", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function compareDiseases(payload: CompareRequest): Promise<CompareResponse> {
-  const response = await axios.post<CompareResponse>("/api/compare", payload);
-  return response.data;
+  return apiFetch<CompareResponse>("/api/compare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function generateHypotheses(payload: HypothesisRequest): Promise<HypothesisResponse> {
-  const response = await axios.post<HypothesisResponse>("/api/hypotheses", payload);
-  return response.data;
-}
-
-export async function searchPubMed(payload: PubMedSearchRequest): Promise<PubMedSearchResponse> {
-  const response = await axios.post<PubMedSearchResponse>("/api/pubmed/search", payload);
-  return response.data;
-}
-
-export async function listDiseases(): Promise<{ diseases: string[]; count: number }> {
-  const response = await axios.get("/api/diseases");
-  return response.data;
+  return apiFetch<HypothesisResponse>("/api/hypotheses", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 // Dossier operations
-export async function createDossier(name: string, description?: string, tags?: string[]): Promise<DossierSummary> {
-  const response = await axios.post("/api/dossiers", { name, description: description || "", tags: tags || [] });
-  return response.data;
+export async function createDossier(
+  name: string,
+  description?: string,
+  tags?: string[],
+): Promise<DossierSummary> {
+  return apiFetch<DossierSummary>("/api/dossiers", {
+    method: "POST",
+    body: JSON.stringify({ name, description: description ?? "", tags: tags ?? [] }),
+  });
 }
 
 export async function listDossiers(): Promise<{ dossiers: DossierSummary[] }> {
-  const response = await axios.get("/api/dossiers");
-  return response.data;
+  return apiFetch<{ dossiers: DossierSummary[] }>("/api/dossiers");
 }
 
 export async function getDossier(dossierId: string): Promise<Dossier> {
-  const response = await axios.get(`/api/dossiers/${dossierId}`);
-  return response.data;
-}
-
-export async function addToDossier(dossierId: string, query: string, responseData: any, notes?: string): Promise<DossierEntry> {
-  const response = await axios.post(`/api/dossiers/${dossierId}/entries`, {
-    query,
-    response: responseData,
-    notes: notes || "",
-  });
-  return response.data;
+  return apiFetch<Dossier>(`/api/dossiers/${dossierId}`);
 }
 
 export async function getDossierInsights(dossierId: string): Promise<DossierInsights> {
-  const response = await axios.get(`/api/dossiers/${dossierId}/insights`);
-  return response.data;
-}
-
-export async function deleteDossier(dossierId: string): Promise<void> {
-  await axios.delete(`/api/dossiers/${dossierId}`);
+  return apiFetch<DossierInsights>(`/api/dossiers/${dossierId}/insights`);
 }

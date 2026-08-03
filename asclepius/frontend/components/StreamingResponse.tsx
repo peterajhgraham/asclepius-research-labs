@@ -70,7 +70,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            Verified
+            Cited
           </span>
         ) : null}
 

@@ -76,7 +76,7 @@ class RetrievalPipeline:
         self._dense.add(text, metadata)
         doc_idx = len(self._doc_extras)
         self._doc_extras.append({"content_type": content_type, "image_hash": image_hash})
-        if content_type == "image" and (image_bytes is not None or clip_embedding is not None):
+        if content_type in ("image", "table") and (image_bytes is not None or clip_embedding is not None):
             self._clip.add(image_bytes, metadata, precomputed_embedding=clip_embedding)
             self._clip_to_doc[self._clip.size - 1] = doc_idx
         self._built = False

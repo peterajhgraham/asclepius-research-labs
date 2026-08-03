@@ -8,25 +8,16 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+import re
+from typing import Any
 
-from app.core.config import settings
+from app.core.ai_client import get_client as _get_anthropic_client
+from app.routing.cost_tracker import record_query
 from app.services.pubmed_service import PubMedArticle
 
 logger = logging.getLogger(__name__)
 
-_anthropic_client: Optional[Any] = None
-
-if settings.anthropic_api_key:
-    try:
-        import anthropic as _anthropic_module
-
-        _anthropic_client = _anthropic_module.Anthropic(api_key=settings.anthropic_api_key)
-        logger.info("DMI extractor: Anthropic (Claude) client initialised")
-    except ImportError:
-        logger.warning("anthropic package not installed — DMI extractor will use fallback mode")
-
-_DMI_EXTRACTION_MODEL = "claude-haiku-4-5-20251001"
+_DMI_EXTRACTION_MODEL = "claude-haiku-4-5"
 
 
 # ------------------------------------------------------------------
@@ -76,56 +67,67 @@ def _get_domain_focus(vertical: str) -> str:
 
 
 # ------------------------------------------------------------------
+# JSON fence stripping
+# ------------------------------------------------------------------
+
+def _strip_json_fence(text: str) -> str:
+    text = text.strip()
+    # Remove opening fence (with optional language tag like ```json)
+    text = re.sub(r'^```[a-z]*\n?', '', text, flags=re.IGNORECASE)
+    # Remove closing fence
+    text = re.sub(r'\n?```$', '', text)
+    return text.strip()
+
+
+# ------------------------------------------------------------------
 # Disease mechanism extraction
 # ------------------------------------------------------------------
 
-_DISEASE_SYSTEM_PROMPT = """You are a biomedical research analyst specializing in disease mechanism extraction.
-You MUST return ONLY valid JSON matching the exact schema below. No markdown, no explanation outside JSON.
+_DISEASE_SYSTEM_PROMPT = """You are a biomedical knowledge extractor. Given scientific text, extract structured disease mechanism information as JSON.
 
-CRITICAL RULES:
-1. Every biological claim MUST have at least one PMID from the provided literature
-2. Do NOT fabricate PMIDs — only use PMIDs explicitly mentioned in the provided abstracts
-3. If a claim cannot be supported by provided PMIDs, omit it
-4. Be specific and mechanistic, not generic
+Extraction rules:
+- Every biological claim must have at least one PMID from the provided literature.
+- Only use PMIDs explicitly present in the provided abstracts. If a claim lacks PMID support, omit it.
+- Be specific and mechanistic, not generic.
 
-{vertical_focus}
+{vertical_focus}"""
 
-OUTPUT JSON SCHEMA:
-{{
+
+_DISEASE_SCHEMA = """{
   "disease_summary": "string — 2-4 sentence mechanistic overview",
   "core_pathways": [
-    {{
+    {
       "name": "string — pathway name",
       "description": "string — mechanistic role in disease",
       "evidence_pmids": ["string"]
-    }}
+    }
   ],
   "causal_genes": ["string — gene symbols"],
   "key_cell_types": ["string — specific cell types involved"],
   "validated_targets": [
-    {{
+    {
       "target": "string — molecular target",
       "mechanism": "string — how it's targeted",
       "evidence_pmids": ["string"]
-    }}
+    }
   ],
   "failed_targets": [
-    {{
+    {
       "target": "string",
       "stage_failed": "preclinical | phase1 | phase2 | phase3",
       "mechanistic_reason": "string",
       "evidence_pmids": ["string"]
-    }}
+    }
   ],
   "mechanistic_contradictions": [
-    {{
+    {
       "description": "string — conflicting evidence",
       "evidence_pmids": ["string"]
-    }}
+    }
   ],
   "biomarkers": ["string — relevant biomarkers"],
   "unresolved_questions": ["string — key unknowns"]
-}}"""
+}"""
 
 
 def extract_disease_mechanisms(
@@ -133,9 +135,25 @@ def extract_disease_mechanisms(
     vertical: str,
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
-    """Extract structured disease mechanism data from articles."""
-    if _anthropic_client is None:
-        return _fallback_disease_extraction(disease_name, vertical, articles)
+    """Extract structured disease mechanism data from articles.
+
+    Returns an empty structure with ``_fallback: True`` when the Anthropic
+    client is unavailable or extraction fails — never fabricates stub data.
+    """
+    if _get_anthropic_client() is None:
+        logger.warning("Anthropic client unavailable (set ANTHROPIC_API_KEY) — skipping extraction for disease=%r", disease_name)
+        return {
+            "disease_summary": "",
+            "core_pathways": [],
+            "causal_genes": [],
+            "key_cell_types": [],
+            "validated_targets": [],
+            "failed_targets": [],
+            "mechanistic_contradictions": [],
+            "biomarkers": [],
+            "unresolved_questions": [],
+            "_fallback": True,
+        }
 
     context = _build_literature_context(articles)
     system_prompt = _DISEASE_SYSTEM_PROMPT.format(
@@ -143,60 +161,74 @@ def extract_disease_mechanisms(
     )
 
     user_prompt = (
-        f"Disease/Topic: {disease_name}\n"
-        f"Domain: {vertical}\n\n"
-        f"Literature context (abstracts with PMIDs):\n{context}\n\n"
-        f"Extract the structured mechanism report for {disease_name}. "
-        f"Only include claims supported by the provided PMIDs."
+        f"<context>\n{context}\n</context>\n\n"
+        f"<task>\nExtract disease mechanism information for {disease_name} from the context above.\n</task>\n\n"
+        f"<output_format>\nOutput only a single valid JSON object with this exact schema. "
+        f"No markdown fences, no commentary.\n\n{_DISEASE_SCHEMA}\n</output_format>"
     )
 
     try:
-        response = _anthropic_client.messages.create(
+        response = _get_anthropic_client().messages.create(
             model=_DMI_EXTRACTION_MODEL,
             max_tokens=3000,
             temperature=0.2,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
+        record_query(
+            model=_DMI_EXTRACTION_MODEL,
+            query=disease_name[:100],
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )
         raw = response.content[0].text or "{}"
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        raw = _strip_json_fence(raw)
 
         return json.loads(raw)
     except Exception:
-        logger.warning("Claude extraction failed, using fallback", exc_info=True)
-        return _fallback_disease_extraction(disease_name, vertical, articles)
+        logger.warning(
+            "Claude extraction failed for disease=%r, returning empty structure",
+            disease_name,
+            exc_info=True,
+        )
+        return {
+            "disease_summary": "",
+            "core_pathways": [],
+            "causal_genes": [],
+            "key_cell_types": [],
+            "validated_targets": [],
+            "failed_targets": [],
+            "mechanistic_contradictions": [],
+            "biomarkers": [],
+            "unresolved_questions": [],
+            "_fallback": True,
+        }
 
 
 # ------------------------------------------------------------------
 # Target-specific extraction
 # ------------------------------------------------------------------
 
-_TARGET_SYSTEM_PROMPT = """You are a biomedical analyst specializing in drug target assessment.
-You MUST return ONLY valid JSON matching the exact schema below. No markdown, no explanation.
+_TARGET_SYSTEM_PROMPT = """You are a biomedical knowledge extractor. Given scientific text, assess a drug target's viability as JSON.
 
-CRITICAL RULES:
-1. Every claim MUST have PMID support from the provided literature
-2. Do NOT fabricate PMIDs
-3. Be specific about mechanisms and failure reasons
+Extraction rules:
+- Every claim must have PMID support from the provided literature.
+- Do not fabricate PMIDs.
+- Be specific about mechanisms and failure reasons.
 
-{vertical_focus}
+{vertical_focus}"""
 
-OUTPUT JSON SCHEMA:
-{{
+
+_TARGET_SCHEMA = """{
   "pathway_position": "upstream | midstream | downstream",
   "redundancy_level": "low | medium | high",
   "historical_failures": [
-    {{
+    {
       "program": "string — drug/program name",
       "failure_stage": "string — phase of failure",
       "reason": "string — mechanistic reason",
       "evidence_pmids": ["string"]
-    }}
+    }
   ],
   "biomarker_alignment": "strong | moderate | weak",
   "parallel_pathways_count": 0,
@@ -204,7 +236,7 @@ OUTPUT JSON SCHEMA:
   "biomarker_mentions": 0,
   "phase2_failures": 0,
   "risk_explanation": "string — 2-3 sentence risk summary"
-}}"""
+}"""
 
 
 def extract_target_assessment(
@@ -213,9 +245,28 @@ def extract_target_assessment(
     vertical: str,
     articles: list[PubMedArticle],
 ) -> dict[str, Any]:
-    """Extract target risk assessment data from articles."""
-    if _anthropic_client is None:
-        return _fallback_target_extraction(disease_name, target_name, vertical, articles)
+    """Extract target risk assessment data from articles.
+
+    Returns an empty structure with ``_fallback: True`` when the Anthropic
+    client is unavailable or extraction fails — never fabricates stub data.
+    """
+    if _get_anthropic_client() is None:
+        logger.warning(
+            "Anthropic client unavailable — skipping target extraction for disease=%r target=%r",
+            disease_name, target_name,
+        )
+        return {
+            "pathway_position": "",
+            "redundancy_level": "",
+            "historical_failures": [],
+            "biomarker_alignment": "",
+            "parallel_pathways_count": 0,
+            "contradictory_evidence": False,
+            "biomarker_mentions": 0,
+            "phase2_failures": 0,
+            "risk_explanation": "",
+            "_fallback": True,
+        }
 
     context = _build_literature_context(articles)
     system_prompt = _TARGET_SYSTEM_PROMPT.format(
@@ -223,41 +274,58 @@ def extract_target_assessment(
     )
 
     user_prompt = (
-        f"Disease/Topic: {disease_name}\n"
-        f"Target: {target_name}\n"
-        f"Domain: {vertical}\n\n"
-        f"Literature context (abstracts with PMIDs):\n{context}\n\n"
-        f"Assess {target_name} as a target for {disease_name}. "
-        f"Evaluate pathway position, redundancy, historical failures, and biomarker alignment."
+        f"<context>\n{context}\n</context>\n\n"
+        f"<task>\nAssess {target_name} as a therapeutic target for {disease_name}. "
+        f"Evaluate pathway position, redundancy, historical failures, and biomarker alignment "
+        f"from the context above.\n</task>\n\n"
+        f"<output_format>\nOutput only a single valid JSON object with this exact schema. "
+        f"No markdown fences, no commentary.\n\n{_TARGET_SCHEMA}\n</output_format>"
     )
 
     try:
-        response = _anthropic_client.messages.create(
+        response = _get_anthropic_client().messages.create(
             model=_DMI_EXTRACTION_MODEL,
             max_tokens=2000,
             temperature=0.2,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
+        record_query(
+            model=_DMI_EXTRACTION_MODEL,
+            query=f"{disease_name} / {target_name}"[:100],
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )
         raw = response.content[0].text or "{}"
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        raw = _strip_json_fence(raw)
 
         return json.loads(raw)
     except Exception:
-        logger.warning("Claude target extraction failed, using fallback", exc_info=True)
-        return _fallback_target_extraction(disease_name, target_name, vertical, articles)
+        logger.warning(
+            "Claude target extraction failed for disease=%r target=%r, returning empty structure",
+            disease_name,
+            target_name,
+            exc_info=True,
+        )
+        return {
+            "pathway_position": "",
+            "redundancy_level": "",
+            "historical_failures": [],
+            "biomarker_alignment": "",
+            "parallel_pathways_count": 0,
+            "contradictory_evidence": False,
+            "biomarker_mentions": 0,
+            "phase2_failures": 0,
+            "risk_explanation": "",
+            "_fallback": True,
+        }
 
 
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
 
-def _build_literature_context(articles: list[PubMedArticle], max_chars: int = 12000) -> str:
+def _build_literature_context(articles: list[PubMedArticle], max_chars: int = 20000) -> str:
     """Build a literature context string from articles."""
     parts: list[str] = []
     total = 0
@@ -270,87 +338,3 @@ def _build_literature_context(articles: list[PubMedArticle], max_chars: int = 12
     return "\n".join(parts)
 
 
-# ------------------------------------------------------------------
-# Fallback extraction (no LLM)
-# ------------------------------------------------------------------
-
-def _fallback_disease_extraction(
-    disease_name: str,
-    vertical: str,
-    articles: list[PubMedArticle],
-) -> dict[str, Any]:
-    """Rule-based fallback when no LLM is available."""
-    pmids = [a.pmid for a in articles if a.pmid][:20]
-
-    all_text = " ".join(a.abstract for a in articles)
-
-    # Domain-adaptive keyword extraction for pathways
-    pathway_keywords: dict[str, list[str]] = {
-        "immunology": [
-            "JAK-STAT", "NF-kB", "IL-17/IL-23", "TNF signaling",
-            "Th17 differentiation", "B cell receptor signaling",
-        ],
-        "oncology": [
-            "PI3K/AKT/mTOR", "RAS/MAPK", "Wnt/beta-catenin",
-            "p53 pathway", "VEGF signaling", "PD-1/PD-L1",
-        ],
-        "neuroscience": [
-            "mTOR signaling", "Wnt signaling", "MAPK/ERK",
-            "cAMP/PKA", "neurotrophin signaling", "NMDA receptor",
-        ],
-    }
-
-    found_pathways = []
-    for pw in pathway_keywords.get(vertical.lower(), []):
-        pw_lower = pw.lower().replace("/", " ").replace("-", " ")
-        if any(kw in all_text.lower() for kw in pw_lower.split()):
-            found_pathways.append({
-                "name": pw,
-                "description": f"{pw} pathway involvement in {disease_name}",
-                "evidence_pmids": pmids[:3],
-            })
-
-    return {
-        "disease_summary": (
-            f"{disease_name} is a complex disease with multiple underlying mechanisms. "
-            f"Analysis based on {len(articles)} publications from PubMed."
-        ),
-        "core_pathways": found_pathways[:5],
-        "causal_genes": [],
-        "key_cell_types": [],
-        "validated_targets": [],
-        "failed_targets": [],
-        "mechanistic_contradictions": [],
-        "biomarkers": [],
-        "unresolved_questions": [
-            f"What are the primary drivers of {disease_name} pathogenesis?",
-            f"Which therapeutic targets show the most promise for {disease_name}?",
-        ],
-    }
-
-
-def _fallback_target_extraction(
-    disease_name: str,
-    target_name: str,
-    vertical: str,
-    articles: list[PubMedArticle],
-) -> dict[str, Any]:
-    """Rule-based fallback for target assessment."""
-    return {
-        "pathway_position": "midstream",
-        "redundancy_level": "medium",
-        "historical_failures": [],
-        "biomarker_alignment": "moderate",
-        "parallel_pathways_count": 2,
-        "contradictory_evidence": False,
-        "biomarker_mentions": len([
-            a for a in articles
-            if "biomarker" in a.abstract.lower()
-        ]),
-        "phase2_failures": 0,
-        "risk_explanation": (
-            f"Assessment of {target_name} for {disease_name} based on "
-            f"{len(articles)} publications. Further LLM-based analysis requires "
-            f"an OpenAI API key."
-        ),
-    }

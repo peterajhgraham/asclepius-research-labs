@@ -1,9 +1,9 @@
 "use client";
 
 import { type FormEvent, type RefObject } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
+import { getModelLabel } from "@/lib/utils";
 
 // Borderless inputs — the composer box owns the border + focus ring.
 const INPUT_CLS =
@@ -62,20 +62,14 @@ export default function QueryInputBar({
 
           <div className="flex items-center gap-3 shrink-0">
             <span className="hidden sm:inline font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
-              sonnet-4.6 · tier I
+              {getModelLabel(mode)}
             </span>
           </div>
         </div>
 
         {/* PDF status banner */}
-        <AnimatePresence>
-          {uploadedPdf && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-2"
-            >
+        {uploadedPdf && (
+          <div className="mb-2 animate-fade-in">
               <div
                 className={`flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs ${
                   uploadedPdf.status === "done"
@@ -117,19 +111,12 @@ export default function QueryInputBar({
                   </svg>
                 </button>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
 
         {/* Image preview */}
-        <AnimatePresence>
-          {uploadedImage && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-2 flex items-center gap-2.5"
-            >
+        {uploadedImage && (
+          <div className="mb-2 flex items-center gap-2.5 animate-fade-in">
               <div className="relative">
                 <img
                   src={uploadedImage.previewUrl}
@@ -154,9 +141,8 @@ export default function QueryInputBar({
                 </p>
                 <p className="text-[10px] text-muted">Multimodal Vision · RAG Pipeline</p>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
 
         {/* Hidden file inputs */}
         <input

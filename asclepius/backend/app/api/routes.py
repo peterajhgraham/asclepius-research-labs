@@ -1,13 +1,13 @@
 import asyncio
 import json
 import logging
+from contextlib import contextmanager
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
-from app.core.config import settings
 from app.models.schema import (
     AddToDossierRequest,
     CausalPropagateRequest,
@@ -26,17 +26,30 @@ from app.models.schema import (
     PubMedSearchResponse,
     QueryRequest,
     QueryResponse,
-    RetrievedPropositionSchema,
     UpdateNotesRequest,
 )
-from app.services.llm_service import LLMService
+from app.services.llm_service import pipeline
 from app.services.logger_service import log_query
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_llm_service = LLMService()
+
+@contextmanager
+def _route_guard(name: str):
+    """Catch-all exception handler for route bodies.
+
+    Re-raises HTTPException as-is so intentional 4xx/5xx errors pass through.
+    Any other exception is logged and converted to a generic 500.
+    """
+    try:
+        yield
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Unhandled error in %s", name)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ------------------------------------------------------------------
@@ -53,11 +66,13 @@ def query(request: QueryRequest) -> QueryResponse:
     annotations.
     """
     log_query(request.question)
+    mode = (request.mode or "").lower()
+    if mode not in ("standard", "research", ""):
+        raise HTTPException(status_code=400, detail="Unknown mode. Valid modes: standard, research")
     try:
-        if (request.mode or "").lower() == "research":
-            return _run_agent_to_query_response(request.question, verify=request.verify)
-        return _llm_service.query(
+        return pipeline.run(
             request.question,
+            mode=mode,
             include_pubmed=request.include_pubmed,
             verify=request.verify,
         )
@@ -69,168 +84,6 @@ def query(request: QueryRequest) -> QueryResponse:
         ) from exc
 
 
-def _run_agent_to_query_response(question: str, verify: bool = False) -> QueryResponse:
-    """Drain the agent's event stream into a non-streaming QueryResponse."""
-    from app.services.agent_service import run_agent
-
-    final_answer = ""
-    image_hashes: list[str] = []
-    model_used = "agent:claude-sonnet-4-6"
-    cost = 0.0
-    iterations = 0
-    trace: list[dict] = []
-
-    for evt in run_agent(question):
-        if evt.type == "tool_call":
-            trace.append({"tool": evt.data.get("tool"), "args": evt.data.get("args")})
-        elif evt.type == "final":
-            final_answer = evt.data.get("answer", "")
-            image_hashes = list(evt.data.get("image_hashes") or [])
-        elif evt.type == "done":
-            iterations = evt.data.get("iterations", 0)
-            cost = evt.data.get("cost_usd", 0.0)
-        elif evt.type == "error":
-            final_answer = final_answer or f"Agent error: {evt.data.get('message')}"
-
-    response = QueryResponse(
-        answer=final_answer or "(agent produced no output)",
-        sources=[],
-        model_used=model_used,
-        cost_usd=cost,
-        retrieved_propositions=[],
-    )
-    # Stash the agent trace into graph_context for the frontend to render
-    response.graph_context = {"agent_trace": trace, "iterations": iterations}
-
-    if verify and final_answer and image_hashes:
-        from app.services.verification_service import verify_against_figures
-        try:
-            v = verify_against_figures(final_answer, image_hashes)
-            response.verification = v.to_dict()
-            if v.verdict in ("partially_supported", "unsupported") and v.revised_answer:
-                response.answer = v.revised_answer
-        except Exception:
-            logger.warning("Agent verification failed", exc_info=True)
-
-    return response
-
-
-# ------------------------------------------------------------------
-# Agent SSE streaming endpoint
-# ------------------------------------------------------------------
-
-@router.get("/query/agent")
-async def query_agent_stream(
-    question: str = Query(..., min_length=1),
-    verify: bool = Query(False),
-) -> StreamingResponse:
-    """Stream the tool-using research agent as Server-Sent Events.
-
-    Events:
-      planner_step: {"type":"planner_step","iteration":N,"thinking":"...","tool_calls":[...]}
-      tool_call:    {"type":"tool_call","iteration":N,"tool":"...","args":{...}}
-      tool_result:  {"type":"tool_result","iteration":N,"tool":"...","result_preview":"..."}
-      final:        {"type":"final","answer":"...","image_hashes":[...]}
-      verification: {"type":"verification","verdict":"...","confidence":0.x,"notes":"..."}
-      done:         {"type":"done","iterations":N,"model":"...","cost_usd":0.x}
-      error:        {"type":"error","message":"..."}
-    """
-    from app.services.agent_service import run_agent
-
-    # Emit an SSE heartbeat if no agent event arrives within this window. The
-    # planner blocks on Anthropic for seconds at a time between events; without
-    # a keepalive the idle socket gets torn down by an intermediary proxy
-    # (Vercel function, Railway/nginx) and the client sees "Connection lost".
-    HEARTBEAT_S = 15
-
-    async def event_gen() -> AsyncGenerator[str, None]:
-        def sse(payload: dict) -> str:
-            return f"data: {json.dumps(payload, default=str)}\n\n"
-
-        final_answer = ""
-        image_hashes: list[str] = []
-
-        # `run_agent` is a *sync* generator that blocks on Anthropic between
-        # events. Run it in a worker thread and forward each event through a
-        # queue, so events reach the client the instant they are produced
-        # rather than being buffered until the whole multi-step run finishes.
-        loop = asyncio.get_running_loop()
-        queue: asyncio.Queue = asyncio.Queue()
-        _DONE = object()
-
-        def _producer() -> None:
-            try:
-                for evt in run_agent(question):
-                    loop.call_soon_threadsafe(queue.put_nowait, evt.to_dict())
-            except Exception:
-                logger.exception("Agent loop crashed")
-                loop.call_soon_threadsafe(
-                    queue.put_nowait,
-                    {"type": "error", "message": "Internal agent error"},
-                )
-            finally:
-                loop.call_soon_threadsafe(queue.put_nowait, _DONE)
-
-        log_query(f"AGENT: {question}")
-        yield sse({"type": "start", "question": question})
-
-        producer = asyncio.create_task(run_in_threadpool(_producer))
-        # Retrieve any producer exception so a client disconnect doesn't surface
-        # a noisy "exception never retrieved" warning.
-        producer.add_done_callback(lambda t: t.cancelled() or t.exception())
-        # Hold the terminal `done` event until after the (optional) verification
-        # pass. The client freezes the agent entry when it sees `done`, so a
-        # `done` emitted before `verification` would drop the verification block
-        # from the rendered result.
-        pending_done: dict | None = None
-        try:
-            while True:
-                try:
-                    evt = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_S)
-                except asyncio.TimeoutError:
-                    # SSE comment line — ignored by the EventSource parser,
-                    # keeps the connection warm through proxies.
-                    yield ": keepalive\n\n"
-                    continue
-
-                if evt is _DONE:
-                    break
-
-                if evt.get("type") == "done":
-                    pending_done = evt
-                    continue
-
-                yield sse(evt)
-                if evt.get("type") == "final":
-                    final_answer = evt.get("answer", "")
-                    image_hashes = list(evt.get("image_hashes") or [])
-
-            if verify and final_answer and image_hashes:
-                from app.services.verification_service import verify_against_figures
-                try:
-                    v = await run_in_threadpool(
-                        lambda: verify_against_figures(final_answer, image_hashes)
-                    )
-                    yield sse({"type": "verification", **v.to_dict()})
-                except Exception:
-                    logger.warning("Agent verification failed", exc_info=True)
-
-            if pending_done is not None:
-                yield sse(pending_done)
-        finally:
-            producer.cancel()
-
-    return StreamingResponse(
-        event_gen(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
-
-
 # ------------------------------------------------------------------
 # Multimodal image query endpoint
 # ------------------------------------------------------------------
@@ -240,11 +93,11 @@ def query_with_image(request: ImageQueryRequest) -> QueryResponse:
     """Accept a research question + base64 image and return a vision-grounded answer."""
     log_query(f"IMAGE: {request.question}")
     try:
-        return _llm_service.query_with_image(
-            question=request.question,
-            image_base64=request.image_base64,
-            media_type=request.media_type,
+        return pipeline.run(
+            request.question,
             include_pubmed=request.include_pubmed,
+            image_base64=request.image_base64,
+            image_media_type=request.media_type,
         )
     except Exception as exc:
         logger.exception("Unhandled error in /query/images")
@@ -274,7 +127,8 @@ async def ingest_document_endpoint(
     if len(pdf_bytes) > 50 * 1024 * 1024:  # 50 MB limit
         raise HTTPException(status_code=413, detail="PDF too large (max 50 MB)")
 
-    result = await ingest_document(pdf_bytes, file.filename or "upload.pdf")
+    with _route_guard("ingest document"):
+        result = await ingest_document(pdf_bytes, file.filename or "upload.pdf")
     return DocumentIngestResponse(
         **result,
         message=(
@@ -298,8 +152,9 @@ def get_image(image_hash: str) -> Response:
     """
     from app.storage.image_store import get_image_store
 
+    image_hash = image_hash.lower()
     # Defensive: hashes are 64 hex chars
-    if not (16 <= len(image_hash) <= 128) or any(c not in "0123456789abcdef" for c in image_hash.lower()):
+    if not (16 <= len(image_hash) <= 128) or any(c not in "0123456789abcdef" for c in image_hash):
         raise HTTPException(status_code=400, detail="Invalid image hash")
 
     loaded = get_image_store().read(image_hash)
@@ -320,144 +175,129 @@ def get_image(image_hash: str) -> Response:
 @router.get("/query/stream")
 async def query_stream(
     question: str = Query(..., min_length=1),
+    mode: str = Query("standard"),
     include_pubmed: bool = Query(False),
+    verify: bool = Query(False),
 ) -> StreamingResponse:
     """Stream a query response as Server-Sent Events.
 
-    Event types:
-      - start:     {"type":"start","question":"..."}
-      - citations: {"type":"citations","data":[...]}
-      - token:     {"type":"token","text":"..."}
-      - done:      {"type":"done","model":"...","cost":0.00,"sources":[...]}
+    Unified event protocol for both standard and research (agent) modes:
+      start:        {"type":"start","question":"..."}
+      citations:    {"type":"citations","data":[...]}           # standard only
+      thinking:     {"type":"thinking","text":"..."}            # research only
+      tool_call:    {"type":"tool_call","tool":"...","args":{},"iteration":N}  # research only
+      tool_result:  {"type":"tool_result","tool":"...","result_preview":"...","iteration":N}
+      final:        {"type":"final","answer":"...","image_hashes":[...]}       # research only
+      verification: {"type":"verification",...}                 # research + verify=true
+      token:        {"type":"token","text":"..."}               # standard only
+      done:         {"type":"done","model":"...","cost":0.00,"sources":[...],"iterations":0}
+      error:        {"type":"error","message":"..."}
     """
+    HEARTBEAT_S = 15
 
     async def event_gen() -> AsyncGenerator[str, None]:
         def sse(payload: dict) -> str:
-            return f"data: {json.dumps(payload)}\n\n"
+            return f"data: {json.dumps(payload, default=str)}\n\n"
 
-        try:
-            log_query(question)
-            yield sse({"type": "start", "question": question})
+        log_query(f"{'AGENT' if mode == 'research' else 'STREAM'}: {question}")
+        yield sse({"type": "start", "question": question})
 
-            from app.services.retrieval_service import retrieve
-            from app.services.query_engine import search_all
+        if mode == "research":
+            from app.services.agent_service import run_agent
 
-            # Run CPU-bound ML retrieval off the async event loop
-            propositions = await run_in_threadpool(lambda: retrieve(question, top_k=8))
-            sr = await run_in_threadpool(lambda: search_all(question))
+            loop = asyncio.get_running_loop()
+            queue: asyncio.Queue = asyncio.Queue()
+            _DONE = object()
+            final_answer = ""
+            image_hashes: list[str] = []
 
-            pubmed_articles: list[PubMedResult] = []
-            graph_context = LLMService._get_graph_context(sr)
-
-            # Send citations immediately — frontend shows the panel while answer streams
-            citation_data = [
-                {
-                    "text": p.text,
-                    "score": round(p.score, 4),
-                    "rerank_score": round(p.rerank_score, 4),
-                    "type": p.metadata.get("type", "knowledge"),
-                    "pmid": p.metadata.get("pmid", ""),
-                    "source": p.metadata.get("drug_name")
-                        or p.metadata.get("disease_name")
-                        or p.metadata.get("pathway_name")
-                        or p.metadata.get("topic")
-                        or p.metadata.get("filename", ""),
-                    "content_type": p.content_type,
-                    "image_hash": p.image_hash,
-                    "image_url": f"/images/{p.image_hash}" if p.image_hash else None,
-                    "page": p.metadata.get("page"),
-                    "table_markdown": (
-                        p.metadata.get("table_markdown") if p.content_type == "table" else None
-                    ),
-                }
-                for p in propositions
-            ]
-            yield sse({"type": "citations", "data": citation_data})
-
-            # Build context for the LLM prompt
-            props_schema = [
-                RetrievedPropositionSchema(
-                    text=p.text,
-                    score=p.score,
-                    rerank_score=p.rerank_score,
-                    metadata=p.metadata,
-                    content_type=p.content_type,
-                    image_hash=p.image_hash,
-                    image_url=f"/images/{p.image_hash}" if p.image_hash else None,
-                    table_markdown=(
-                        p.metadata.get("table_markdown") if p.content_type == "table" else None
-                    ),
-                )
-                for p in propositions
-            ]
-            context, sources = LLMService._build_context(
-                props_schema, sr, pubmed_articles, graph_context
-            )
-
-            system = (
-                "You are Asclepius, a scientific research assistant. "
-                "Answer using ONLY the provided context. Structure your response with sections "
-                "appropriate to the query domain (e.g., Overview, Key Mechanisms, Pathways, "
-                "Key Entities, Intervention Targets, Open Research Gaps)."
-            )
-            messages = [
-                {
-                    "role": "user",
-                    "content": (
-                        f"Context:\n{context}\n\n"
-                        f"Question: {question}\n\n"
-                        "Provide a detailed, structured scientific answer."
-                    ),
-                }
-            ]
-
-            model_used = "local"
-            cost = 0.0
-
-            if settings.anthropic_api_key:
-                from app.routing.router import stream_with_routing
-
-                for item in stream_with_routing(
-                    messages=messages,
-                    system=system,
-                    query_preview=question[:100],
-                ):
-                    if isinstance(item, dict) and item.get("_done"):
-                        model_used = item.get("model", model_used)
-                        cost = item.get("cost", 0.0)
-                    else:
-                        yield sse({"type": "token", "text": item})
-            else:
-                # Fallback: use non-streaming call and emit answer as a single chunk
-                from app.routing.router import call_with_routing
-
-                answer, model_used, cost = call_with_routing(
-                    messages=messages,
-                    system=system,
-                    query_preview=question[:100],
-                )
-                if answer:
-                    # Simulate streaming by word to keep UX consistent
-                    for word in answer.split(" "):
-                        yield sse({"type": "token", "text": word + " "})
-                else:
-                    # Pure local fallback
-                    local_resp = LLMService._local_answer(
-                        question, props_schema, sr, pubmed_articles, graph_context
+            def _producer() -> None:
+                try:
+                    for evt in run_agent(question):
+                        loop.call_soon_threadsafe(queue.put_nowait, evt.to_dict())
+                except Exception:
+                    logger.exception("Agent loop crashed")
+                    loop.call_soon_threadsafe(
+                        queue.put_nowait,
+                        {"type": "error", "message": "Internal agent error"},
                     )
-                    for word in local_resp.answer.split(" "):
-                        yield sse({"type": "token", "text": word + " "})
+                finally:
+                    loop.call_soon_threadsafe(queue.put_nowait, _DONE)
 
-            yield sse({
-                "type": "done",
-                "model": model_used,
-                "cost": cost,
-                "sources": sources[:20],
-            })
+            producer = asyncio.create_task(run_in_threadpool(_producer))
+            producer.add_done_callback(lambda t: t.cancelled() or t.exception())
+            pending_done: dict | None = None
+            try:
+                while True:
+                    try:
+                        evt = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_S)
+                    except asyncio.TimeoutError:
+                        yield ": keepalive\n\n"
+                        continue
 
-        except Exception:
-            logger.exception("Streaming error")
-            yield sse({"type": "error", "message": "Internal streaming error"})
+                    if evt is _DONE:
+                        break
+
+                    etype = evt.get("type")
+                    if etype == "done":
+                        pending_done = evt
+                        continue
+
+                    yield sse(evt)
+                    if etype == "final":
+                        final_answer = evt.get("answer", "")
+                        image_hashes = list(evt.get("image_hashes") or [])
+
+                if verify and final_answer and image_hashes:
+                    from app.services.verification_service import verify_against_figures
+                    try:
+                        v = await run_in_threadpool(
+                            lambda: verify_against_figures(final_answer, image_hashes)
+                        )
+                        yield sse({"type": "verification", **v.to_dict()})
+                    except Exception:
+                        logger.warning("Agent verification failed", exc_info=True)
+
+                if pending_done is not None:
+                    yield sse({
+                        "type": "done",
+                        "model": pending_done.get("model", ""),
+                        "cost": pending_done.get("cost_usd", 0),
+                        "sources": [],
+                        "iterations": pending_done.get("iterations", 0),
+                    })
+            finally:
+                producer.cancel()
+        else:
+            try:
+                loop = asyncio.get_running_loop()
+                queue: asyncio.Queue = asyncio.Queue()
+                _DONE = object()
+
+                def _producer() -> None:
+                    try:
+                        for event_dict in pipeline.stream(question, include_pubmed=include_pubmed):
+                            loop.call_soon_threadsafe(queue.put_nowait, event_dict)
+                    except Exception as exc:
+                        loop.call_soon_threadsafe(queue.put_nowait, exc)
+                    finally:
+                        loop.call_soon_threadsafe(queue.put_nowait, _DONE)
+
+                stream_task = asyncio.create_task(run_in_threadpool(_producer))
+                stream_task.add_done_callback(lambda t: t.cancelled() or t.exception())
+                try:
+                    while True:
+                        item = await queue.get()
+                        if item is _DONE:
+                            break
+                        if isinstance(item, Exception):
+                            raise item
+                        yield sse(item)
+                finally:
+                    stream_task.cancel()
+            except Exception:
+                logger.exception("Streaming error")
+                yield sse({"type": "error", "message": "Internal streaming error"})
 
     return StreamingResponse(
         event_gen(),
@@ -480,7 +320,8 @@ def compare_diseases(request: CompareRequest) -> CompareResponse:
     from app.services.comparative_service import compare_diseases as do_compare
 
     log_query(f"COMPARE: {request.disease_a} vs {request.disease_b}")
-    result = do_compare(request.disease_a, request.disease_b)
+    with _route_guard("/compare"):
+        result = do_compare(request.disease_a, request.disease_b)
     if result is None:
         raise HTTPException(
             status_code=404,
@@ -508,7 +349,8 @@ def generate_hypotheses(request: HypothesisRequest) -> HypothesisResponse:
     from app.services.hypothesis_service import generate_hypotheses as do_generate
 
     log_query(f"HYPOTHESIS: {request.topic}")
-    result = do_generate(request.topic, max_hypotheses=request.max_hypotheses)
+    with _route_guard("/hypotheses"):
+        result = do_generate(request.topic, max_hypotheses=request.max_hypotheses)
     return HypothesisResponse(
         topic=result["topic"],
         hypotheses=[HypothesisEntry(**h) for h in result["hypotheses"]],
@@ -652,12 +494,19 @@ def get_dossier(dossier_id: str) -> dict:
 def add_to_dossier(dossier_id: str, request: AddToDossierRequest) -> dict:
     """Add a query result to a dossier."""
     from app.services.dossier_service import dossier_store
-    entry = dossier_store.add_to_dossier(
-        dossier_id=dossier_id,
-        query=request.query,
-        response=request.response,
-        notes=request.notes,
-    )
+    dossier = dossier_store.get_dossier(dossier_id)
+    if not dossier:
+        raise HTTPException(status_code=404, detail="Dossier not found")
+    try:
+        entry = dossier_store.add_to_dossier(
+            dossier_id=dossier_id,
+            query=request.query,
+            response=request.response,
+            notes=request.notes,
+        )
+    except Exception:
+        logger.exception("Failed to add to dossier")
+        raise HTTPException(status_code=500, detail="Failed to save entry")
     if entry is None:
         raise HTTPException(status_code=404, detail="Dossier not found")
     return entry
@@ -667,12 +516,9 @@ def add_to_dossier(dossier_id: str, request: AddToDossierRequest) -> dict:
 def update_entry_notes(dossier_id: str, entry_id: str, request: UpdateNotesRequest) -> dict:
     """Update notes on a dossier entry."""
     from app.services.dossier_service import dossier_store
-    dossier = dossier_store.get_dossier(dossier_id)
-    if not dossier:
-        raise HTTPException(status_code=404, detail="Dossier not found")
-    success = dossier.update_entry_notes(entry_id, request.notes)
+    success = dossier_store.update_entry_notes(dossier_id, entry_id, request.notes)
     if not success:
-        raise HTTPException(status_code=404, detail="Entry not found")
+        raise HTTPException(status_code=404, detail="Dossier or entry not found")
     return {"status": "updated"}
 
 

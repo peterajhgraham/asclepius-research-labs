@@ -8,7 +8,6 @@ import {
   type FormEvent,
   type DragEvent,
 } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -16,7 +15,6 @@ import {
   compareDiseases,
   generateHypotheses,
   submitImageQuery,
-  submitQuery,
   type CompareResponse,
   type HypothesisResponse,
   type QueryResponse,
@@ -36,9 +34,12 @@ import { MODE_CONFIG } from "@/components/ModeSwitcher";
 
 import AgentTrace from "@/components/AgentTrace";
 import AuthHeader from "@/components/AuthHeader";
+import GraphExplorer from "@/components/GraphExplorer";
 import CitationPanel from "@/components/CitationPanel";
 import CompareCard from "@/components/CompareCard";
 import DiseaseReportCard from "@/components/DiseaseReportCard";
+import DiseaseReportSkeleton from "@/components/DiseaseReportSkeleton";
+import DossierPanel from "@/components/DossierPanel";
 import FrozenStreamEntry from "@/components/FrozenStreamEntry";
 import HypothesisCard from "@/components/HypothesisCard";
 import ImageAnalysisCard from "@/components/ImageAnalysisCard";
@@ -54,46 +55,46 @@ import TargetRiskCard from "@/components/TargetRiskCard";
 // ------------------------------------------------------------------
 const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
   "disease-report": [
-    "Alzheimer's disease",
-    "Non-small cell lung cancer",
     "Rheumatoid arthritis",
-    "Parkinson's disease",
-    "Type 2 diabetes",
-    "Glioblastoma",
+    "Systemic lupus erythematosus",
+    "Multiple sclerosis",
+    "Psoriatic arthritis",
+    "ANCA-associated vasculitis",
+    "Sjögren's syndrome",
   ],
   "target-risk": [
-    "BACE1 in Alzheimer's disease",
-    "PD-1 in Non-small cell lung cancer",
     "TNF-alpha in Rheumatoid arthritis",
-    "KRAS in Colorectal cancer",
-    "LRRK2 in Parkinson's disease",
-    "EGFR in Glioblastoma",
+    "IL-17A in Psoriatic arthritis",
+    "IFNAR1 in Systemic lupus erythematosus",
+    "CD20 in ANCA-associated vasculitis",
+    "JAK1 in Psoriasis",
+    "C5 in Myasthenia gravis",
   ],
   standard: [
-    "mRNA vaccine immune response mechanisms",
-    "Tau aggregation in Alzheimer's disease",
-    "CRISPR off-target effects in gene therapy",
-    "Gut microbiome and metabolic syndrome",
-    "Neuroinflammation in Parkinson's disease",
-    "Climate change effects on vector-borne diseases",
+    "IL-23/IL-17 axis in psoriatic arthritis enthesitis",
+    "Treg dysfunction mechanisms in systemic lupus erythematosus",
+    "HLA-B27 misfolding and UPR in ankylosing spondylitis",
+    "BAFF/BLyS signaling in Sjögren's syndrome B cell hyperactivity",
+    "NOD2 variants and autophagy defects in Crohn's disease",
+    "Complement C1q deficiency and SLE pathogenesis",
   ],
   research: [
-    "Compare TNF blockade vs IL-17 blockade in psoriatic arthritis across efficacy, safety, and biomarkers",
-    "What downstream targets of JAK1 have published 2024-2025 trial data?",
-    "Map upstream interventions to suppress STAT3 in tumor microenvironments, then cross-reference with approved drugs",
-    "How does anti-amyloid therapy compare to anti-tau across mechanism, trial endpoints, and adverse events?",
+    "Compare TNF blockade vs IL-17 blockade in psoriatic arthritis — efficacy, safety, and predictive biomarkers",
+    "What downstream effects propagate through the JAK-STAT network when JAK1 is inhibited in rheumatoid synovium?",
+    "Map upstream interventions to suppress the IL-23/IL-17 axis in ankylosing spondylitis enthesitis, then rank by evidence tier",
+    "How do anti-CD20 and anti-BLyS mechanisms of action differ in SLE across B cell subsets, trial endpoints, and renal outcomes?",
   ],
   compare: [
-    "Alzheimer's disease vs Parkinson's disease",
-    "Rheumatoid arthritis vs Lupus",
-    "Type 1 vs Type 2 diabetes",
+    "Rheumatoid arthritis vs Psoriatic arthritis",
+    "Systemic lupus erythematosus vs Sjögren's syndrome",
     "Crohn's disease vs Ulcerative colitis",
+    "Multiple sclerosis vs ANCA-associated vasculitis",
   ],
   hypothesis: [
-    "Tau propagation in Alzheimer's disease",
-    "JAK-STAT pathway in rheumatoid arthritis",
-    "Ferroptosis in cancer therapy resistance",
-    "Gut-brain axis in Parkinson's disease",
+    "JAK-STAT pathway dysregulation in rheumatoid arthritis synovium",
+    "IL-23/IL-17 axis at entheseal sites in psoriatic arthritis",
+    "Type I interferon signature in systemic lupus erythematosus flares",
+    "Gut-joint axis in ankylosing spondylitis",
   ],
 };
 
@@ -112,6 +113,7 @@ async function ingestDocument(
 
 // ------------------------------------------------------------------
 // Wrapper that attributes non-streaming response cards to the engine
+// TODO: extract to components/AiResponseWrapper.tsx
 // ------------------------------------------------------------------
 function AiResponseWrapper({ children, label }: { children: React.ReactNode; label: string }) {
   return (
@@ -128,6 +130,7 @@ function AiResponseWrapper({ children, label }: { children: React.ReactNode; lab
 
 // ------------------------------------------------------------------
 // Inline image response card (non-streaming image query result)
+// TODO: extract to components/ImageResponseCard.tsx
 // ------------------------------------------------------------------
 function ImageResponseCard({ response }: { response: QueryResponse }) {
   return (
@@ -175,7 +178,7 @@ function ImageResponseCard({ response }: { response: QueryResponse }) {
 
 // DMI reports take a domain "vertical". The per-mode domain selector was removed
 // for a consistent input bar, so it is fixed to the established default.
-const DMI_VERTICAL = "general";
+const DMI_VERTICAL = "immunology";
 
 // ------------------------------------------------------------------
 // Main Page
@@ -190,6 +193,8 @@ export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(false);
   const [panelCitations, setPanelCitations] = useState<Citation[]>([]);
+  const [activeDossierId, setActiveDossierId] = useState<string | null>(null);
+  const [showGraph, setShowGraph] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [uploadedPdf, setUploadedPdf] = useState<UploadedPdf | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -206,10 +211,12 @@ export default function HomePage() {
   const { sessions, activeSessionId, selectSession, deleteSession, newSession } =
     useSessionManager(entries, mode);
 
-  // Scroll to bottom on new content
+  // Scroll to bottom only when the entry count changes, not on every streaming token
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries, streaming.text, agent.steps.length, agent.toolCalls.length, agent.finalAnswer]);
+    if (entries.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [entries.length]);
 
   // Freeze streaming entry when stream completes
   useEffect(() => {
@@ -393,6 +400,8 @@ export default function HomePage() {
       if (e) e.preventDefault();
       const trimmed = question.trim();
       if (!trimmed || loading) return;
+      if (mode === "target-risk" && !targetName.trim()) return;
+      if (mode === "compare" && !diseaseB.trim()) return;
 
       let displayQ = trimmed;
       if (mode === "target-risk") displayQ = `${targetName.trim()} in ${trimmed}`;
@@ -478,7 +487,7 @@ export default function HomePage() {
         } else if (mode === "compare") {
           const result = await compareDiseases({
             disease_a: trimmed,
-            disease_b: diseaseB.trim() || trimmed,
+            disease_b: diseaseB.trim(),
           });
           setEntries((prev) =>
             prev.map((e) =>
@@ -549,21 +558,14 @@ export default function HomePage() {
       onDragLeave={handleDragLeave}
     >
       {/* Drag overlay */}
-      <AnimatePresence>
-        {isDragging && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm border-2 border-dashed border-green/40"
-          >
-            <div className="text-center">
-              <p className="font-display text-2xl text-ink">Drop to attach</p>
-              <p className="text-sm text-muted mt-1 font-mono">Images · PDF documents</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isDragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm border-2 border-dashed border-green/40 animate-fade-in">
+          <div className="text-center">
+            <p className="font-display text-2xl text-ink">Drop to attach</p>
+            <p className="text-sm text-muted mt-1 font-mono">Images · PDF documents</p>
+          </div>
+        </div>
+      )}
 
       <Sidebar
         sessions={sessions}
@@ -573,6 +575,8 @@ export default function HomePage() {
         onDeleteSession={handleDeleteSession}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        onOpenDossier={(id) => { setActiveDossierId(id); setShowCitationPanel(false); setShowGraph(false); }}
+        onOpenGraph={() => { setShowGraph(true); setShowCitationPanel(false); setActiveDossierId(null); }}
       />
 
       <main className="flex flex-1 min-w-0 flex-col">
@@ -601,14 +605,29 @@ export default function HomePage() {
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
 
+          {/* Knowledge Graph view */}
+          {showGraph && (
+            <div className="relative mx-auto max-w-5xl px-4 py-6 animate-fade-in">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-lg text-ink">Knowledge Graph</h2>
+                <button
+                  onClick={() => setShowGraph(false)}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted hover:bg-bg-3 hover:text-ink-2 transition"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                  Close
+                </button>
+              </div>
+              <GraphExplorer />
+            </div>
+          )}
+
           {/* Landing */}
-          {isEmpty && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 py-16 text-center"
-            >
+          {!showGraph && isEmpty && (
+            <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 py-16 text-center animate-fade-in">
               {/* Brand mark */}
               <Logo size={32} />
 
@@ -642,20 +661,18 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* Results */}
-          {!isEmpty && (
+          {!showGraph && !isEmpty && (
             <div className="mx-auto max-w-4xl px-4 py-8 space-y-8 sm:px-6">
               {entries.map((entry) => {
                 const isCurrentlyStreaming = entry.id === streamingEntryId;
                 return (
-                  <motion.div
+                  <div
                     key={entry.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
+                    className="animate-fade-in"
                   >
                     {/* User prompt — Claude Code `>` style */}
                     <div className="mb-4">
@@ -709,43 +726,41 @@ export default function HomePage() {
 
                       {/* Research agent: live stream or frozen replay */}
                       {entry.id === agentEntryId && (
-                        <AgentTrace state={agent} question={entry.question} />
+                        <AgentTrace state={agent} />
                       )}
                       {entry.id !== agentEntryId && entry.agentState && (
-                        <AgentTrace state={entry.agentState} question={entry.question} />
+                        <AgentTrace state={entry.agentState} />
                       )}
 
                       {entry.loading && !isCurrentlyStreaming && entry.id !== agentEntryId && (
-                        <div className="flex items-center gap-2 text-[11px]">
-                          <span className="cc-dot is-active" aria-hidden="true" />
-                          <Logo size={13} />
-                          <span className="hx-spin" />
-                          <span className="font-mono text-muted">
-                            {entry.mode === "disease-report"
-                              ? "Mapping disease mechanisms…"
-                              : entry.mode === "target-risk"
-                              ? "Assessing target tractability…"
-                              : entry.mode === "compare"
-                              ? "Running comparative analysis…"
-                              : entry.mode === "hypothesis"
-                              ? "Generating hypotheses…"
-                              : entry.imagePreviewUrl
-                              ? "Analyzing image…"
-                              : "Reasoning across literature…"}
-                          </span>
-                        </div>
+                        (entry.mode === "disease-report" || entry.mode === "target-risk") ? (
+                          <DiseaseReportSkeleton mode={entry.mode} />
+                        ) : (
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="cc-dot is-active" aria-hidden="true" />
+                            <Logo size={13} />
+                            <span className="hx-spin" />
+                            <span className="font-mono text-muted">
+                              {entry.mode === "compare"
+                                ? "Running comparative analysis…"
+                                : entry.mode === "hypothesis"
+                                ? "Generating hypotheses…"
+                                : entry.imagePreviewUrl
+                                ? "Analyzing image…"
+                                : "Reasoning across literature…"}
+                            </span>
+                          </div>
+                        )
                       )}
 
-                      {entry.imageAnalysis && (
+                      {entry.imageAnalysis ? (
                         <ImageAnalysisCard
                           analysis={entry.imageAnalysis}
                           previewUrl={entry.imagePreviewUrl}
                         />
-                      )}
-
-                      {entry.response && entry.imagePreviewUrl && (
+                      ) : entry.response && entry.imagePreviewUrl ? (
                         <ImageResponseCard response={entry.response} />
-                      )}
+                      ) : null}
 
                       {entry.response &&
                         entry.mode === "standard" &&
@@ -777,7 +792,7 @@ export default function HomePage() {
                         </AiResponseWrapper>
                       )}
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
               <div ref={bottomRef} />
@@ -811,6 +826,11 @@ export default function HomePage() {
         citations={panelCitations}
         isOpen={showCitationPanel}
         onClose={() => setShowCitationPanel(false)}
+      />
+
+      <DossierPanel
+        dossierId={activeDossierId}
+        onClose={() => setActiveDossierId(null)}
       />
     </div>
   );

@@ -18,11 +18,8 @@ _COMPLEX_PATTERNS = [
     r"\bdifferenti\w+\b",   # differentiate, differentiation
 ]
 
-_MULTI_ENTITY_THRESHOLD = 3  # word count heuristic for named entities
-
-
 def classify_complexity(query: str) -> str:
-    """Classify query complexity as 'simple', 'medium', or 'complex'.
+    """Classify query complexity as 'simple' or 'complex'.
 
     Used to pre-select the starting LLM tier before routing.
     """
@@ -31,13 +28,11 @@ def classify_complexity(query: str) -> str:
     complex_hits = sum(1 for p in _COMPLEX_PATTERNS if re.search(p, lower))
     word_count = len(query.split())
 
-    if complex_hits >= 2 or word_count > 20:
+    if complex_hits >= 1 or word_count > 10:
         return "complex"
-    if complex_hits == 1 or word_count > 10:
-        return "medium"
     return "simple"
 
 
 def starting_tier(complexity: str) -> int:
     """Return the tier index (0=Haiku, 1=Sonnet, 2=Opus) to start routing at."""
-    return {"simple": 0, "medium": 0, "complex": 1}.get(complexity, 0)
+    return {"simple": 0, "complex": 1}.get(complexity, 0)

@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from .propagation import CausalPropagator
-from .scoring_utils import normalize_scores
 
 
 class InterventionRanker:

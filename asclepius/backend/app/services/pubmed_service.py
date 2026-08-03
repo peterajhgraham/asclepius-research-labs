@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -41,7 +42,7 @@ _VERB_TO_EDGE = {
     "blocks": "inhibits", "block": "inhibits",
     "attenuates": "inhibits", "attenuate": "inhibits",
     "binds": "binds", "bind": "binds",
-    "modulates": "activates", "modulate": "activates",
+    "modulates": "modulates", "modulate": "modulates",
 }
 
 
@@ -111,11 +112,21 @@ class PubMedService:
         # Records the last transport/parse failure so callers can tell a genuine
         # "0 results" apart from "couldn't reach NCBI". Reset at the start of
         # every search(); None means the last search completed cleanly.
-        self.last_error: Optional[str] = None
+        # Thread-local so concurrent requests cannot clobber each other's error.
+        self._local = threading.local()
         self._session = requests.Session()
         self._session.headers.update({
             "User-Agent": "AsclepiusResearchLabs/1.0",
         })
+
+    @property
+    def last_error(self) -> Optional[str]:
+        """Per-thread last error; None when the last search completed cleanly."""
+        return getattr(self._local, "last_error", None)
+
+    @last_error.setter
+    def last_error(self, value: Optional[str]) -> None:
+        self._local.last_error = value
 
     def search(
         self,
@@ -160,8 +171,8 @@ class PubMedService:
         relevance for our domain.
         """
         enriched = (
-            f"({topic}) AND (autoimmune[MeSH] OR immune[MeSH] OR "
-            f"immunology[MeSH] OR cytokine OR signaling pathway)"
+            f"({topic}) AND (autoimmune[MeSH Terms] OR immune[MeSH Terms] OR "
+            f"immunology[MeSH Terms] OR cytokine OR signaling pathway)"
         )
         return self.search(enriched, max_results=max_results)
 
@@ -351,9 +362,10 @@ class PubMedService:
                 return resp
             except requests.RequestException as exc:
                 last_exc = exc
-                wait = 2 ** attempt
-                logger.debug("Retry %d/%d after %ds: %s", attempt + 1, self.max_retries, wait, exc)
-                time.sleep(wait)
+                if attempt < self.max_retries - 1:
+                    wait = 2 ** attempt
+                    logger.debug("Retry %d/%d after %ds: %s", attempt + 1, self.max_retries, wait, exc)
+                    time.sleep(wait)
         raise requests.HTTPError(
             f"All {self.max_retries} attempts failed for {url}"
         ) from last_exc

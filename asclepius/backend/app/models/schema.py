@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 
 # ------------------------------------------------------------------
@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language research question")
-    mode: str = Field("standard", description="Query mode: standard | research (agent) | hypothesis | compare")
+    mode: str = Field("standard", description="Query mode: standard | research (uses the tool-calling research agent)")
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
     verify: bool = Field(False, description="Run figure-grounded verification pass after generation (multimodal trust check)")
 
@@ -16,7 +16,7 @@ class QueryRequest(BaseModel):
 class ImageQueryRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Research question about the image")
     image_base64: str = Field(..., description="Base64-encoded image data")
-    media_type: str = Field("image/jpeg", description="Image MIME type: image/jpeg, image/png, image/gif, image/webp")
+    media_type: Literal["image/jpeg", "image/png", "image/gif", "image/webp"] = Field("image/jpeg", description="Image MIME type")
     include_pubmed: bool = Field(False, description="Whether to include live PubMed results")
 
 
@@ -115,9 +115,9 @@ class HypothesisEntry(BaseModel):
     hypothesis: str
     category: str
     rationale: str
-    experimental_design: dict[str, Any]
-    biomarkers: list[str]
-    confounders: list[str]
+    experimental_design: dict[str, Any] = Field(default_factory=dict)
+    biomarkers: list[str] = Field(default_factory=list)
+    confounders: list[str] = Field(default_factory=list)
     confidence: str
     supporting_evidence: list[str] = Field(default_factory=list)
 
@@ -166,7 +166,7 @@ class InterventionRankRequest(BaseModel):
 
 class CausalPropagateRequest(BaseModel):
     seed_scores: dict[str, float] = Field(..., description="Seed node scores (positive=activating, negative=inhibitory)")
-    direction: str = Field("downstream", description="Propagation direction: downstream, upstream, or both")
+    direction: Literal["downstream", "upstream", "both"] = Field("downstream", description="Propagation direction")
 
 
 # ------------------------------------------------------------------

@@ -185,7 +185,9 @@ export default function CompareCard({ data }: CompareCardProps) {
                 {disease.disease_name}
               </h4>
             </div>
-            <p className="text-xs text-gray-400 mb-3 leading-relaxed">{disease.description.slice(0, 180)}…</p>
+            <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+              {disease.description.length > 180 ? `${disease.description.slice(0, 180)}…` : disease.description}
+            </p>
             {disease.prevalence && (
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-[10px] text-muted font-medium uppercase tracking-wider">Prevalence</span>

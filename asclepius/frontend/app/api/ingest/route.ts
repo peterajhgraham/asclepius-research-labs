@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BACKEND_URL } from "@/lib/backend";
+import { BACKEND_URL, safeParse } from "@/lib/backend";
+
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +10,7 @@ export async function POST(request: NextRequest) {
       method: "POST",
       body: formData,
     });
-    const data = await res.json();
+    const data = await safeParse(res);
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

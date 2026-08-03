@@ -1,20 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Citation } from "@/lib/types";
 
-export interface Citation {
-  text: string;
-  score: number;
-  rerank_score: number;
-  type: string;
-  pmid: string;
-  source: string;
-  content_type?: "text" | "image" | "table";
-  image_hash?: string | null;
-  image_url?: string | null;
-  page?: number | null;
-  table_markdown?: string | null;
-}
+export type { Citation };
 
 export interface StreamDonePayload {
   model: string;
@@ -46,8 +35,9 @@ export function useStreamingQuery() {
   });
   const abortRef = useRef<AbortController | null>(null);
 
-  const stream = useCallback(async (question: string) => {
-    // Abort any in-flight stream
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  const stream = useCallback(async (question: string, includePubmed?: boolean) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -55,7 +45,9 @@ export function useStreamingQuery() {
     setState({ text: "", citations: [], done: null, isStreaming: true, error: null });
 
     try {
-      const url = `/api/query/stream?question=${encodeURIComponent(question)}`;
+      const url =
+        `/api/query?mode=standard&question=${encodeURIComponent(question)}` +
+        (includePubmed ? "&include_pubmed=true" : "");
       const response = await fetch(url, { signal: controller.signal });
 
       if (!response.ok || !response.body) {
@@ -84,6 +76,7 @@ export function useStreamingQuery() {
           const raw = part.slice(6);
           if (raw === "[DONE]") {
             setState((s) => ({ ...s, isStreaming: false }));
+            reader.cancel();
             return;
           }
           try {
@@ -122,6 +115,7 @@ export function useStreamingQuery() {
           }
         }
       }
+      setState((s) => s.isStreaming ? { ...s, isStreaming: false } : s);
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setState((s) => ({

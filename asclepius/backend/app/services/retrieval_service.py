@@ -36,7 +36,11 @@ def get_pipeline() -> RetrievalPipeline:
             return _pipeline
         if not _build_started:
             _build_started = True
-            _pipeline = _build_pipeline()
+            try:
+                _pipeline = _build_pipeline()
+            except Exception:
+                logger.warning("Pipeline build failed; will retry on next request", exc_info=True)
+                _build_started = False
     return _pipeline or RetrievalPipeline()
 
 
@@ -102,38 +106,42 @@ def _index_from_db(pipeline: RetrievalPipeline) -> int:
 
         image_store = get_image_store()
         for row in rows:
-            if has_mm:
-                text, meta_json, content_type, image_hash, clip_blob = row
-                content_type = content_type or "text"
-            else:
-                text, meta_json = row
-                content_type, image_hash, clip_blob = "text", None, None
+            try:
+                if has_mm:
+                    text, meta_json, content_type, image_hash, clip_blob = row
+                    content_type = content_type or "text"
+                else:
+                    text, meta_json = row
+                    content_type, image_hash, clip_blob = "text", None, None
 
-            meta: dict = json.loads(meta_json) if meta_json else {}
-            meta["domain"] = meta.get("domain") or "general"
+                meta: dict = json.loads(meta_json) if meta_json else {}
+                meta["domain"] = meta.get("domain") or "general"
 
-            clip_emb = None
-            image_bytes = None
-            if content_type in ("image", "table") and clip_blob:
-                try:
-                    clip_emb = np.frombuffer(clip_blob, dtype=np.float32).copy()
-                except Exception:
-                    clip_emb = None
-            # Only load image bytes if we don't have a cached embedding —
-            # otherwise the CLIP index just uses the precomputed vector.
-            if content_type == "image" and clip_emb is None and image_hash:
-                loaded = image_store.read(image_hash)
-                if loaded is not None:
-                    image_bytes = loaded[0]
+                clip_emb = None
+                image_bytes = None
+                if content_type in ("image", "table") and clip_blob:
+                    try:
+                        clip_emb = np.frombuffer(clip_blob, dtype=np.float32).copy()
+                    except Exception:
+                        clip_emb = None
+                # Only load image bytes if we don't have a cached embedding —
+                # otherwise the CLIP index just uses the precomputed vector.
+                if content_type == "image" and clip_emb is None and image_hash:
+                    loaded = image_store.read(image_hash)
+                    if loaded is not None:
+                        image_bytes = loaded[0]
 
-            pipeline.add_document(
-                text=text,
-                metadata=meta,
-                content_type=content_type,
-                image_hash=image_hash,
-                image_bytes=image_bytes,
-                clip_embedding=clip_emb,
-            )
+                pipeline.add_document(
+                    text=text,
+                    metadata=meta,
+                    content_type=content_type,
+                    image_hash=image_hash,
+                    image_bytes=image_bytes,
+                    clip_embedding=clip_emb,
+                )
+            except Exception:
+                logger.warning("Skipping malformed proposition row", exc_info=True)
+                continue
         return len(rows)
     except Exception:
         logger.warning("DB load failed — will use bundled datasets", exc_info=True)

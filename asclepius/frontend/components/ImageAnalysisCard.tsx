@@ -1,7 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
-import ClaudeBadge from "@/components/ClaudeBadge";
+import { Logo } from "@/components/Logo";
 
 interface Props {
   analysis: string;
@@ -10,11 +9,7 @@ interface Props {
 
 export default function ImageAnalysisCard({ analysis, previewUrl }: Props) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mt-4 rounded-lg border border-surface-3 bg-surface-1 overflow-hidden"
-    >
+    <div className="mt-4 rounded-lg border border-surface-3 bg-surface-1 overflow-hidden animate-fade-in">
       <div className="flex items-center gap-2 border-b border-surface-3 px-4 py-2.5">
         <svg
           width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -26,8 +21,9 @@ export default function ImageAnalysisCard({ analysis, previewUrl }: Props) {
           <polyline points="21 15 16 10 5 21" />
         </svg>
         <span className="text-xs font-semibold text-gray-200 tracking-tight">Visual Analysis</span>
-        <span className="ml-auto">
-          <ClaudeBadge model="sonnet" />
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] text-faint">
+          <Logo size={11} />
+          <span>sonnet · vision</span>
         </span>
       </div>
       <div className="p-4 flex gap-4">
@@ -40,6 +36,6 @@ export default function ImageAnalysisCard({ analysis, previewUrl }: Props) {
         )}
         <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{analysis}</p>
       </div>
-    </motion.div>
+    </div>
   );
 }

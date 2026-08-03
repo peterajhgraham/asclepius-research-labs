@@ -265,7 +265,7 @@ export default function HypothesisCard({ data }: { data: HypothesisResponse }) {
       {/* Hypotheses list */}
       <div className="space-y-2">
         {filtered.map((h, i) => (
-          <SingleHypothesis key={i} h={h} index={data.hypotheses.indexOf(h)} />
+          <SingleHypothesis key={h.hypothesis.slice(0, 80)} h={h} index={i} />
         ))}
       </div>
 

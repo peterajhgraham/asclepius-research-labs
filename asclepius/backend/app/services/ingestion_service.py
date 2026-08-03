@@ -23,6 +23,7 @@ previously-indexed documents.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -92,7 +93,7 @@ async def ingest_document(
                 image_bytes, media_type = rendered
                 image_hash, _path, _mt = image_store.save(image_bytes, media_type)
                 if clip is not None:
-                    clip_emb = clip.encode_image(image_bytes)
+                    clip_emb = await asyncio.to_thread(clip.encode_image, image_bytes)
 
         # The "text" of a table proposition is its markdown rendering — this
         # is what BM25 and the dense text encoder will index against. It also

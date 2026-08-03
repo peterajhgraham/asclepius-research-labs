@@ -43,14 +43,11 @@ def extract_propositions(
 
 
 def _extract_with_haiku(text: str, metadata: dict[str, Any]) -> list[dict[str, Any]]:
-    import anthropic
+    from app.core.ai_client import get_client
 
-    from app.core.config import settings
-
-    if not settings.anthropic_api_key:
+    client = get_client()
+    if client is None:
         raise ValueError("ANTHROPIC_API_KEY not set")
-
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     chunks = chunk_text(text, chunk_size=400, overlap=50)
     all_props: list[dict[str, Any]] = []
 

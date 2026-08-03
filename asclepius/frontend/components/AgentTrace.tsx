@@ -3,11 +3,10 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { motion, AnimatePresence } from "framer-motion";
 
 import { Logo } from "@/components/Logo";
 import { PROSE_CLS, modelDisplayName } from "@/lib/utils";
-import type { AgentState, AgentToolCall, AgentToolResult } from "@/hooks/useAgentStream";
+import type { AgentState, AgentToolCall, AgentToolResult } from "@/lib/types";
 
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: "search knowledge base",
@@ -27,7 +26,6 @@ const VERDICT_STYLE: Record<string, { label: string; cls: string }> = {
 
 interface Props {
   state: AgentState;
-  question?: string;
 }
 
 /** Render a tool call's args inline, terminal-style: name(key: value, …). */
@@ -131,7 +129,7 @@ export default function AgentTrace({ state }: Props) {
         <span className="font-mono text-faint">· {modelDisplayName(model)}</span>
         {state.done && (
           <span className="ml-auto font-mono tabular-nums text-faint">
-            {state.done.iterations} iter · ${state.done.cost_usd.toFixed(4)}
+            {state.done.iterations} iter · ${(state.done.cost_usd ?? 0).toFixed(4)}
           </span>
         )}
         {state.isStreaming && <span className="hx-spin ml-auto" aria-label="Working" />}
@@ -155,15 +153,8 @@ export default function AgentTrace({ state }: Props) {
           <span className="text-faint">· tool calls</span>
         </button>
 
-        <AnimatePresence initial={false}>
           {traceOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="overflow-hidden"
-            >
+            <div className="overflow-hidden animate-fade-in">
               <div className="border-t border-line px-3 py-2">
                 {iters.map((iter, idx) => {
                   const g = grouped.get(iter)!;
@@ -176,7 +167,8 @@ export default function AgentTrace({ state }: Props) {
                         </p>
                       )}
                       {g.calls.map((c, i) => {
-                        const result = g.results.find((r) => r.tool === c.tool);
+                        const sameToolBefore = g.calls.slice(0, i).filter((x) => x.tool === c.tool).length;
+                        const result = g.results.filter((r) => r.tool === c.tool)[sameToolBefore];
                         const active =
                           state.isStreaming && isLastIter && i === g.calls.length - 1;
                         return (
@@ -193,9 +185,8 @@ export default function AgentTrace({ state }: Props) {
                   </p>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </div>
 
       {/* Final answer */}
@@ -224,7 +215,7 @@ export default function AgentTrace({ state }: Props) {
             {state.verification.images_inspected > 0 && (
               <span className="font-mono opacity-70">
                 · {state.verification.images_inspected} figure{state.verification.images_inspected !== 1 ? "s" : ""} inspected
-                · conf {(state.verification.confidence * 100).toFixed(0)}%
+                · conf {((state.verification.confidence ?? 0) * 100).toFixed(0)}%
               </span>
             )}
           </div>

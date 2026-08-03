@@ -19,7 +19,7 @@ def deduplicate_pmids(pmids: list[str]) -> list[str]:
 
 def extract_pmids_from_text(text: str) -> list[str]:
     """Extract PMID numbers from free text (e.g. 'PMID:12345')."""
-    matches = re.findall(r"PMID[:\s]*(\d{6,9})", text, re.IGNORECASE)
+    matches = re.findall(r"PMID[:\s]*(\d{1,9})", text, re.IGNORECASE)
     return deduplicate_pmids(matches)
 
 

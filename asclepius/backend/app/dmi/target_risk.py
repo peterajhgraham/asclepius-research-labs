@@ -2,10 +2,9 @@
 
 Pipeline:
 1. Fetch target-specific literature
-2. Retrieve relevant abstracts
-3. Extract target assessment (LLM or fallback)
-4. Apply heuristic scoring rules
-5. Return structured risk report
+2. Extract target assessment (LLM or fallback) on all articles
+3. Apply heuristic scoring rules
+4. Return structured risk report
 """
 
 from __future__ import annotations
@@ -16,8 +15,7 @@ from app.dmi.schemas import (
     HistoricalFailure,
     TargetRiskResponse,
 )
-from app.dmi.pubmed import fetch_target_literature
-from app.dmi.retriever import SimpleRetriever
+from app.dmi.pubmed import fetch_target_literature, fetch_preprints
 from app.dmi.extractor import extract_target_assessment
 from app.dmi.scoring import (
     compute_mechanistic_risk,
@@ -42,8 +40,10 @@ def generate_target_risk_report(
         vertical,
     )
 
-    # 1. Fetch literature
+    # 1. Fetch literature (PubMed + bioRxiv/medRxiv preprints)
     articles = fetch_target_literature(disease_name, target_name, max_results=50)
+    preprints = fetch_preprints(f"{target_name} {disease_name}", max_results=10)
+    articles = articles + [p for p in preprints if p.pmid not in {a.pmid for a in articles}]
 
     if not articles:
         return TargetRiskResponse(
@@ -55,14 +55,9 @@ def generate_target_risk_report(
             ),
         )
 
-    # 2. Build retriever and get relevant abstracts
-    retriever = SimpleRetriever(articles)
-    query = f"{target_name} {disease_name} mechanism pathway failure trial"
-    relevant = retriever.retrieve(query, top_k=20)
-
-    # 3. Extract target assessment
+    # 2. Extract target assessment directly on all articles
     extracted = extract_target_assessment(
-        disease_name, target_name, vertical, relevant
+        disease_name, target_name, vertical, articles
     )
 
     # 4. Build historical failures
@@ -99,7 +94,7 @@ def generate_target_risk_report(
     overall_risk = compute_overall_risk(mech_risk, trans_risk)
 
     # Collect all PMIDs
-    for a in relevant:
+    for a in articles:
         if a.pmid:
             all_pmids.append(a.pmid)
 

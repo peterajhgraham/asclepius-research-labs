@@ -23,6 +23,7 @@ EDGE_TYPES = [
     "expressed_in",
     "downstream_of",
     "part_of_pathway",
+    "modulates",
 ]
 
 # Metadata fields stored on every edge

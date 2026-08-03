@@ -8,15 +8,14 @@ Retrieval pipeline:
 
 LLM routing:
   - Primary: Anthropic 4-tier (Haiku → Sonnet → Opus) via routing.router
-  - Fallback: OpenAI if ANTHROPIC_API_KEY not set
-  - Fallback-fallback: local structured answer if no LLM key
+  - Fallback: local structured answer if ANTHROPIC_API_KEY is not set
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Generator, Optional
 
 from app.core.config import settings
 from app.models.schema import (
@@ -30,30 +29,11 @@ from app.services.query_engine import SearchResult, search_all
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
-    "You are Asclepius, a scientific research assistant that synthesises evidence from "
-    "curated knowledge bases, live PubMed literature, and structured datasets. "
-    "Answer using ONLY the provided context. Structure your response with clear sections "
-    "appropriate to the query domain (e.g., Overview, Key Mechanisms, Pathways, "
-    "Key Entities, Therapeutic or Intervention Targets, Open Research Gaps). "
-    "Cite retrieved propositions by their source type when relevant. Be precise and evidence-based."
+    "You are Asclepius, a scientific research assistant specializing in immunology, "
+    "autoimmune disease, and molecular biology. You synthesize information from retrieved "
+    "literature to give precise, well-cited answers. Express uncertainty when the evidence "
+    "is unclear rather than speculating."
 )
-
-# ------------------------------------------------------------------
-# OpenAI fallback client (kept for backward compatibility)
-# ------------------------------------------------------------------
-_openai_client: Optional[object] = None
-
-if settings.openai_api_key and not settings.anthropic_api_key:
-    try:
-        from openai import OpenAI  # type: ignore[import-untyped]
-
-        _openai_client = OpenAI(api_key=settings.openai_api_key)
-        logger.info("OpenAI fallback client initialised (model=%s)", settings.llm_model)
-    except ImportError:
-        logger.warning("openai package not installed")
-    except Exception:
-        logger.warning("Failed to initialise OpenAI client", exc_info=True)
-
 
 class LLMService:
     """Handles scientific queries for the Asclepius Research Labs API."""
@@ -93,10 +73,6 @@ class LLMService:
         # 5. Route to LLM
         if settings.anthropic_api_key:
             response = self._anthropic_answer(
-                question, propositions, sr, pubmed_articles, graph_context
-            )
-        elif _openai_client is not None:
-            response = self._openai_answer(
                 question, propositions, sr, pubmed_articles, graph_context
             )
         else:
@@ -140,6 +116,7 @@ class LLMService:
         try:
             probe_bytes = _b64.b64decode(image_base64)
         except Exception:
+            logger.warning("Failed to decode image_base64; CLIP retrieval will be text-only")
             probe_bytes = None
         propositions = self._retrieve_propositions(question, query_image_bytes=probe_bytes)
         sr = search_all(question)
@@ -213,6 +190,13 @@ class LLMService:
 
             full_text = response.content[0].text if response.content else ""
 
+            if not full_text:
+                return QueryResponse(
+                    answer="Image analysis returned no output.",
+                    sources=sources,
+                    image_analysis=None,
+                )
+
             # Split structured response into image observations vs integrated answer
             image_analysis: Optional[str] = None
             main_answer = full_text
@@ -249,6 +233,116 @@ class LLMService:
             raise
 
     # ------------------------------------------------------------------
+    # Streaming query — yields SSE-ready dicts
+    # ------------------------------------------------------------------
+
+    def stream_query(
+        self,
+        question: str,
+        *,
+        include_pubmed: bool = False,
+    ) -> Generator[dict, None, None]:
+        """Yield SSE-ready event dicts for a streaming query.
+
+        Protocol: citations → token* → done
+        Matches the /query/stream SSE event types exactly.
+        """
+        # 1. Retrieval
+        propositions = self._retrieve_propositions(question)
+        sr = search_all(question)
+
+        pubmed_articles: list[PubMedResult] = []
+        if include_pubmed:
+            pubmed_articles = self._fetch_pubmed(question)
+
+        graph_context = self._get_graph_context(sr)
+
+        # 2. Build citation data and emit immediately so the frontend can
+        #    show the citations panel while the answer is still streaming.
+        citation_data = [
+            {
+                "text": p.text,
+                "score": round(p.score, 4),
+                "rerank_score": round(p.rerank_score, 4),
+                "type": p.metadata.get("type", "knowledge"),
+                "pmid": p.metadata.get("pmid", ""),
+                "source": (
+                    p.metadata.get("drug_name")
+                    or p.metadata.get("disease_name")
+                    or p.metadata.get("pathway_name")
+                    or p.metadata.get("topic")
+                    or p.metadata.get("filename", "")
+                ),
+                "content_type": p.content_type,
+                "image_hash": p.image_hash,
+                "image_url": f"/images/{p.image_hash}" if p.image_hash else None,
+                "page": p.metadata.get("page"),
+                "table_markdown": (
+                    p.metadata.get("table_markdown") if p.content_type == "table" else None
+                ),
+            }
+            for p in propositions
+        ]
+        yield {"type": "citations", "data": citation_data}
+
+        # 3. Build LLM prompt context
+        context, sources = self._build_context(propositions, sr, pubmed_articles, graph_context)
+
+        _STREAM_SYSTEM = (
+            "You are Asclepius, a scientific research assistant. "
+            "Answer using ONLY the provided context. Structure your response with sections "
+            "appropriate to the query domain (e.g., Overview, Key Mechanisms, Pathways, "
+            "Key Entities, Intervention Targets, Open Research Gaps)."
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Context:\n{context}\n\n"
+                    f"Question: {question}\n\n"
+                    "Provide a detailed, structured scientific answer."
+                ),
+            }
+        ]
+
+        # 4. Stream tokens from the LLM
+        model_used = "local"
+        cost = 0.0
+
+        if settings.anthropic_api_key:
+            from app.routing.router import stream_with_routing
+
+            for item in stream_with_routing(
+                messages=messages,
+                system=_STREAM_SYSTEM,
+                query_preview=question[:100],
+            ):
+                if isinstance(item, dict) and item.get("_done"):
+                    model_used = item.get("model", model_used)
+                    cost = item.get("cost", 0.0)
+                else:
+                    yield {"type": "token", "text": item}
+        else:
+            from app.routing.router import call_with_routing
+
+            answer, model_used, cost = call_with_routing(
+                messages=messages,
+                system=_STREAM_SYSTEM,
+                query_preview=question[:100],
+            )
+            if answer:
+                for word in answer.split(" "):
+                    yield {"type": "token", "text": word + " "}
+            else:
+                local_resp = self._local_answer(
+                    question, propositions, sr, pubmed_articles, graph_context
+                )
+                for word in local_resp.answer.split(" "):
+                    yield {"type": "token", "text": word + " "}
+
+        yield {"type": "done", "model": model_used, "cost": cost, "sources": sources[:20]}
+
+    # ------------------------------------------------------------------
     # Retrieval
     # ------------------------------------------------------------------
 
@@ -267,7 +361,7 @@ class LLMService:
                 RetrievedPropositionSchema(
                     text=h.text,
                     score=round(h.score, 6),
-                    rerank_score=round(h.rerank_score, 6),
+                    rerank_score=round(h.rerank_score, 6) if h.rerank_score is not None else 0.0,
                     metadata=h.metadata,
                     content_type=h.content_type,
                     image_hash=h.image_hash,
@@ -349,6 +443,12 @@ class LLMService:
     # Context builder (shared by all LLM backends)
     # ------------------------------------------------------------------
 
+    # Hard cap on assembled context: ~80K chars ≈ 20K tokens.
+    # Sonnet has a 200K-token window; this leaves ample room for the system
+    # prompt (~3K tokens) and the generated answer (~4K tokens) while
+    # preventing silent overflow when a large document corpus is indexed.
+    _CONTEXT_BUDGET = 80_000
+
     @staticmethod
     def _build_context(
         propositions: list[RetrievedPropositionSchema],
@@ -356,16 +456,32 @@ class LLMService:
         pubmed_articles: list[PubMedResult],
         graph_context: Optional[dict[str, Any]],
     ) -> tuple[str, list[str]]:
-        """Build the context string and collect sources."""
+        """Build the context string and collect sources.
+
+        Sections are added in priority order. Each section is skipped once the
+        character budget is exhausted — higher-value evidence (propositions,
+        KB) is always included; lower-value enrichment (graph, therapeutics)
+        is dropped first under pressure.
+        """
         blocks: list[str] = []
         sources: list[str] = []
+        budget = LLMService._CONTEXT_BUDGET
 
-        # Retrieved propositions (highest priority — most semantically relevant).
-        # Tables get rendered as their full markdown so the LLM can read cells
-        # directly; figures get their caption text plus a marker that the
-        # actual image is attached as a vision block below.
+        def try_add(block: str, block_sources: list[str] | None = None) -> bool:
+            nonlocal budget
+            if len(block) > budget:
+                return False
+            blocks.append(block)
+            budget -= len(block)
+            if block_sources:
+                sources.extend(block_sources)
+            return True
+
+        # 1. Retrieved propositions — highest priority, always try to include.
+        # Tables get rendered as full markdown; figures get caption + marker.
         if propositions:
             prop_lines: list[str] = []
+            prop_sources: list[str] = []
             for p in propositions[:8]:
                 ctype = p.content_type
                 if ctype == "table" and p.table_markdown:
@@ -374,56 +490,63 @@ class LLMService:
                     )
                 elif ctype == "image":
                     prop_lines.append(
-                        f"- [figure p.{p.metadata.get('page', '?')}] {p.text} (image attached)"
+                        f"- [figure p.{p.metadata.get('page', '?')}] {p.text} (figure — see caption)"
                     )
                 else:
                     label = p.metadata.get("type", "knowledge")
                     prop_lines.append(f"- [{label}] {p.text}")
-            blocks.append("### Retrieved Evidence\n" + "\n".join(prop_lines))
             for p in propositions:
                 pmid = p.metadata.get("pmid", "")
                 if pmid:
-                    sources.append(f"PMID:{pmid}")
+                    prop_sources.append(f"PMID:{pmid}")
+            try_add("### Retrieved Evidence\n" + "\n".join(prop_lines), prop_sources)
 
-        # KB entries
+        # 2. Knowledge base entries
         for hit in sr.kb_hits:
-            blocks.append(f"### {hit.entry.topic}\n{hit.entry.answer}")
-            sources.extend(hit.entry.sources)
+            try_add(f"### {hit.entry.topic}\n{hit.entry.answer}", list(hit.entry.sources))
 
-        # Disease context
+        # 3. Disease context
         for dis in sr.disease_hits[:2]:
-            blocks.append(
+            block = (
                 f"### Disease: {dis['disease_name']}\n{dis['description']}\n"
                 f"Mechanisms: {', '.join(dis.get('pathogenic_mechanisms', []))}\n"
                 f"Cell types: {', '.join(dis.get('key_cell_types', []))}\n"
                 f"Genes: {json.dumps(dis.get('associated_genes', [])[:8])}"
             )
-            sources.extend(dis.get("references", []))
+            try_add(block, list(dis.get("references", [])))
 
-        # Pathway context
+        # 4. PubMed literature — more abstracts than before now that we track budget
+        if pubmed_articles:
+            pm_lines = [
+                f"- [{a.year}] {a.title} ({a.journal}). {a.abstract[:300]}"
+                for a in pubmed_articles[:8]
+            ]
+            pm_sources = [f"PMID:{a.pmid}" for a in pubmed_articles]
+            try_add("### Latest PubMed Literature\n" + "\n".join(pm_lines), pm_sources)
+
+        # 5. Pathway context
         for pw in sr.pathway_hits[:2]:
-            blocks.append(
+            block = (
                 f"### Pathway: {pw['pathway_name']} ({pw['pathway_id']})\n"
                 f"{pw['description']}\n"
                 f"Key nodes: {json.dumps(pw.get('key_nodes', [])[:6])}\n"
                 f"Therapeutic targets: {json.dumps(pw.get('therapeutic_targets', []))}"
             )
-            sources.extend(pw.get("references", []))
+            try_add(block, list(pw.get("references", [])))
 
-        # Cytokine network
+        # 6. Cytokine network
         if sr.cytokine_hits:
             edges = "\n".join(
                 f"- {e['source']} → {e['target']} ({e['edge_type']}): {e['description']}"
                 for e in sr.cytokine_hits[:8]
             )
-            blocks.append(f"### Cytokine Network\n{edges}")
-            for e in sr.cytokine_hits[:8]:
-                if e.get("pmid"):
-                    sources.append(f"PMID:{e['pmid']}")
+            cyto_sources = [f"PMID:{e['pmid']}" for e in sr.cytokine_hits[:8] if e.get("pmid")]
+            try_add(f"### Cytokine Network\n{edges}", cyto_sources)
 
-        # Therapeutics
+        # 7. Therapeutics
         if sr.therapeutic_hits:
             rx_lines = []
+            rx_sources: list[str] = []
             for rx in sr.therapeutic_hits[:4]:
                 inds = [i["disease"] for i in rx.get("approved_indications", [])]
                 rx_lines.append(
@@ -433,26 +556,16 @@ class LLMService:
                 )
                 for trial in rx.get("pivotal_trials", [])[:1]:
                     if trial.get("pmid"):
-                        sources.append(f"PMID:{trial['pmid']}")
-            blocks.append("### Therapeutics\n" + "\n".join(rx_lines))
+                        rx_sources.append(f"PMID:{trial['pmid']}")
+            try_add("### Therapeutics\n" + "\n".join(rx_lines), rx_sources)
 
-        # PubMed literature
-        if pubmed_articles:
-            pm_lines = [
-                f"- [{a.year}] {a.title} ({a.journal}). {a.abstract[:200]}"
-                for a in pubmed_articles[:5]
-            ]
-            blocks.append("### Latest PubMed Literature\n" + "\n".join(pm_lines))
-            for a in pubmed_articles:
-                sources.append(f"PMID:{a.pmid}")
-
-        # Causal graph
+        # 8. Causal graph — lowest priority, dropped first under budget pressure
         if graph_context and graph_context.get("causal_downstream"):
             causal = [
                 f"- {item['node']}: downstream impact={item['score']}"
                 for item in graph_context["causal_downstream"][:8]
             ]
-            blocks.append("### Causal Network Analysis\n" + "\n".join(causal))
+            try_add("### Causal Network Analysis\n" + "\n".join(causal))
 
         # Deduplicate sources
         seen: set[str] = set()
@@ -574,7 +687,7 @@ class LLMService:
         store = get_image_store()
         ranked = sorted(
             [p for p in propositions if p.image_hash and p.content_type in ("image", "table")],
-            key=lambda p: p.rerank_score if p.rerank_score else p.score,
+            key=lambda p: p.rerank_score if p.rerank_score is not None else p.score,
             reverse=True,
         )
         blocks: list[dict[str, Any]] = []
@@ -619,11 +732,16 @@ class LLMService:
         text_block = {
             "type": "text",
             "text": (
-                f"Context:\n{context}\n\n"
-                f"Question: {question}\n\n"
-                "Provide a detailed, structured answer with sections appropriate to the query domain. "
-                "When the retrieved figures or tables are relevant, ground specific quantitative claims "
-                "in what you can see in them."
+                f"<retrieved_context>\n{context}\n</retrieved_context>\n\n"
+                f"<question>\n{question}\n</question>\n\n"
+                "<instructions>\n"
+                "Answer the question using only the retrieved context above. "
+                "Cite specific sources by their PMID or source type where available. "
+                "Structure your response with sections appropriate to the question domain. "
+                "When retrieved figures or tables are relevant, ground specific quantitative "
+                "claims in what you can see in them. If the evidence is limited or ambiguous, "
+                "say so directly.\n"
+                "</instructions>"
             ),
         }
 
@@ -662,60 +780,7 @@ class LLMService:
         )
 
     # ------------------------------------------------------------------
-    # OpenAI fallback
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _openai_answer(
-        question: str,
-        propositions: list[RetrievedPropositionSchema],
-        sr: SearchResult,
-        pubmed_articles: list[PubMedResult],
-        graph_context: Optional[dict[str, Any]],
-    ) -> QueryResponse:
-        context, sources = LLMService._build_context(
-            propositions, sr, pubmed_articles, graph_context
-        )
-        try:
-            response = _openai_client.chat.completions.create(  # type: ignore[union-attr]
-                model=settings.llm_model,
-                messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Context:\n{context}\n\nQuestion: {question}\n\n"
-                            "Provide a detailed structured scientific answer."
-                        ),
-                    },
-                ],
-                temperature=0.3,
-                max_tokens=2000,
-            )
-            answer = response.choices[0].message.content or ""
-        except Exception:
-            logger.warning("OpenAI call failed — falling back to local", exc_info=True)
-            return LLMService._local_answer(
-                question, propositions, sr, pubmed_articles, graph_context
-            )
-
-        if not answer:
-            return LLMService._local_answer(
-                question, propositions, sr, pubmed_articles, graph_context
-            )
-
-        return QueryResponse(
-            answer=answer,
-            sources=sources,
-            reasoning=LLMService._extract_reasoning(sr),
-            pubmed_articles=pubmed_articles,
-            graph_context=graph_context,
-            retrieved_propositions=propositions,
-            model_used=settings.llm_model,
-        )
-
-    # ------------------------------------------------------------------
-    # Local answer — no LLM key required
+    # Local answer — no ANTHROPIC_API_KEY configured
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -815,3 +880,99 @@ class LLMService:
             graph_context=graph_context,
             retrieved_propositions=propositions,
         )
+
+
+# ---------------------------------------------------------------------------
+# QueryPipeline — single entry point for all query execution paths
+# ---------------------------------------------------------------------------
+
+class QueryPipeline:
+    """Single entry point for all query execution paths.
+
+    Routes use this instead of calling LLMService internals directly.
+    The pipeline owns the mode-dispatch logic (standard vs. research vs. image)
+    and delegates to the appropriate LLMService method.
+    """
+
+    def __init__(self) -> None:
+        self._svc = LLMService()
+
+    def run(
+        self,
+        question: str,
+        *,
+        mode: str = "standard",
+        include_pubmed: bool = False,
+        verify: bool = False,
+        image_base64: Optional[str] = None,
+        image_media_type: str = "image/jpeg",
+    ) -> QueryResponse:
+        """Execute a query and return a complete response."""
+        if image_base64:
+            return self._svc.query_with_image(
+                question,
+                image_base64,
+                image_media_type,
+                include_pubmed=include_pubmed,
+            )
+        if mode == "research":
+            return self._run_agent(question, verify=verify)
+        return self._svc.query(question, include_pubmed=include_pubmed, verify=verify)
+
+    def stream(
+        self,
+        question: str,
+        *,
+        include_pubmed: bool = False,
+    ) -> Generator[dict, None, None]:
+        """Yield SSE-ready dicts for a streaming query."""
+        return self._svc.stream_query(question, include_pubmed=include_pubmed)
+
+    def _run_agent(self, question: str, verify: bool = False) -> QueryResponse:
+        """Drain the agent event stream into a non-streaming QueryResponse."""
+        from app.services.agent_service import run_agent
+
+        final_answer = ""
+        image_hashes: list[str] = []
+        model_used = "agent:claude-sonnet-4-6"
+        cost = 0.0
+        iterations = 0
+        trace: list[dict] = []
+
+        for evt in run_agent(question):
+            if evt.type == "tool_call":
+                trace.append({"tool": evt.data.get("tool"), "args": evt.data.get("args")})
+            elif evt.type == "final":
+                final_answer = evt.data.get("answer", "")
+                image_hashes = list(evt.data.get("image_hashes") or [])
+            elif evt.type == "done":
+                iterations = evt.data.get("iterations", 0)
+                cost = evt.data.get("cost_usd", 0.0)
+            elif evt.type == "error":
+                final_answer = final_answer or f"Agent error: {evt.data.get('message')}"
+
+        response = QueryResponse(
+            answer=final_answer or "(agent produced no output)",
+            sources=[],
+            model_used=model_used,
+            cost_usd=cost,
+            retrieved_propositions=[],
+        )
+        # Stash the agent trace into graph_context for the frontend to render
+        response.graph_context = {"agent_trace": trace, "iterations": iterations}
+
+        if verify and final_answer and image_hashes:
+            from app.services.verification_service import verify_against_figures
+            try:
+                v = verify_against_figures(final_answer, image_hashes)
+                response.verification = v.to_dict()
+                if v.verdict in ("partially_supported", "unsupported") and v.revised_answer:
+                    response.answer = v.revised_answer
+            except Exception:
+                logger.warning("Agent verification failed", exc_info=True)
+
+        return response
+
+
+# Module-level singleton — routes import this directly
+pipeline = QueryPipeline()

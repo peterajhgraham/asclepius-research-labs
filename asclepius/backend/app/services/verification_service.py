@@ -54,18 +54,16 @@ class VerificationResult:
 
 
 _VERIFIER_SYSTEM = (
-    "You are a scientific fact-checker. You will receive (a) an answer that was generated "
-    "from retrieved evidence, and (b) the actual figures and tables that were cited. "
-    "Your job is to verify each quantitative or factual claim in the answer against what "
-    "you can actually see in the images.\n\n"
-    "For each claim, mark it:\n"
-    "  • SUPPORTED — the image clearly backs the claim\n"
-    "  • UNSUPPORTED — the image contradicts or does not show the claim\n"
-    "  • UNCLEAR — the image is relevant but does not definitively confirm or refute\n\n"
-    "Return a JSON object with keys: verdict (supported|partially_supported|unsupported), "
-    "confidence (0..1), notes (1-3 sentence summary), revised_answer (the answer with "
-    "any unsupported claims marked inline as `[unverified]` and unclear claims as "
-    "`[uncertain]`). Output ONLY the JSON object, no prose around it."
+    "You are a scientific fact-checker verifying claims in a generated answer against "
+    "the actual figure and table images cited.\n\n"
+    "Check each quantitative or factual claim against what the images actually show, "
+    "then output a single JSON object with exactly these fields:\n"
+    '{"verdict": "supported"|"partially_supported"|"unsupported", '
+    '"confidence": <decimal number 0.0-1.0, not a text label>, '
+    '"notes": "1-3 sentence summary", '
+    '"revised_answer": "answer text with unsupported claims marked [unverified] '
+    'and unclear claims marked [uncertain]"}\n\n'
+    "Output only valid JSON. No commentary, no markdown fences."
 )
 
 
@@ -88,7 +86,7 @@ def verify_against_figures(
 
     if not settings.anthropic_api_key:
         return VerificationResult(
-            verdict="no_images",
+            verdict="skipped",
             confidence=0.0,
             notes="Verification requires ANTHROPIC_API_KEY; skipped.",
             revised_answer=answer,
@@ -100,7 +98,7 @@ def verify_against_figures(
 
     if not check_budget():
         return VerificationResult(
-            verdict="no_images",
+            verdict="skipped",
             confidence=0.0,
             notes="Daily budget exhausted; verification skipped.",
             revised_answer=answer,
@@ -133,7 +131,7 @@ def verify_against_figures(
 
     if not vision_blocks:
         return VerificationResult(
-            verdict="no_images",
+            verdict="skipped",
             confidence=0.0,
             notes="Cited figures could not be loaded from the image store.",
             revised_answer=answer,
@@ -173,7 +171,7 @@ def verify_against_figures(
     except Exception as e:
         logger.warning("Verification call failed", exc_info=True)
         return VerificationResult(
-            verdict="no_images",
+            verdict="skipped",
             confidence=0.0,
             notes=f"Verification call failed: {e}",
             revised_answer=answer,
@@ -183,13 +181,24 @@ def verify_against_figures(
     parsed = _parse_verifier_json(raw)
     return VerificationResult(
         verdict=parsed.get("verdict") or "partially_supported",
-        confidence=float(parsed.get("confidence") or 0.5),
+        confidence=_safe_confidence(parsed.get("confidence")),
         notes=str(parsed.get("notes") or "")[:1000],
         revised_answer=str(parsed.get("revised_answer") or answer),
         images_inspected=len(vision_blocks),
         cost_usd=round(cost, 6),
         model_used=_VERIFIER_MODEL,
     )
+
+
+def _safe_confidence(val) -> float:
+    if val is None:
+        return 0.5
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        # Text labels → numeric
+        mapping = {"high": 0.9, "medium": 0.6, "low": 0.3}
+        return mapping.get(str(val).lower(), 0.5)
 
 
 def _parse_verifier_json(raw: str) -> dict[str, Any]:

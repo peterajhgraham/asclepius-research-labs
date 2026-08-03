@@ -35,6 +35,7 @@ import concurrent.futures
 import json
 import logging
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Generator
@@ -43,8 +44,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_PLANNER_MODEL = "claude-sonnet-4-6"
-_ANSWERER_MODEL = "claude-sonnet-4-6"
+_AGENT_MODEL = "claude-sonnet-4-6"
 
 # Budgets. The backend is a long-lived service (uvicorn on Railway), not a
 # serverless function, and the SSE route emits a 15s heartbeat keepalive, so an
@@ -76,21 +76,20 @@ MAX_TOOL_OUTPUT_CHARS = 6000  # keep the planner's context lean
 
 # Tools run in a side thread pool so a slow call (e.g. a stalled PubMed
 # request) can be abandoned without blocking the agent past its deadline.
-_TOOL_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=16, thread_name_prefix="agent-tool"
-)
+# Initialized lazily to avoid fork-safety issues in multi-worker deployments.
+_TOOL_EXECUTOR: concurrent.futures.ThreadPoolExecutor | None = None
+_TOOL_EXECUTOR_LOCK = threading.Lock()
 
 
-def _execute_tool(fn, args: dict[str, Any], timeout_s: float) -> dict[str, Any]:
-    """Run a tool function with a hard wall-clock timeout.
-
-    The call is dispatched to a worker thread and abandoned if it exceeds
-    ``timeout_s`` (raising ``concurrent.futures.TimeoutError``); the orphaned
-    thread finishes on its own without holding up the SSE stream. Exceptions
-    raised by the tool itself propagate normally to the caller.
-    """
-    future = _TOOL_EXECUTOR.submit(lambda: fn(**args))
-    return future.result(timeout=timeout_s)
+def _get_executor() -> concurrent.futures.ThreadPoolExecutor:
+    global _TOOL_EXECUTOR
+    if _TOOL_EXECUTOR is None:
+        with _TOOL_EXECUTOR_LOCK:
+            if _TOOL_EXECUTOR is None:
+                _TOOL_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=16, thread_name_prefix="agent-tool"
+                )
+    return _TOOL_EXECUTOR
 
 
 def _ensure_retriever_ready(timeout_s: float = WARMUP_TIMEOUT_S) -> bool:
@@ -111,7 +110,7 @@ def _ensure_retriever_ready(timeout_s: float = WARMUP_TIMEOUT_S) -> bool:
     try:
         from app.services.retrieval_service import get_pipeline
 
-        future = _TOOL_EXECUTOR.submit(get_pipeline)
+        future = _get_executor().submit(get_pipeline)
         pipeline = future.result(timeout=timeout_s)
         return bool(getattr(pipeline, "is_ready", False))
     except concurrent.futures.TimeoutError:
@@ -123,37 +122,27 @@ def _ensure_retriever_ready(timeout_s: float = WARMUP_TIMEOUT_S) -> bool:
 
 
 _SYSTEM_PROMPT = (
-    "You are Asclepius Research Agent — a scientific research planner that answers "
-    "complex multi-part questions by decomposing them into sub-queries and dispatching "
-    "the right tool for each one.\n\n"
+    "You are a scientific research planner that answers complex multi-part questions "
+    "by decomposing them into focused sub-queries and dispatching the right tool for each one.\n\n"
     "Tool selection:\n"
-    "  • Prefer `search_knowledge_base` first — it is the indexed corpus with hybrid "
-    "lexical+semantic+image retrieval and the source of truth for grounded citations. "
-    "Decompose a multi-part question (e.g. efficacy / safety / biomarkers) into one "
-    "focused query per facet.\n"
-    "  • `search_pubmed` is for recent or unindexed primary literature only (e.g. "
-    "'latest 2025 trials'). Give it SHORT keyword queries — 2–5 salient terms (drug, "
-    "disease, outcome). Full-sentence queries with many words and years get AND-ed "
-    "together and return nothing.\n"
-    "  • `causal_propagate` / `rank_interventions` are for mechanism / target questions "
-    "('what is downstream of X?', 'what would I knock down to modulate X?'). Seed them "
-    "with gene/protein symbols (TNF, IL17A).\n"
-    "  • `compare_topics` compares TWO DISTINCT DISEASES only. Do NOT use it to contrast "
-    "two drugs or drug classes within a single disease (e.g. 'TNF vs IL-17 blockade in "
-    "psoriatic arthritis' is ONE disease — use `search_knowledge_base` for each arm "
-    "instead).\n\n"
+    "- `search_knowledge_base`: Use first. Returns up to 12 propositions (text, figures, tables) "
+    "with rerank scores from the hybrid BM25+vector+CLIP index. Use it for mechanistic details, "
+    "pathway information, and citation lookup. Decompose multi-part questions into one focused query per facet.\n"
+    "- `search_pubmed`: Use for recent or unindexed primary literature only. Give it short keyword "
+    "queries of 2-5 salient terms (drug, disease, outcome). Full-sentence queries get AND-ed together "
+    "and return nothing.\n"
+    "- `causal_propagate` / `rank_interventions`: Use for mechanism and target questions "
+    "('what is downstream of X?', 'what would I knock down to modulate X?'). Seed with gene/protein symbols.\n"
+    "- `compare_topics`: Use only to compare two distinct diseases by name. Do not use it for "
+    "within-disease comparisons (e.g., two drug classes in the same disease — use `search_knowledge_base` for each arm).\n"
+    "- `final_answer`: Use this only when you have enough evidence to directly answer the question. "
+    "Do not speculate beyond the retrieved evidence. Cite tool results and figures by their image_hash.\n\n"
     "Working style:\n"
-    "  • Vary your queries — if a result is flagged as already retrieved, re-target "
-    "rather than repeating it. Stop as soon as you have enough evidence; do not pad "
-    "with extra tool calls.\n"
-    "  • Evidence is often adjacent rather than exact. If the corpus lacks the precise "
-    "entity, synthesize from the closest available evidence (related diseases, shared "
-    "pathways, drug mechanism and trial data) and state that limitation explicitly. "
-    "A failed or empty tool result is not a dead end — never refuse; always deliver the "
-    "best grounded answer the gathered evidence supports.\n"
-    "  • End the loop with `final_answer`: a well-structured response that cites the "
-    "tool results you actually used. Cite figures by their image_hash when they appear "
-    "in retrieval results.\n"
+    "- Vary your queries across turns. If a result is flagged as already retrieved, re-target the query.\n"
+    "- When the corpus lacks the precise entity, synthesize from the closest available evidence "
+    "(related diseases, shared pathways, drug mechanism) and state that limitation explicitly.\n"
+    "- A failed or empty tool result is not a dead end — never refuse; always deliver the best "
+    "grounded answer the gathered evidence supports.\n"
 )
 
 # Appended to the system prompt when forcing a closing synthesis after the tool
@@ -251,8 +240,8 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "final_answer",
         "description": (
-            "Terminate the loop and emit the final answer. Call this once you have "
-            "sufficient evidence — do not over-call tools."
+            "Terminate the loop and emit the final answer. Call this only when you have "
+            "enough evidence to directly answer the question. Do not speculate beyond the retrieved evidence."
         ),
         "input_schema": {
             "type": "object",
@@ -656,7 +645,7 @@ def run_agent(
 
         try:
             response = client.messages.create(
-                model=_PLANNER_MODEL,
+                model=_AGENT_MODEL,
                 max_tokens=MAX_ANSWER_TOKENS,
                 system=_SYSTEM_PROMPT,
                 tools=TOOLS,
@@ -674,7 +663,7 @@ def run_agent(
 
         try:
             cost = record_query(
-                model=_PLANNER_MODEL,
+                model=_AGENT_MODEL,
                 query=f"agent_iter_{it}: {question[:60]}",
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
@@ -701,7 +690,7 @@ def run_agent(
             yield AgentEvent("final", {"answer": final_text, "image_hashes": image_hashes_used})
             yield AgentEvent("done", {
                 "iterations": it,
-                "model": _PLANNER_MODEL,
+                "model": _AGENT_MODEL,
                 "cost_usd": round(total_cost, 6),
             })
             return
@@ -745,7 +734,7 @@ def run_agent(
                 continue
             fn = _TOOL_FNS.get(tu.name)
             if fn is not None:
-                running[tu.id] = _TOOL_EXECUTOR.submit(lambda fn=fn, a=tu.input or {}: fn(**a))
+                running[tu.id] = _get_executor().submit(lambda fn=fn, a=tu.input or {}: fn(**a))
 
         # Collect results in the planner's original order. Each call gets up to
         # TOOL_TIMEOUT_S, but since they run in parallel the batch wall-time is
@@ -806,7 +795,7 @@ def run_agent(
             yield AgentEvent("final", final_payload)
             yield AgentEvent("done", {
                 "iterations": it,
-                "model": _PLANNER_MODEL,
+                "model": _AGENT_MODEL,
                 "cost_usd": round(total_cost, 6),
             })
             return
@@ -824,7 +813,7 @@ def run_agent(
     # Attempt 1: a structured final_answer tool call.
     try:
         forced = client.messages.create(
-            model=_ANSWERER_MODEL,
+            model=_AGENT_MODEL,
             max_tokens=MAX_ANSWER_TOKENS,
             system=_SYSTEM_PROMPT + _FINALIZE_INSTRUCTION,
             tools=[TOOLS[-1]],  # only final_answer
@@ -837,7 +826,7 @@ def run_agent(
                 break
         try:
             total_cost += record_query(
-                model=_ANSWERER_MODEL,
+                model=_AGENT_MODEL,
                 query=f"agent_force_final: {question[:60]}",
                 input_tokens=forced.usage.input_tokens,
                 output_tokens=forced.usage.output_tokens,
@@ -854,7 +843,7 @@ def run_agent(
     if not final_answer:
         try:
             freeform = client.messages.create(
-                model=_ANSWERER_MODEL,
+                model=_AGENT_MODEL,
                 max_tokens=MAX_ANSWER_TOKENS,
                 system=_SYSTEM_PROMPT + _FINALIZE_INSTRUCTION,
                 messages=messages + [{
@@ -873,7 +862,7 @@ def run_agent(
             ).strip()
             try:
                 total_cost += record_query(
-                    model=_ANSWERER_MODEL,
+                    model=_AGENT_MODEL,
                     query=f"agent_force_final_freeform: {question[:60]}",
                     input_tokens=freeform.usage.input_tokens,
                     output_tokens=freeform.usage.output_tokens,
@@ -895,8 +884,8 @@ def run_agent(
         "image_hashes": image_hashes_used,
     })
     yield AgentEvent("done", {
-        "iterations": it,
-        "model": _PLANNER_MODEL,
+        "iterations": locals().get("it", 0),
+        "model": _AGENT_MODEL,
         "cost_usd": round(total_cost, 6),
         "truncated": True,
     })

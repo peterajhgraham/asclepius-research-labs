@@ -1,9 +1,67 @@
-import type { Citation } from "@/hooks/useStreamingQuery";
-import type { AgentState } from "@/hooks/useAgentStream";
 import type { CompareResponse, HypothesisResponse, QueryResponse } from "@/lib/api";
 import type { DiseaseReportResponse, TargetRiskResponse } from "@/lib/dmi-api";
 
 export type Mode = "disease-report" | "target-risk" | "standard" | "research" | "compare" | "hypothesis";
+
+export interface Citation {
+  text: string;
+  score: number;
+  rerank_score: number;
+  type: string;
+  pmid: string;
+  source: string;
+  content_type?: "text" | "image" | "table";
+  image_hash?: string | null;
+  image_url?: string | null;
+  page?: number | null;
+  table_markdown?: string | null;
+}
+
+export interface AgentPlannerStep {
+  iteration: number;
+  thinking?: string;
+  tool_calls?: string[];
+}
+
+export interface AgentToolCall {
+  iteration: number;
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+export interface AgentToolResult {
+  iteration: number;
+  tool: string;
+  result_preview: string;
+}
+
+export interface AgentVerification {
+  verdict: string;
+  confidence: number;
+  notes: string;
+  revised_answer?: string;
+  images_inspected: number;
+  cost_usd?: number;
+  model_used?: string;
+}
+
+export interface AgentDone {
+  iterations: number;
+  model: string;
+  cost_usd: number;
+}
+
+export interface AgentState {
+  steps: AgentPlannerStep[];
+  toolCalls: AgentToolCall[];
+  toolResults: AgentToolResult[];
+  finalAnswer: string;
+  imageHashes: string[];
+  verification: AgentVerification | null;
+  done: AgentDone | null;
+  isStreaming: boolean;
+  error: string | null;
+}
 
 export interface UploadedImage {
   base64: string;

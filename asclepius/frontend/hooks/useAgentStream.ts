@@ -1,52 +1,23 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  AgentPlannerStep,
+  AgentToolCall,
+  AgentToolResult,
+  AgentVerification,
+  AgentDone,
+  AgentState,
+} from "@/lib/types";
 
-export interface AgentPlannerStep {
-  iteration: number;
-  thinking?: string;
-  tool_calls?: string[];
-}
-
-export interface AgentToolCall {
-  iteration: number;
-  tool: string;
-  args: Record<string, unknown>;
-}
-
-export interface AgentToolResult {
-  iteration: number;
-  tool: string;
-  result_preview: string;
-}
-
-export interface AgentVerification {
-  verdict: string;
-  confidence: number;
-  notes: string;
-  revised_answer?: string;
-  images_inspected: number;
-  cost_usd?: number;
-  model_used?: string;
-}
-
-export interface AgentDone {
-  iterations: number;
-  model: string;
-  cost_usd: number;
-}
-
-export interface AgentState {
-  steps: AgentPlannerStep[];
-  toolCalls: AgentToolCall[];
-  toolResults: AgentToolResult[];
-  finalAnswer: string;
-  imageHashes: string[];
-  verification: AgentVerification | null;
-  done: AgentDone | null;
-  isStreaming: boolean;
-  error: string | null;
-}
+export type {
+  AgentPlannerStep,
+  AgentToolCall,
+  AgentToolResult,
+  AgentVerification,
+  AgentDone,
+  AgentState,
+};
 
 const EMPTY: AgentState = {
   steps: [],
@@ -64,6 +35,8 @@ export function useAgentStream() {
   const [state, setState] = useState<AgentState>(EMPTY);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
   const stream = useCallback(async (question: string, verify: boolean = false) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -73,7 +46,7 @@ export function useAgentStream() {
 
     try {
       const url =
-        `/api/query/agent?question=${encodeURIComponent(question)}` +
+        `/api/query?mode=research&question=${encodeURIComponent(question)}` +
         `&verify=${verify ? "true" : "false"}`;
       const response = await fetch(url, { signal: controller.signal });
 
@@ -159,8 +132,6 @@ export function useAgentStream() {
                   cost_usd: evt.cost_usd as number | undefined,
                   model_used: evt.model_used as string | undefined,
                 },
-                // If verifier rewrote the answer with [unverified] / [uncertain]
-                // markers, swap it into the visible final answer.
                 finalAnswer:
                   revised && (verdict === "partially_supported" || verdict === "unsupported")
                     ? revised
@@ -173,7 +144,7 @@ export function useAgentStream() {
                 done: {
                   iterations: (evt.iterations as number) ?? 0,
                   model: (evt.model as string) ?? "",
-                  cost_usd: (evt.cost_usd as number) ?? 0,
+                  cost_usd: (evt.cost as number) ?? (evt.cost_usd as number) ?? 0,
                 },
               }));
             } else if (t === "error") {
@@ -188,9 +159,6 @@ export function useAgentStream() {
           }
         }
       }
-      // The reader completed. Guarantee a terminal state so the UI never hangs
-      // on a permanent spinner if the stream closed without a `done` event
-      // (e.g. a proxy dropped the connection after partial output).
       setState((s) => {
         if (s.done || s.error) return { ...s, isStreaming: false };
         if (s.finalAnswer) {

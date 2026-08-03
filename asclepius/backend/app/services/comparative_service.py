@@ -15,24 +15,6 @@ from app.data.ingestion import STORE, DiseaseRecord
 logger = logging.getLogger(__name__)
 
 
-class ComparativeAnalysis:
-    """Side-by-side comparison result for two autoimmune diseases."""
-
-    def __init__(
-        self,
-        disease_a: Dict[str, Any],
-        disease_b: Dict[str, Any],
-    ) -> None:
-        self.disease_a = disease_a
-        self.disease_b = disease_b
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "disease_a": self.disease_a,
-            "disease_b": self.disease_b,
-        }
-
-
 def _find_disease(name: str) -> Optional[DiseaseRecord]:
     """Fuzzy-match a disease name against the loaded dataset."""
     name_lower = name.lower().strip()
@@ -188,6 +170,12 @@ def compare_diseases(
         return None
     if not dis_b:
         logger.warning("Disease not found: %s", disease_b_name)
+        return None
+
+    if dis_a.disease_id == dis_b.disease_id or dis_a.disease_name == dis_b.disease_name:
+        logger.warning(
+            "Self-comparison detected: both inputs resolved to %s", dis_a.disease_name
+        )
         return None
 
     profile_a = _disease_to_profile(dis_a)

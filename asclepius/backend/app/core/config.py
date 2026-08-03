@@ -6,9 +6,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
 
     # LLM providers
-    openai_api_key: str = ""
     anthropic_api_key: str = ""
-    llm_model: str = "gpt-4o"  # OpenAI fallback model
 
     # External data sources
     ncbi_api_key: str = ""
@@ -24,6 +22,14 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/asclepius.db"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.anthropic_api_key:
+            import logging
+            logging.getLogger(__name__).warning(
+                "ANTHROPIC_API_KEY is not set — LLM features will be unavailable"
+            )
 
 
 settings = Settings()
