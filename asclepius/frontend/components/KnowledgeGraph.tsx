@@ -32,17 +32,24 @@ interface Props {
 }
 
 export const TYPE_COLORS: Record<string, string> = {
-  cytokine:    "#87f085",
-  gene:        "#f5c062",
-  therapeutic: "#f08987",
-  pathway:     "#6ab4f5",
-  disease:     "#c78bff",
-  cell_type:   "#f5b4e8",
-  Unknown:     "#6b7280",
+  gene:                 "#f5c062",
+  protein:              "#f5c062",
+  cytokine:             "#87f085",
+  receptor:             "#7cc8f5",
+  transcriptionfactor:  "#c78bff",
+  transcription_factor: "#c78bff",
+  celltype:             "#f5b4e8",
+  cell_type:            "#f5b4e8",
+  pathway:              "#6ab4f5",
+  therapeutic:          "#f08987",
+  disease:              "#c78bff",
+  unknown:              "#6b7280",
 };
 
 function nodeColor(type: string | undefined): string {
-  return TYPE_COLORS[type ?? "Unknown"] ?? TYPE_COLORS.Unknown;
+  if (!type) return TYPE_COLORS.unknown;
+  const key = type.toLowerCase().replace(/\s+/g, "_");
+  return TYPE_COLORS[key] ?? TYPE_COLORS.unknown;
 }
 
 function nodeRadius(n: LayoutNode): number {

@@ -111,7 +111,7 @@ module.exports = {
       },
       fontFamily: {
         display: ["var(--font-newsreader)", "Georgia", "serif"],
-        sans: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-newsreader)", "Georgia", "serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {

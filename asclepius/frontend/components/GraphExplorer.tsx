@@ -5,7 +5,7 @@ import KnowledgeGraph, { TYPE_COLORS, type GraphNode, type GraphEdge } from "@/c
 
 interface HubNode {
   node_id: string;
-  node_type: string;
+  type: string;       // API returns "type" not "node_type"
   degree: number;
   betweenness?: number;
 }
@@ -34,15 +34,24 @@ async function fetchSubgraph(seedNode: string, hops = 2, signal?: AbortSignal): 
   return res.json();
 }
 
-// Type display order and labels
-const TYPE_ORDER = ["gene", "cytokine", "pathway", "therapeutic", "disease", "cell_type"];
+// Normalize type keys to lowercase for consistent grouping
+function normalizeType(t: string | undefined): string {
+  if (!t) return "unknown";
+  return t.toLowerCase().replace(/\s+/g, "_");
+}
+
+const TYPE_ORDER = ["gene", "protein", "cytokine", "receptor", "transcriptionfactor", "celltype", "pathway", "therapeutic", "disease"];
 const TYPE_LABEL: Record<string, string> = {
   gene: "Gene",
+  protein: "Protein",
   cytokine: "Cytokine",
+  receptor: "Receptor",
+  transcriptionfactor: "Transcription Factor",
+  celltype: "Cell Type",
   pathway: "Pathway",
   therapeutic: "Therapeutic",
   disease: "Disease",
-  cell_type: "Cell Type",
+  unknown: "Unknown",
 };
 
 export default function GraphExplorer() {
@@ -96,10 +105,10 @@ export default function GraphExplorer() {
     }
   }
 
-  // Group hubs by type in display order
+  // Group hubs by normalized type
   const grouped: Record<string, HubNode[]> = {};
   for (const hub of hubs) {
-    const t = hub.node_type ?? "Unknown";
+    const t = normalizeType(hub.type);
     (grouped[t] ??= []).push(hub);
   }
   const groupEntries = [
@@ -114,18 +123,10 @@ export default function GraphExplorer() {
 
   return (
     <div className="space-y-4">
-      {/* Header + description */}
-      <div>
-        <h3 className="font-display text-ink text-display-m leading-none">
-          Knowledge Graph
-        </h3>
-        <p className="mt-1 font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
-          Causal immune signaling network
-        </p>
-        <p className="mt-2.5 text-xs text-muted leading-relaxed">
-          A live map of relationships extracted from PubMed — genes, cytokines, pathways, therapeutics, and diseases linked by experimental evidence. Each hub is a highly connected entity in the network. Select a hub to explore its 2-hop neighborhood, or click any node in the graph to pivot to it.
-        </p>
-      </div>
+      {/* Description */}
+      <p className="text-sm text-muted leading-relaxed">
+        A live map of causal relationships extracted from PubMed — genes, cytokines, pathways, and diseases linked by experimental evidence. Select a hub below or click any node in the graph to explore its neighborhood.
+      </p>
 
       {/* Legend — always visible */}
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
@@ -237,7 +238,7 @@ export default function GraphExplorer() {
                     >
                       <span
                         className="shrink-0 h-2 w-2 rounded-full"
-                        style={{ background: TYPE_COLORS[hub.node_type] ?? TYPE_COLORS.Unknown }}
+                        style={{ background: TYPE_COLORS[normalizeType(hub.type)] ?? TYPE_COLORS.unknown }}
                       />
                       <span className="flex-1 min-w-0 text-xs font-mono text-ink-2 truncate">
                         {hub.node_id}
