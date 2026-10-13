@@ -55,14 +55,14 @@ app.include_router(dmi_router)
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    from app.services.retrieval_service import get_pipeline
-    pipeline = get_pipeline()
-    retrieval_status = "ready" if pipeline.is_ready else "warming_up"
+    from app.services.retrieval_service import peek_pipeline
+    pipeline = peek_pipeline()
+    ready = pipeline is not None and pipeline.is_ready
     return {
         "status": "healthy",
         "service": settings.app_name,
-        "retrieval": retrieval_status,
-        "docs_indexed": str(pipeline.doc_count),
+        "retrieval": "ready" if ready else "warming_up",
+        "docs_indexed": str(pipeline.doc_count if pipeline is not None else 0),
     }
 
 
