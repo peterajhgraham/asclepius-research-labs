@@ -44,6 +44,15 @@ def get_pipeline() -> RetrievalPipeline:
     return _pipeline or RetrievalPipeline()
 
 
+def peek_pipeline() -> RetrievalPipeline | None:
+    """Return the shared pipeline if already built, without blocking or triggering a build.
+
+    Safe for health checks: get_pipeline() waits on _build_lock for the whole
+    model load, which would stall /health past the platform healthcheck timeout.
+    """
+    return _pipeline
+
+
 def _build_pipeline() -> RetrievalPipeline:
     pipeline = RetrievalPipeline()
 
