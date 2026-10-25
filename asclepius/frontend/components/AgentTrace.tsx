@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Logo } from "@/components/Logo";
-import { PROSE_CLS, modelDisplayName } from "@/lib/utils";
+import { PROSE_CLS, modelDisplayName, stripEmDashes } from "@/lib/utils";
 import type { AgentState, AgentToolCall, AgentToolResult } from "@/lib/types";
 
 const TOOL_LABELS: Record<string, string> = {
@@ -121,7 +121,7 @@ export default function AgentTrace({ state }: Props) {
 
   return (
     <div className="mt-3 animate-fade-in">
-      {/* Assistant turn header — a single ⏺ marker, model + run meta */}
+      {/* Assistant turn header - a single ⏺ marker, model + run meta */}
       <div className="mb-2 flex items-center gap-2 text-[11px]">
         <span className={`cc-dot ${state.isStreaming ? "is-active" : "is-done"}`} aria-hidden="true" />
         <Logo size={13} />
@@ -135,7 +135,7 @@ export default function AgentTrace({ state }: Props) {
         {state.isStreaming && <span className="hx-spin ml-auto" aria-label="Working" />}
       </div>
 
-      {/* Tool transcript — flat ⏺/⎿ stream, collapsible */}
+      {/* Tool transcript - flat ⏺/⎿ stream, collapsible */}
       <div className="rounded-lg border border-line bg-bg-2/60">
         <button
           type="button"
@@ -193,7 +193,7 @@ export default function AgentTrace({ state }: Props) {
       {state.finalAnswer && (
         <div className="mt-3 pl-[18px]">
           <div className={PROSE_CLS}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.finalAnswer}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripEmDashes(state.finalAnswer)}</ReactMarkdown>
           </div>
         </div>
       )}

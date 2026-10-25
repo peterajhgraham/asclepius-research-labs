@@ -29,7 +29,7 @@ import { useStreamingQuery, type Citation } from "@/hooks/useStreamingQuery";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import type { ConversationEntry, Mode, UploadedImage, UploadedPdf } from "@/lib/types";
-import { genId, PROSE_CLS, pmidToUrl, modelDisplayName } from "@/lib/utils";
+import { genId, PROSE_CLS, pmidToUrl, modelDisplayName, stripEmDashes } from "@/lib/utils";
 import { MODE_CONFIG } from "@/components/ModeSwitcher";
 
 import AgentTrace from "@/components/AgentTrace";
@@ -79,7 +79,7 @@ const EXAMPLE_PROMPTS: Record<Mode, string[]> = {
     "Complement C1q deficiency and SLE pathogenesis",
   ],
   research: [
-    "Compare TNF blockade vs IL-17 blockade in psoriatic arthritis — efficacy, safety, and predictive biomarkers",
+    "Compare TNF blockade vs IL-17 blockade in psoriatic arthritis: efficacy, safety, and predictive biomarkers",
     "What downstream effects propagate through the JAK-STAT network when JAK1 is inhibited in rheumatoid synovium?",
     "Map upstream interventions to suppress the IL-23/IL-17 axis in ankylosing spondylitis enthesitis, then rank by evidence tier",
     "How do anti-CD20 and anti-BLyS mechanisms of action differ in SLE across B cell subsets, trial endpoints, and renal outcomes?",
@@ -144,7 +144,7 @@ function ImageResponseCard({ response }: { response: QueryResponse }) {
       </div>
       <div className="pl-[18px]">
         <div className={PROSE_CLS}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{response.answer}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripEmDashes(response.answer)}</ReactMarkdown>
         </div>
       {(response.sources?.length ?? 0) > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-2.5">
@@ -286,6 +286,8 @@ export default function HomePage() {
   // Session management
   // ------------------------------------------------------------------
   function handleNewSession() {
+    setShowGraph(false);
+    setActiveDossierId(null);
     streaming.reset();
     agent.reset();
     setStreamingEntryId(null);
@@ -595,8 +597,10 @@ export default function HomePage() {
                   <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <Logo size={20} />
-              <span className="font-sans font-semibold text-ink text-sm tracking-tight">Asclepius</span>
+              <button onClick={handleNewSession} aria-label="Home" className="flex items-center gap-2.5">
+                <Logo size={22} />
+                <span className="font-sans font-semibold text-ink text-lg leading-none tracking-tight">Asclepius</span>
+              </button>
             </div>
             <AuthHeader />
           </div>
@@ -632,16 +636,12 @@ export default function HomePage() {
               <Logo size={32} />
 
               {/* Headline */}
-              <h1 className="mt-6 font-display leading-[1.1] text-ink text-[2rem] sm:text-[2.5rem]">
-                The literature, <em className="italic text-green">read carefully.</em>
+              <h1 className="mt-6 max-w-2xl font-display leading-[1.2] text-ink text-[1.5rem] sm:text-[1.75rem]">
+                Multimodal Agentic RAG System over PubMed.
+                <span className="mt-2 block text-muted">Every claim traced to a primary source.</span>
               </h1>
 
-              {/* Subtitle */}
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-                Multimodal Agentic RAG System over PubMed. Every claim traced to a primary source.
-              </p>
-
-              {/* Example prompts — terminal-style suggestions */}
+              {/* Example prompts - terminal-style suggestions */}
               <div className="mt-10 w-full text-left">
                 <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
                   Try a prompt
@@ -674,7 +674,7 @@ export default function HomePage() {
                     key={entry.id}
                     className="animate-fade-in"
                   >
-                    {/* User prompt — Claude Code `>` style */}
+                    {/* User prompt - Claude Code `>` style */}
                     <div className="mb-4">
                       {entry.imagePreviewUrl && (
                         <img
@@ -698,7 +698,7 @@ export default function HomePage() {
                       </p>
                     </div>
 
-                    {/* Response — assistant markers align with the user `>` */}
+                    {/* Response - assistant markers align with the user `>` */}
                     <div className="space-y-2">
                       {entry.error && (
                         <div className="rounded-lg border border-risk/25 bg-risk/8 px-4 py-3 text-sm text-risk">

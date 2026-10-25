@@ -83,7 +83,7 @@ body {
 }
 @keyframes hx-blink { 50% { opacity: 0.15; } }
 
-/* The single pending spinner — neutral, quiet, one element. */
+/* The single pending spinner - neutral, quiet, one element. */
 .hx-spin {
   display: inline-block;
   width: 13px; height: 13px; border-radius: 50%;

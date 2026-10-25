@@ -151,7 +151,7 @@ function drawGraph(
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
 
-  // Edges — highlight edges connected to the selected hub
+  // Edges - highlight edges connected to the selected hub
   for (const edge of edges) {
     const si = idxMap.get(edge.source);
     const ti = idxMap.get(edge.target);
@@ -167,7 +167,7 @@ function drawGraph(
     ctx.stroke();
   }
 
-  // Nodes — draw in two passes so highlighted node renders on top
+  // Nodes - draw in two passes so highlighted node renders on top
   const normalNodes = nodes.filter((n) => n.id !== highlightId);
   const highlightedNode = nodes.find((n) => n.id === highlightId);
   const drawOrder = highlightedNode ? [...normalNodes, highlightedNode] : normalNodes;

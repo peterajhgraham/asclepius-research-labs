@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { Logo } from "@/components/Logo";
 import type { Citation } from "@/hooks/useStreamingQuery";
 import type { ConversationEntry } from "@/lib/types";
-import { modelDisplayName, pmidToUrl, PROSE_CLS } from "@/lib/utils";
+import { modelDisplayName, pmidToUrl, PROSE_CLS, stripEmDashes } from "@/lib/utils";
 
 interface Props {
   entry: ConversationEntry;
@@ -42,7 +42,7 @@ export default function FrozenStreamEntry({ entry, onShowCitations }: Props) {
 
   return (
     <div>
-      {/* Assistant turn header — ⏺ marker + model */}
+      {/* Assistant turn header - ⏺ marker + model */}
       <div className="mb-2 flex items-center gap-2 text-[11px]">
         <span className="cc-dot is-done" aria-hidden="true" />
         <Logo size={13} />
@@ -68,7 +68,7 @@ export default function FrozenStreamEntry({ entry, onShowCitations }: Props) {
 
       <div className="pl-[18px]">
         <div className={PROSE_CLS}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.streamedText || ""}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripEmDashes(entry.streamedText || "")}</ReactMarkdown>
         </div>
 
         {sources.length > 0 && (

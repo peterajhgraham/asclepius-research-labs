@@ -44,3 +44,8 @@ export const PROSE_CLS = [
 ].join(" ");
 
 export const LS_KEY = "asclepius_sessions_v2";
+
+/** Model-written text can contain em dashes; the product style is to never show them. */
+export function stripEmDashes(text: string): string {
+  return text.replace(/\s*\u2014\s*/g, ", ");
+}

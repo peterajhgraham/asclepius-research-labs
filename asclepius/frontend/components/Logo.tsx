@@ -25,24 +25,16 @@ export function Logo({ size = 26, color = "#87f085", bg = "#0c1014", className }
 
 interface LockupProps {
   size?: number;
-  showSub?: boolean;
   className?: string;
 }
 
-/** Glyph + "Asclepius" wordmark + "Research Intelligence" sub-label. */
-export function BrandLockup({ size = 22, showSub = true, className }: LockupProps) {
+/** Glyph + "Asclepius" wordmark, vertically centered. */
+export function BrandLockup({ size = 26, className }: LockupProps) {
   return (
-    <span className={`flex items-center gap-2.5 ${className ?? ""}`}>
+    <span className={`flex items-center gap-3 ${className ?? ""}`}>
       <Logo size={size} />
-      <span className="flex flex-col leading-none">
-        <span className="font-sans font-semibold text-ink tracking-tight" style={{ fontSize: 15 }}>
-          Asclepius
-        </span>
-        {showSub && (
-          <span className="mt-1 font-mono uppercase text-muted" style={{ fontSize: 8, letterSpacing: "0.22em" }}>
-            Research Intelligence
-          </span>
-        )}
+      <span className="font-sans font-semibold leading-none text-ink tracking-tight" style={{ fontSize: 22 }}>
+        Asclepius
       </span>
     </span>
   );

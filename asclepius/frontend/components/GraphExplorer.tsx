@@ -70,7 +70,7 @@ export default function GraphExplorer() {
       .then((data) => setHubs(data.hubs ?? []))
       .catch((err) => {
         if ((err as Error).name !== "AbortError") {
-          setHubsError("Graph service unavailable — check that the backend is running.");
+          setHubsError("Graph service unavailable. Check that the backend is running.");
         }
       })
       .finally(() => setHubsLoading(false));
@@ -125,10 +125,10 @@ export default function GraphExplorer() {
     <div className="space-y-4">
       {/* Description */}
       <p className="text-sm text-muted leading-relaxed">
-        A live map of causal relationships extracted from PubMed — genes, cytokines, pathways, and diseases linked by experimental evidence. Select a hub below or click any node in the graph to explore its neighborhood.
+        A live map of causal relationships extracted from PubMed: genes, cytokines, pathways, and diseases linked by experimental evidence. Select a hub below or click any node in the graph to explore its neighborhood.
       </p>
 
-      {/* Legend — always visible */}
+      {/* Legend - always visible */}
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
         {TYPE_ORDER.map((type) => (
           <span key={type} className="flex items-center gap-1.5 font-mono text-[10px] text-muted">
@@ -200,7 +200,7 @@ export default function GraphExplorer() {
         </div>
       )}
 
-      {/* Hub list — grouped by type */}
+      {/* Hub list - grouped by type */}
       <div>
         <p className="mb-3 font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
           Top Hub Nodes

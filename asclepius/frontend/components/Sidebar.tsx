@@ -65,13 +65,13 @@ export default function Sidebar({
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onToggleSidebar} />
       )}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-[220px] border-r border-line bg-bg-2 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-60 border-r border-line bg-bg-2 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand lockup */}
         <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
-          <button onClick={onNewSession} aria-label="New session" className="group">
+          <button onClick={onNewSession} aria-label="Home" className="group">
             <BrandLockup />
           </button>
           <button
@@ -200,7 +200,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Knowledge Graph entry — prominent card above footer */}
+        {/* Knowledge Graph entry - prominent card above footer */}
         {onOpenGraph && (
           <div className="border-t border-line px-3 py-3">
             <button

@@ -44,7 +44,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
         if (insightsResult.status === "fulfilled") {
           setInsights(insightsResult.value);
         }
-        // insights failure is non-fatal — dossier still displays
+        // insights failure is non-fatal - dossier still displays
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -57,9 +57,9 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
       {/* Backdrop (mobile) */}
       <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} />
 
-      {/* Panel — overlay on mobile, persistent split column at ≥1024px */}
+      {/* Panel - overlay on mobile, persistent split column at ≥1024px */}
       <aside
-        className="fixed right-0 top-0 z-40 h-full w-[340px] border-l border-line bg-bg-2 shadow-card animate-slide-in flex flex-col
+        className="fixed right-0 top-0 z-40 h-full w-60 border-l border-line bg-bg-2 shadow-card animate-slide-in flex flex-col
                    lg:relative lg:right-auto lg:top-auto lg:z-auto lg:shadow-none lg:flex-shrink-0"
       >
         {/* Header */}

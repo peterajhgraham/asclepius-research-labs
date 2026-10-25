@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { StreamState } from "@/hooks/useStreamingQuery";
 import { Logo } from "@/components/Logo";
-import { modelDisplayName, pmidToUrl, PROSE_CLS } from "@/lib/utils";
+import { modelDisplayName, pmidToUrl, PROSE_CLS, stripEmDashes } from "@/lib/utils";
 
 interface Props {
   state: StreamState;
@@ -52,7 +52,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
 
   return (
     <div className="animate-fade-in">
-      {/* Assistant turn header — ⏺ marker + model + status */}
+      {/* Assistant turn header - ⏺ marker + model + status */}
       <div className="mb-2 flex items-center gap-2 text-[11px]">
         <span className={`cc-dot ${isStreaming ? "is-active" : "is-done"}`} aria-hidden="true" />
         <Logo size={13} />
@@ -92,7 +92,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
       {/* Answer body */}
       <div className="pl-[18px]">
         <div className={PROSE_CLS}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripEmDashes(text)}</ReactMarkdown>
           {isStreaming && <span className="hx-cursor" />}
         </div>
 
