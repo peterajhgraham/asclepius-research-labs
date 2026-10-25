@@ -46,12 +46,9 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div>
-            <h3 className="font-display text-ink text-display-m leading-none">
-              Sources <span className="text-green tabular-nums">· {citations.length}</span>
+            <h3 className="text-sm font-medium text-ink leading-none">
+              Sources <span className="ml-1 text-faint tabular-nums">{citations.length}</span>
             </h3>
-            <p className="mt-1.5 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
-              multimodal hybrid · RRF reranked
-            </p>
           </div>
           <button
             onClick={onClose}
@@ -104,7 +101,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                       </a>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.12em" }}>
+                      <p className="text-[11px] font-medium text-muted">
                         {label}{c.page ? ` · p.${c.page}` : ""}
                       </p>
                       {c.source && (
@@ -150,12 +147,6 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-line px-4 py-2.5">
-          <p className="text-center font-mono text-faint" style={{ fontSize: 10 }}>
-            BM25 + Dense + CLIP · RRF k=60 · CrossEncoder reranked
-          </p>
-        </div>
       </aside>
     </>
   );

@@ -180,7 +180,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
 function StatRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between px-1">
-      <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
+      <span className="text-[11px] font-medium text-muted">
         {label}
       </span>
       <span className="font-mono tabular-nums text-ink-2 text-xs">{value}</span>
@@ -190,7 +190,7 @@ function StatRow({ label, value }: { label: string; value: number }) {
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <p className="mb-1.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
+    <p className="mb-1.5 px-1 text-[11px] font-medium text-muted">
       {label}
     </p>
   );

@@ -123,10 +123,6 @@ export default function GraphExplorer() {
 
   return (
     <div className="space-y-4">
-      {/* Description */}
-      <p className="text-sm text-muted leading-relaxed">
-        A live map of causal relationships extracted from PubMed: genes, cytokines, pathways, and diseases linked by experimental evidence. Select a hub below or click any node in the graph to explore its neighborhood.
-      </p>
 
       {/* Legend - always visible */}
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
@@ -195,18 +191,18 @@ export default function GraphExplorer() {
             <line x1="12" y1="7" x2="19" y2="17" />
           </svg>
           <p className="text-xs text-faint max-w-[240px] leading-relaxed">
-            {subgraphError ?? hubsError ?? "Select a hub node below to visualize its 2-hop neighborhood"}
+            {subgraphError ?? hubsError ?? "Select a node below"}
           </p>
         </div>
       )}
 
       {/* Hub list - grouped by type */}
       <div>
-        <p className="mb-3 font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
-          Top Hub Nodes
+        <p className="mb-3 text-[11px] font-medium text-muted">
+          Hubs
         </p>
         {hubsLoading && (
-          <p className="text-xs text-faint">Analyzing network topology…</p>
+          <p className="text-xs text-faint">Loading…</p>
         )}
         {hubsError && (
           <p className="text-xs text-risk">{hubsError}</p>
@@ -221,7 +217,7 @@ export default function GraphExplorer() {
                     className="inline-block h-2 w-2 rounded-full flex-shrink-0"
                     style={{ background: TYPE_COLORS[type] ?? TYPE_COLORS.Unknown }}
                   />
-                  <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] font-medium text-muted">
                     {TYPE_LABEL[type] ?? type} · {nodes.length}
                   </span>
                 </div>

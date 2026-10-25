@@ -613,7 +613,7 @@ export default function HomePage() {
           {showGraph && (
             <div className="relative mx-auto max-w-5xl px-4 py-6 animate-fade-in">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-display text-lg text-ink">Knowledge Graph</h2>
+                <h2 className="text-sm font-medium text-ink">Knowledge Graph</h2>
                 <button
                   onClick={() => setShowGraph(false)}
                   className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted hover:bg-bg-3 hover:text-ink-2 transition"
@@ -643,9 +643,6 @@ export default function HomePage() {
 
               {/* Example prompts - terminal-style suggestions */}
               <div className="mt-10 w-full text-left">
-                <p className="mb-2.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
-                  Try a prompt
-                </p>
                 <div className="overflow-hidden rounded-xl border border-line-2 bg-bg-2">
                   {examples.map((example, i) => (
                     <button
@@ -689,7 +686,7 @@ export default function HomePage() {
                           {entry.question}
                         </p>
                       </div>
-                      <p className="mt-1 pl-[22px] font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
+                      <p className="mt-1 pl-[22px] text-[11px] font-medium text-muted">
                         {MODE_CONFIG[entry.mode]?.label} ·{" "}
                         {new Date(entry.timestamp).toLocaleTimeString([], {
                           hour: "2-digit",
