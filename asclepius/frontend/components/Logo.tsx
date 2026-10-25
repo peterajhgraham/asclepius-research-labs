@@ -10,7 +10,7 @@ interface GlyphProps {
  * connected by inference, the smallest unit of the platform. The single
  * outline node is the retrieval target.
  */
-export function Logo({ size = 26, color = "#87f085", bg = "#0c1014", className }: GlyphProps) {
+export function Logo({ size = 22, color = "#87f085", bg = "#0c1014", className }: GlyphProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 26 26" className={className} aria-hidden="true">
       <line x1="5" y1="20" x2="21" y2="20" stroke={color} strokeWidth="1.4" opacity="0.7" />
@@ -29,11 +29,11 @@ interface LockupProps {
 }
 
 /** Glyph + "Asclepius" wordmark, vertically centered. */
-export function BrandLockup({ size = 26, className }: LockupProps) {
+export function BrandLockup({ size = 22, className }: LockupProps) {
   return (
-    <span className={`flex items-center gap-3 ${className ?? ""}`}>
+    <span className={`flex items-center gap-2.5 ${className ?? ""}`}>
       <Logo size={size} />
-      <span className="font-sans font-semibold leading-none text-ink tracking-tight" style={{ fontSize: 22 }}>
+      <span className="font-sans font-semibold leading-none text-ink tracking-tight" style={{ fontSize: 18 }}>
         Asclepius
       </span>
     </span>

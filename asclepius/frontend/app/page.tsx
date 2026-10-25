@@ -598,8 +598,8 @@ export default function HomePage() {
                 </svg>
               </button>
               <button onClick={handleNewSession} aria-label="Home" className="flex items-center gap-2.5">
-                <Logo size={22} />
-                <span className="font-sans font-semibold text-ink text-lg leading-none tracking-tight">Asclepius</span>
+                <Logo size={20} />
+                <span className="font-sans font-semibold text-ink text-base leading-none tracking-tight">Asclepius</span>
               </button>
             </div>
             <AuthHeader />
@@ -636,9 +636,9 @@ export default function HomePage() {
               <Logo size={32} />
 
               {/* Headline */}
-              <h1 className="mt-6 max-w-2xl font-display leading-[1.2] text-ink text-[1.5rem] sm:text-[1.75rem]">
+              <h1 className="mt-6 max-w-2xl font-display leading-[1.2] text-ink text-[1.25rem] sm:text-[1.5rem]">
                 Multimodal Agentic RAG System over PubMed.
-                <span className="mt-2 block text-muted">Every claim traced to a primary source.</span>
+                <span className="mt-2 block font-sans text-sm text-muted">Every claim traced to a primary source.</span>
               </h1>
 
               {/* Example prompts - terminal-style suggestions */}
