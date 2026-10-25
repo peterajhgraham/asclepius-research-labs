@@ -19,7 +19,7 @@ function persistSessions(sessions: SavedSession[]) {
     localStorage.setItem(LS_KEY, JSON.stringify(sessions));
   } catch (e) {
     if (e instanceof Error && e.name === "QuotaExceededError") {
-      console.warn("localStorage quota exceeded — session history could not be saved");
+      console.warn("localStorage quota exceeded, session history could not be saved");
     }
   }
 }

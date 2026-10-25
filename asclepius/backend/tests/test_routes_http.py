@@ -27,11 +27,32 @@ def test_health_endpoint():
     mock_pipeline = MagicMock()
     mock_pipeline.is_ready = True
     mock_pipeline.doc_count = 0
-    with patch("app.services.retrieval_service.get_pipeline", return_value=mock_pipeline):
+    with patch("app.services.retrieval_service.peek_pipeline", return_value=mock_pipeline):
         response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
+    assert data["retrieval"] == "ready"
+
+
+def test_health_does_not_block_while_pipeline_is_building():
+    """/health must answer immediately even when the warm-up thread holds the build lock."""
+    import threading
+    from app.services import retrieval_service
+
+    client = get_client()
+    result = {}
+
+    def call():
+        result["resp"] = client.get("/health")
+
+    with retrieval_service._build_lock, patch.object(retrieval_service, "_pipeline", None):
+        t = threading.Thread(target=call, daemon=True)
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive(), "/health blocked on the pipeline build lock"
+    assert result["resp"].status_code == 200
+    assert result["resp"].json()["retrieval"] == "warming_up"
 
 
 def test_create_and_list_dossier():

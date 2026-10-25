@@ -65,21 +65,21 @@ export default function Sidebar({
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onToggleSidebar} />
       )}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-[220px] border-r border-line bg-bg-2 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-60 border-r border-line bg-bg-2 flex flex-col transition-transform duration-200 lg:relative lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand lockup */}
         <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
-          <button onClick={onNewSession} aria-label="New session" className="group">
+          <button onClick={onNewSession} aria-label="Home" className="group">
             <BrandLockup />
           </button>
           <button
             onClick={onNewSession}
             aria-label="New session"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-3 hover:text-ink transition"
+            className="flex h-5 w-5 items-center justify-center rounded text-muted hover:text-green transition"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -91,7 +91,7 @@ export default function Sidebar({
 
           {/* Recent sessions */}
           <div className="px-3 pt-4 pb-2">
-            <p className="px-1 mb-2 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
+            <p className="px-1 mb-2 text-[11px] font-medium text-muted">
               Recent
             </p>
             {sessions.length === 0 && (
@@ -143,7 +143,7 @@ export default function Sidebar({
           {/* Dossiers */}
           <div className="border-t border-line px-3 pt-3 pb-2">
             <div className="flex items-center justify-between mb-2 px-1">
-              <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.18em" }}>
+              <p className="text-[11px] font-medium text-muted">
                 Dossiers
               </p>
               <button
@@ -200,44 +200,24 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Knowledge Graph entry — prominent card above footer */}
+        {/* Knowledge Graph entry */}
         {onOpenGraph && (
-          <div className="border-t border-line px-3 py-3">
+          <div className="border-t border-line px-3 py-2.5">
             <button
               onClick={onOpenGraph}
-              className="group w-full rounded-lg border border-line bg-bg-2 px-3 py-2.5 text-left transition hover:border-green/25 hover:bg-bg-3"
+              className="group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-muted transition hover:bg-bg-3 hover:text-ink-2"
             >
-              <div className="flex items-center gap-2.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-green/70 group-hover:text-green transition">
-                  <circle cx="12" cy="5" r="2" />
-                  <circle cx="5" cy="19" r="2" />
-                  <circle cx="19" cy="19" r="2" />
-                  <line x1="12" y1="7" x2="5" y2="17" />
-                  <line x1="12" y1="7" x2="19" y2="17" />
-                </svg>
-                <span className="flex-1 text-xs font-mono text-ink-2">Knowledge Graph</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-faint group-hover:text-muted transition">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </div>
-              <p className="mt-1 font-mono text-faint" style={{ fontSize: 9, letterSpacing: "0.12em" }}>
-                CAUSAL ENTITY NETWORK · CLICK TO EXPLORE
-              </p>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="5" cy="19" r="2" />
+                <circle cx="19" cy="19" r="2" />
+                <line x1="12" y1="7" x2="5" y2="17" />
+                <line x1="12" y1="7" x2="19" y2="17" />
+              </svg>
+              <span className="text-xs">Knowledge Graph</span>
             </button>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="border-t border-line px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.16em" }}>
-              Sessions stored locally
-            </span>
-            <span className="font-mono tabular-nums text-muted" style={{ fontSize: 10 }}>
-              {sessions.length}
-            </span>
-          </div>
-        </div>
       </aside>
     </>
   );

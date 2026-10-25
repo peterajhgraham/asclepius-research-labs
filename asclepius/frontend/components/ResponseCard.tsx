@@ -4,7 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { QueryResponse, StructuredReasoning } from "@/lib/api";
-import { PROSE_CLS } from "@/lib/utils";
+import { PROSE_CLS, stripEmDashes } from "@/lib/utils";
 
 function formatPubMedLink(source: string): { text: string; href: string | null } {
   const pmidMatch = source.match(/PMID:\s*(\d+)/i);
@@ -122,7 +122,7 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
       {data.answer && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
           <div className={PROSE_CLS}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.answer}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripEmDashes(data.answer)}</ReactMarkdown>
           </div>
           {/* Model + cost footer */}
           {(data.model_used || (data.cost_usd ?? 0) > 0) && (

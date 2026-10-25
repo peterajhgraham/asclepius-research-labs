@@ -5,7 +5,7 @@ import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
 import { getModelLabel } from "@/lib/utils";
 
-// Borderless inputs — the composer box owns the border + focus ring.
+// Borderless inputs - the composer box owns the border + focus ring.
 const INPUT_CLS =
   "h-9 flex-1 min-w-0 bg-transparent px-1 text-sm text-ink placeholder-muted outline-none disabled:opacity-40 font-sans";
 
@@ -56,7 +56,7 @@ export default function QueryInputBar({
       <form onSubmit={onSubmit} className="mx-auto max-w-3xl px-4 py-3 sm:px-5">
 
         {/* Top row: mode switcher + a static engine label (consistent across all
-            modes — no per-mode controls that pop in and out as you switch). */}
+            modes - no per-mode controls that pop in and out as you switch). */}
         <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
           <ModeSwitcher mode={mode} onModeChange={onModeChange} />
 
@@ -168,7 +168,7 @@ export default function QueryInputBar({
           }}
         />
 
-        {/* Composer — single terminal-style box with a `>` prompt marker */}
+        {/* Composer - single terminal-style box with a `>` prompt marker */}
         <div className="flex items-center gap-2 rounded-xl border border-line-2 bg-bg-3 px-3 py-1.5 transition focus-within:border-green/70 focus-within:ring-2 focus-within:ring-green-faint">
           <span className="select-none font-mono text-base leading-none text-green">&gt;</span>
 

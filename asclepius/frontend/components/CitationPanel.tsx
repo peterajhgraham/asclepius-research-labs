@@ -34,24 +34,21 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
 
   return (
     <>
-      {/* Backdrop — mobile overlay only, shown when panel is open */}
+      {/* Backdrop - mobile overlay only, shown when panel is open */}
       {isOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} />}
 
-      {/* Panel — hidden on mobile when closed; at lg+ always shown as persistent column */}
+      {/* Panel - hidden on mobile when closed; at lg+ always shown as persistent column */}
       <aside
         ref={panelRef}
-        className={`${isOpen ? "flex fixed" : "hidden"} right-0 top-0 z-40 h-full w-[340px] border-l border-line bg-bg-2 shadow-card animate-slide-in flex-col
+        className={`${isOpen ? "flex fixed" : "hidden"} right-0 top-0 z-40 h-full w-60 border-l border-line bg-bg-2 shadow-card animate-slide-in flex-col
                    lg:flex lg:relative lg:right-auto lg:top-auto lg:z-auto lg:shadow-none lg:flex-shrink-0`}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div>
-            <h3 className="font-display text-ink text-display-m leading-none">
-              Sources <span className="text-green tabular-nums">· {citations.length}</span>
+            <h3 className="text-sm font-medium text-ink leading-none">
+              Sources <span className="ml-1 text-faint tabular-nums">{citations.length}</span>
             </h3>
-            <p className="mt-1.5 font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
-              multimodal hybrid · RRF reranked
-            </p>
           </div>
           <button
             onClick={onClose}
@@ -104,7 +101,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                       </a>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.12em" }}>
+                      <p className="text-[11px] font-medium text-muted">
                         {label}{c.page ? ` · p.${c.page}` : ""}
                       </p>
                       {c.source && (
@@ -150,12 +147,6 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-line px-4 py-2.5">
-          <p className="text-center font-mono text-faint" style={{ fontSize: 10 }}>
-            BM25 + Dense + CLIP · RRF k=60 · CrossEncoder reranked
-          </p>
-        </div>
       </aside>
     </>
   );

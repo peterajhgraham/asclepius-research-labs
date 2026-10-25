@@ -44,7 +44,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
         if (insightsResult.status === "fulfilled") {
           setInsights(insightsResult.value);
         }
-        // insights failure is non-fatal — dossier still displays
+        // insights failure is non-fatal - dossier still displays
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -57,9 +57,9 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
       {/* Backdrop (mobile) */}
       <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} />
 
-      {/* Panel — overlay on mobile, persistent split column at ≥1024px */}
+      {/* Panel - overlay on mobile, persistent split column at ≥1024px */}
       <aside
-        className="fixed right-0 top-0 z-40 h-full w-[340px] border-l border-line bg-bg-2 shadow-card animate-slide-in flex flex-col
+        className="fixed right-0 top-0 z-40 h-full w-60 border-l border-line bg-bg-2 shadow-card animate-slide-in flex flex-col
                    lg:relative lg:right-auto lg:top-auto lg:z-auto lg:shadow-none lg:flex-shrink-0"
       >
         {/* Header */}
@@ -180,7 +180,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
 function StatRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between px-1">
-      <span className="font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
+      <span className="text-[11px] font-medium text-muted">
         {label}
       </span>
       <span className="font-mono tabular-nums text-ink-2 text-xs">{value}</span>
@@ -190,7 +190,7 @@ function StatRow({ label, value }: { label: string; value: number }) {
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <p className="mb-1.5 px-1 font-mono uppercase text-faint" style={{ fontSize: 9, letterSpacing: "0.14em" }}>
+    <p className="mb-1.5 px-1 text-[11px] font-medium text-muted">
       {label}
     </p>
   );

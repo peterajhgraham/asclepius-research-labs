@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { DiseaseReportResponse } from "@/lib/dmi-api";
 
-// Quiet, neutral citation chip — hover reveals the green link affordance.
+// Quiet, neutral citation chip - hover reveals the green link affordance.
 // Reserving bright green for hover keeps a report full of citations calm.
 function PmidLink({ pmid }: { pmid: string }) {
   const clean = pmid.replace(/^PMID:?\s*/i, "").trim();
