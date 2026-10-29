@@ -18,6 +18,7 @@ from app.dmi.schemas import (
     MechanisticContradiction,
     ValidatedTarget,
 )
+from app.dmi.errors import ExtractionUnavailableError, LiteratureUnavailableError
 from app.dmi.pubmed import fetch_disease_literature, fetch_preprints
 from app.dmi.extractor import extract_disease_mechanisms
 from app.dmi.citation_utils import deduplicate_pmids
@@ -33,11 +34,21 @@ def generate_disease_report(
     logger.info("Generating disease report: disease=%r vertical=%s", disease_name, vertical)
 
     # 1. Fetch literature (PubMed + bioRxiv/medRxiv preprints)
-    articles = fetch_disease_literature(disease_name, max_results=75)
+    # A PubMed outage must not look like "no literature": remember it, and only
+    # raise if the preprint servers cannot fill the gap either.
+    pubmed_error: LiteratureUnavailableError | None = None
+    try:
+        articles = fetch_disease_literature(disease_name, max_results=75)
+    except LiteratureUnavailableError as exc:
+        logger.warning("PubMed unavailable for disease=%r; trying preprints only", disease_name)
+        pubmed_error = exc
+        articles = []
     preprints = fetch_preprints(f"{disease_name} mechanism", max_results=10)
     articles = articles + [p for p in preprints if p.pmid not in {a.pmid for a in articles}]
 
     if not articles:
+        if pubmed_error is not None:
+            raise pubmed_error
         return DiseaseReportResponse(
             disease_summary=(
                 f"No literature found for '{disease_name}'. "
@@ -47,6 +58,10 @@ def generate_disease_report(
 
     # 2. Run extraction directly on all articles
     extracted = extract_disease_mechanisms(disease_name, vertical, articles)
+    if extracted.get("_fallback"):
+        raise ExtractionUnavailableError(
+            extracted.get("_error") or "The AI service could not analyze the literature."
+        )
 
     # 3. Assemble response
     all_pmids: list[str] = []

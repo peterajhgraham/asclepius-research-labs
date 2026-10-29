@@ -93,7 +93,10 @@ async function apiFetch<T>(url: string, body: unknown): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     let detail = text;
-    try { detail = JSON.parse(text)?.detail ?? text; } catch { /* raw text */ }
+    try {
+      const json = JSON.parse(text);
+      detail = json?.detail ?? json?.error ?? text;
+    } catch { /* raw text */ }
     throw Object.assign(new Error(detail || `HTTP ${res.status}`), {
       response: { data: { detail } },
     });

@@ -153,6 +153,7 @@ def extract_disease_mechanisms(
             "biomarkers": [],
             "unresolved_questions": [],
             "_fallback": True,
+            "_error": "The AI service is not configured (ANTHROPIC_API_KEY is missing on the server).",
         }
 
     context = _build_literature_context(articles)
@@ -167,42 +168,27 @@ def extract_disease_mechanisms(
         f"No markdown fences, no commentary.\n\n{_DISEASE_SCHEMA}\n</output_format>"
     )
 
-    try:
-        response = _get_anthropic_client().messages.create(
-            model=_DMI_EXTRACTION_MODEL,
-            max_tokens=3000,
-            temperature=0.2,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        record_query(
-            model=_DMI_EXTRACTION_MODEL,
-            query=disease_name[:100],
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
-        )
-        raw = response.content[0].text or "{}"
-        raw = _strip_json_fence(raw)
-
-        return json.loads(raw)
-    except Exception:
-        logger.warning(
-            "Claude extraction failed for disease=%r, returning empty structure",
-            disease_name,
-            exc_info=True,
-        )
-        return {
-            "disease_summary": "",
-            "core_pathways": [],
-            "causal_genes": [],
-            "key_cell_types": [],
-            "validated_targets": [],
-            "failed_targets": [],
-            "mechanistic_contradictions": [],
-            "biomarkers": [],
-            "unresolved_questions": [],
-            "_fallback": True,
-        }
+    data, error = _call_extraction(
+        system=system_prompt,
+        user=user_prompt,
+        max_tokens=4096,
+        label=disease_name[:100],
+    )
+    if data is not None:
+        return data
+    return {
+        "disease_summary": "",
+        "core_pathways": [],
+        "causal_genes": [],
+        "key_cell_types": [],
+        "validated_targets": [],
+        "failed_targets": [],
+        "mechanistic_contradictions": [],
+        "biomarkers": [],
+        "unresolved_questions": [],
+        "_fallback": True,
+        "_error": error,
+    }
 
 
 # ------------------------------------------------------------------
@@ -266,6 +252,7 @@ def extract_target_assessment(
             "phase2_failures": 0,
             "risk_explanation": "",
             "_fallback": True,
+            "_error": "The AI service is not configured (ANTHROPIC_API_KEY is missing on the server).",
         }
 
     context = _build_literature_context(articles)
@@ -282,48 +269,126 @@ def extract_target_assessment(
         f"No markdown fences, no commentary.\n\n{_TARGET_SCHEMA}\n</output_format>"
     )
 
-    try:
-        response = _get_anthropic_client().messages.create(
-            model=_DMI_EXTRACTION_MODEL,
-            max_tokens=2000,
-            temperature=0.2,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        record_query(
-            model=_DMI_EXTRACTION_MODEL,
-            query=f"{disease_name} / {target_name}"[:100],
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
-        )
-        raw = response.content[0].text or "{}"
-        raw = _strip_json_fence(raw)
-
-        return json.loads(raw)
-    except Exception:
-        logger.warning(
-            "Claude target extraction failed for disease=%r target=%r, returning empty structure",
-            disease_name,
-            target_name,
-            exc_info=True,
-        )
-        return {
-            "pathway_position": "",
-            "redundancy_level": "",
-            "historical_failures": [],
-            "biomarker_alignment": "",
-            "parallel_pathways_count": 0,
-            "contradictory_evidence": False,
-            "biomarker_mentions": 0,
-            "phase2_failures": 0,
-            "risk_explanation": "",
-            "_fallback": True,
-        }
+    data, error = _call_extraction(
+        system=system_prompt,
+        user=user_prompt,
+        max_tokens=3000,
+        label=f"{disease_name} / {target_name}"[:100],
+    )
+    if data is not None:
+        return data
+    return {
+        "pathway_position": "",
+        "redundancy_level": "",
+        "historical_failures": [],
+        "biomarker_alignment": "",
+        "parallel_pathways_count": 0,
+        "contradictory_evidence": False,
+        "biomarker_mentions": 0,
+        "phase2_failures": 0,
+        "risk_explanation": "",
+        "_fallback": True,
+        "_error": error,
+    }
 
 
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
+_GENERIC_LLM_ERROR = "The AI service request failed. Please try again in a moment."
+
+
+def _describe_llm_error(exc: Exception) -> str:
+    """A short, user-safe reason for an LLM failure. Never includes upstream error text."""
+    try:
+        import anthropic
+    except ImportError:  # pragma: no cover - anthropic is a hard dependency
+        return _GENERIC_LLM_ERROR
+
+    if isinstance(exc, anthropic.AuthenticationError):
+        return "The AI service rejected the server's API key. Check ANTHROPIC_API_KEY."
+    if isinstance(exc, anthropic.PermissionDeniedError):
+        return "The server's API key does not have permission to use the AI service."
+    if isinstance(exc, anthropic.NotFoundError):
+        return "The configured AI model is not available to this API key."
+    if isinstance(exc, anthropic.RateLimitError):
+        return "The AI service is rate limited right now. Please try again in a moment."
+    if isinstance(exc, (anthropic.APITimeoutError, anthropic.APIConnectionError)):
+        return "The AI service could not be reached. Please try again in a moment."
+    if isinstance(exc, anthropic.BadRequestError):
+        if "credit balance" in str(exc).lower():
+            return "The AI account is out of credits. Add credits and try again."
+        return "The AI service rejected the request."
+    if isinstance(exc, anthropic.APIStatusError) and getattr(exc, "status_code", 0) >= 500:
+        return "The AI service is temporarily overloaded. Please try again in a moment."
+    return _GENERIC_LLM_ERROR
+
+
+def _record_cost(label: str, response: Any) -> None:
+    """Cost tracking is telemetry: it must never throw away a good answer."""
+    try:
+        record_query(
+            model=_DMI_EXTRACTION_MODEL,
+            query=label,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )
+    except Exception:
+        logger.warning("Cost tracking failed (answer kept)", exc_info=True)
+
+
+def _response_text(response: Any) -> str:
+    blocks = getattr(response, "content", None) or []
+    return "".join(getattr(b, "text", "") or "" for b in blocks)
+
+
+def _call_extraction(
+    *, system: str, user: str, max_tokens: int, label: str
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Call the model and parse its JSON answer.
+
+    Returns ``(data, None)`` on success, or ``(None, reason)`` where ``reason`` is
+    safe to show to the user. If the answer was cut off at the token limit it is
+    retried once with double the budget before giving up.
+    """
+    client = _get_anthropic_client()
+    if client is None:
+        logger.warning("Anthropic client unavailable (set ANTHROPIC_API_KEY): skipping extraction for %r", label)
+        return None, "The AI service is not configured (ANTHROPIC_API_KEY is missing on the server)."
+
+    tokens = max_tokens
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model=_DMI_EXTRACTION_MODEL,
+                max_tokens=tokens,
+                temperature=0.2,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+        except Exception as exc:
+            logger.warning("Claude extraction failed for %r: %s", label, type(exc).__name__, exc_info=True)
+            return None, _describe_llm_error(exc)
+
+        _record_cost(label, response)
+        stop_reason = getattr(response, "stop_reason", None)
+        try:
+            data = json.loads(_strip_json_fence(_response_text(response) or "{}"))
+            if isinstance(data, dict):
+                return data, None
+            raise ValueError("model returned JSON that is not an object")
+        except ValueError:
+            if stop_reason == "max_tokens" and attempt == 0:
+                tokens = max_tokens * 2
+                logger.warning("Extraction for %r hit the token limit; retrying with max_tokens=%d", label, tokens)
+                continue
+            logger.warning(
+                "Extraction for %r was not valid JSON (stop_reason=%s)", label, stop_reason, exc_info=True
+            )
+            return None, "The AI service returned an incomplete answer. Please try again."
+    return None, _GENERIC_LLM_ERROR  # pragma: no cover - loop always returns
+
 
 def _build_literature_context(articles: list[PubMedArticle], max_chars: int = 20000) -> str:
     """Build a literature context string from articles."""

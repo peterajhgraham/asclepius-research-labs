@@ -535,6 +535,24 @@ export default function HomePage() {
   const examples = EXAMPLE_PROMPTS[mode];
   const isLoading = loading || streaming.isStreaming || agent.isStreaming;
 
+  // Put a failed question back in the composer (and drop the failed turn) so it can be re-run.
+  function handleRetry(entry: ConversationEntry) {
+    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    setMode(entry.mode);
+    const q = entry.question;
+    if (entry.mode === "compare") {
+      const i = q.indexOf(" vs ");
+      setQuestion(i >= 0 ? q.slice(0, i) : q);
+      setDiseaseB(i >= 0 ? q.slice(i + 4) : "");
+    } else if (entry.mode === "target-risk") {
+      const i = q.indexOf(" in ");
+      setTargetName(i >= 0 ? q.slice(0, i) : "");
+      setQuestion(i >= 0 ? q.slice(i + 4) : q);
+    } else {
+      setQuestion(q);
+    }
+  }
+
   function handleExampleClick(example: string) {
     if (mode === "compare") {
       const p = example.split(" vs ");
@@ -698,8 +716,18 @@ export default function HomePage() {
                     {/* Response - assistant markers align with the user `>` */}
                     <div className="space-y-2">
                       {entry.error && (
-                        <div className="rounded-lg border border-risk/25 bg-risk/8 px-4 py-3 text-sm text-risk">
-                          {entry.error}
+                        <div
+                          role="alert"
+                          className="flex items-start gap-3 rounded-lg border border-line bg-bg-2 px-4 py-3"
+                        >
+                          <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-risk" aria-hidden="true" />
+                          <p className="flex-1 text-[13px] leading-relaxed text-ink-2">{entry.error}</p>
+                          <button
+                            onClick={() => handleRetry(entry)}
+                            className="shrink-0 text-xs text-muted transition hover:text-ink"
+                          >
+                            Try again
+                          </button>
                         </div>
                       )}
 

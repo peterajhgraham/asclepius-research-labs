@@ -26,7 +26,12 @@ export async function GET(req: NextRequest) {
     });
 
     if (!resp.ok || !resp.body) {
-      const errorEvent = `data: ${JSON.stringify({ type: "error", message: `Backend returned ${resp.status}` })}\n\n`;
+      // Pass the backend's own explanation through when it gave one.
+      const raw = await resp.text().catch(() => "");
+      let detail = "";
+      try { detail = JSON.parse(raw)?.detail ?? ""; } catch { /* not JSON */ }
+      const message = typeof detail === "string" && detail ? detail : `Backend returned ${resp.status}`;
+      const errorEvent = `data: ${JSON.stringify({ type: "error", message })}\n\n`;
       return new Response(errorEvent, {
         headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
       });
@@ -41,7 +46,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch {
-    const errorEvent = `data: ${JSON.stringify({ type: "error", message: "Backend unreachable" })}\n\n`;
+    const errorEvent = `data: ${JSON.stringify({ type: "error", message: `Backend unreachable at ${BACKEND_URL}` })}\n\n`;
     return new Response(errorEvent, {
       headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });

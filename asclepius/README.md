@@ -278,7 +278,7 @@ Built-in prompt templates are available for `immunology`, `oncology`, and `neuro
 | `ANTHROPIC_API_KEY` | ✅ | — | Primary inference key — 3-tier routing |
 | `DAILY_BUDGET_USD` | | `10.00` | Hard spend cap; enforced before each inference call |
 | `DATABASE_URL` | | `sqlite+aiosqlite:///./data/asclepius.db` | Async proposition store; swap URL for PostgreSQL |
-| `OPENAI_API_KEY` | | — | Fallback inference provider |
+| `RETRIEVAL_WAIT_SECONDS` | | `20` | How long a query waits for a still-building retrieval index before answering without it |
 | `NCBI_API_KEY` | | — | Raises PubMed rate limit from 3 to 10 req/s |
 
 ### Frontend

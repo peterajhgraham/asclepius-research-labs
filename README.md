@@ -425,7 +425,7 @@ Built-in prompt templates: `immunology`, `oncology`, `neuroscience`. Any other v
 | `DAILY_BUDGET_USD` | | `10.00` | Hard spend cap enforced before each inference call |
 | `DATABASE_URL` | | `sqlite+aiosqlite:///./data/asclepius.db` | Async proposition store; swap URL for PostgreSQL |
 | `NCBI_API_KEY` | | — | Raises PubMed rate limit from 3 to 10 req/s |
-| `OPENAI_API_KEY` | | — | Fallback inference provider if primary key is absent |
+| `RETRIEVAL_WAIT_SECONDS` | | `20` | How long a query waits for a still-building retrieval index before answering without it |
 | `CORS_ORIGINS` | | `["*"]` | Allowed CORS origins |
 
 ### Frontend (`asclepius/frontend/.env.local`)

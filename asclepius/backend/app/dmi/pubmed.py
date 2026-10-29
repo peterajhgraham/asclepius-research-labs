@@ -6,6 +6,7 @@ import logging
 import urllib.request
 import json as _json
 
+from app.dmi.errors import LiteratureUnavailableError
 from app.services.pubmed_service import PubMedArticle, pubmed as _pubmed
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,17 @@ def fetch_disease_literature(
             disease_name,
         )
 
+    _raise_if_unreachable(articles)
     return articles
+
+
+def _raise_if_unreachable(articles: list[PubMedArticle]) -> None:
+    """Zero articles plus a recorded transport error means PubMed failed, not "no results"."""
+    if not articles and _pubmed.last_error:
+        raise LiteratureUnavailableError(
+            "PubMed could not be reached, so no literature could be retrieved. "
+            "Please try again in a moment."
+        )
 
 
 def fetch_target_literature(
@@ -74,6 +85,7 @@ def fetch_target_literature(
             target_name,
         )
 
+    _raise_if_unreachable(articles)
     return articles
 
 

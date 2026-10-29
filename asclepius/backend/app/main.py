@@ -62,6 +62,7 @@ def health() -> dict[str, str]:
         "status": "healthy",
         "service": settings.app_name,
         "retrieval": "ready" if ready else "warming_up",
+        "llm": "configured" if settings.anthropic_api_key else "missing_api_key",
         "docs_indexed": str(pipeline.doc_count if pipeline is not None else 0),
     }
 
