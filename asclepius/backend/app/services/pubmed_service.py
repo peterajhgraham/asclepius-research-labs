@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from xml.etree import ElementTree as ET
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 _NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -105,10 +107,17 @@ class PubMedService:
         email: str = "asclepius@research.dev",
         rate_limit_delay: float = 0.35,
         max_retries: int = 3,
+        api_key: Optional[str] = None,
     ) -> None:
         self.email = email
         self.rate_limit_delay = rate_limit_delay
         self.max_retries = max_retries
+        # Explicit key wins; otherwise NCBI_API_KEY from settings is read per request.
+        self._api_key = api_key
+        # NCBI limits requests per IP (3/s without a key, 10/s with one), so the
+        # spacing between requests is shared by every thread using this service.
+        self._rate_lock = threading.Lock()
+        self._next_request_at = 0.0
         # Records the last transport/parse failure so callers can tell a genuine
         # "0 results" apart from "couldn't reach NCBI". Reset at the start of
         # every search(); None means the last search completed cleanly.
@@ -353,13 +362,46 @@ class PubMedService:
             keywords=keywords,
         )
 
+    @property
+    def _key(self) -> str:
+        return self._api_key if self._api_key is not None else settings.ncbi_api_key
+
+    def _throttle(self) -> None:
+        """Block until this thread's turn: requests are spaced across all threads."""
+        interval = self.rate_limit_delay
+        if self._key:
+            interval = min(interval, 0.11)  # NCBI allows 10 requests/s with a key
+        with self._rate_lock:
+            now = time.monotonic()
+            start = max(now, self._next_request_at)
+            self._next_request_at = start + interval
+        delay = start - now
+        if delay > 0:
+            time.sleep(delay)
+
+    @staticmethod
+    def _retry_after(resp: requests.Response, default: float) -> float:
+        """Seconds to wait after a 429, honouring Retry-After (capped at 10s)."""
+        try:
+            return min(float(resp.headers.get("Retry-After", default)), 10.0)
+        except (TypeError, ValueError):
+            return min(default, 10.0)
+
     def _get(self, url: str, params: Dict[str, Any]) -> requests.Response:
         """HTTP GET with retry and rate limiting."""
+        if self._key:
+            params = {**params, "api_key": self._key}
         last_exc: Optional[Exception] = None
         for attempt in range(self.max_retries):
             try:
-                time.sleep(self.rate_limit_delay)
+                self._throttle()
                 resp = self._session.get(url, params=params, timeout=30)
+                if resp.status_code == 429 and attempt < self.max_retries - 1:
+                    wait = self._retry_after(resp, default=2 ** attempt)
+                    logger.warning("NCBI rate limit hit; retrying in %.1fs", wait)
+                    last_exc = requests.HTTPError("429 Too Many Requests")
+                    time.sleep(wait)
+                    continue
                 resp.raise_for_status()
                 return resp
             except requests.RequestException as exc:

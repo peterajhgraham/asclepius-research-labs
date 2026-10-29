@@ -58,6 +58,7 @@ def pubmed_empty(monkeypatch):
     """A PubMed service that is healthy but finds nothing."""
 
     class _Resp:
+        status_code = 200
         content = b"<eFetchResult></eFetchResult>"
 
         def json(self):
