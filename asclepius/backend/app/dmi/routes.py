@@ -13,6 +13,7 @@ from app.dmi.schemas import (
     TargetRiskResponse,
 )
 from app.dmi.disease_report import generate_disease_report
+from app.dmi.errors import ReportUnavailableError
 from app.dmi.target_risk import generate_target_risk_report
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,9 @@ def disease_report(request: DiseaseReportRequest) -> DiseaseReportResponse:
             disease_name=request.disease_name,
             vertical=request.vertical,
         )
+    except ReportUnavailableError as exc:
+        logger.warning("Disease report unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Error generating disease report")
         raise HTTPException(
@@ -51,6 +55,9 @@ def target_risk(request: TargetRiskRequest) -> TargetRiskResponse:
             target_name=request.target_name,
             vertical=request.vertical,
         )
+    except ReportUnavailableError as exc:
+        logger.warning("Target risk report unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Error generating target risk report")
         raise HTTPException(

@@ -153,6 +153,7 @@ def extract_disease_mechanisms(
             "biomarkers": [],
             "unresolved_questions": [],
             "_fallback": True,
+            "_error": "The AI service is not configured (ANTHROPIC_API_KEY is missing on the server).",
         }
 
     context = _build_literature_context(articles)
@@ -202,6 +203,7 @@ def extract_disease_mechanisms(
             "biomarkers": [],
             "unresolved_questions": [],
             "_fallback": True,
+            "_error": "The AI service request failed. Please try again in a moment.",
         }
 
 
@@ -266,6 +268,7 @@ def extract_target_assessment(
             "phase2_failures": 0,
             "risk_explanation": "",
             "_fallback": True,
+            "_error": "The AI service is not configured (ANTHROPIC_API_KEY is missing on the server).",
         }
 
     context = _build_literature_context(articles)
@@ -318,6 +321,7 @@ def extract_target_assessment(
             "phase2_failures": 0,
             "risk_explanation": "",
             "_fallback": True,
+            "_error": "The AI service request failed. Please try again in a moment.",
         }
 
 

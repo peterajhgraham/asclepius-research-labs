@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["*"]
     log_level: str = "INFO"
 
+    # Retrieval: how long a query waits for a still-building index before answering without it
+    retrieval_wait_seconds: float = 20.0
+
     # Cost control
     daily_budget_usd: float = 10.0
 

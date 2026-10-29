@@ -257,8 +257,9 @@ class PubMedService:
         try:
             resp = self._get(f"{_NCBI_BASE}/efetch.fcgi", params)
             return self._parse_xml(resp.content)
-        except Exception:
+        except Exception as exc:
             logger.warning("PubMed fetch failed for %d PMIDs", len(pmids), exc_info=True)
+            self.last_error = f"PubMed request failed: {exc}"
             return []
 
     def _parse_xml(self, xml_content: bytes) -> List[PubMedArticle]:
@@ -268,6 +269,7 @@ class PubMedService:
             root = ET.fromstring(xml_content)
         except ET.ParseError:
             logger.warning("Failed to parse PubMed XML response")
+            self.last_error = "PubMed returned a response that could not be parsed"
             return []
 
         for article_elem in root.findall(".//PubmedArticle"):

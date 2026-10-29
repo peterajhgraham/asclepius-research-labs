@@ -202,3 +202,14 @@ def test_context_budget_caps_large_context():
     assert len(context) <= LLMService._CONTEXT_BUDGET, (
         f"Context exceeded budget: {len(context)} > {LLMService._CONTEXT_BUDGET}"
     )
+
+
+def test_health_reports_missing_llm_key(monkeypatch):
+    """A deploy without ANTHROPIC_API_KEY is visible straight from /health."""
+    from app.core.config import settings
+
+    client = get_client()
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    assert client.get("/health").json()["llm"] == "missing_api_key"
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-test")
+    assert client.get("/health").json()["llm"] == "configured"

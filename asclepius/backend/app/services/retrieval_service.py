@@ -17,6 +17,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
+from app.core.config import settings
 from app.retrieval.pipeline import RetrievalPipeline, RetrievedProposition
 
 logger = logging.getLogger(__name__)
@@ -26,12 +27,20 @@ _build_lock = threading.Lock()
 _build_started = False
 
 
-def get_pipeline() -> RetrievalPipeline:
-    """Return the shared pipeline, building it on first call (thread-safe)."""
+def get_pipeline(wait: float | None = None) -> RetrievalPipeline:
+    """Return the shared pipeline, building it on first call (thread-safe).
+
+    ``wait`` bounds how long to wait for a build already in progress (``None``
+    waits as long as it takes). When the wait runs out, an empty, not-ready
+    pipeline is returned so the caller can carry on without retrieval.
+    """
     global _pipeline, _build_started
     if _pipeline is not None and _pipeline.is_ready:
         return _pipeline
-    with _build_lock:
+    if not _build_lock.acquire(timeout=-1 if wait is None else wait):
+        logger.warning("Retrieval index still building after %.0fs; continuing without it", wait)
+        return _pipeline or RetrievalPipeline()
+    try:
         if _pipeline is not None and _pipeline.is_ready:
             return _pipeline
         if not _build_started:
@@ -41,6 +50,8 @@ def get_pipeline() -> RetrievalPipeline:
             except Exception:
                 logger.warning("Pipeline build failed; will retry on next request", exc_info=True)
                 _build_started = False
+    finally:
+        _build_lock.release()
     return _pipeline or RetrievalPipeline()
 
 
@@ -277,7 +288,7 @@ def retrieve(
     Pass `query_image_bytes` to enable image→image retrieval via CLIP
     (used when the user uploads a probe figure with their question).
     """
-    pipeline = get_pipeline()
+    pipeline = get_pipeline(wait=settings.retrieval_wait_seconds)
     if not pipeline.is_ready:
         return []
     results = pipeline.retrieve(query, top_k=top_k, query_image_bytes=query_image_bytes)

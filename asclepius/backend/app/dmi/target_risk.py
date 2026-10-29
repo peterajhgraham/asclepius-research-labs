@@ -15,6 +15,7 @@ from app.dmi.schemas import (
     HistoricalFailure,
     TargetRiskResponse,
 )
+from app.dmi.errors import ExtractionUnavailableError, LiteratureUnavailableError
 from app.dmi.pubmed import fetch_target_literature, fetch_preprints
 from app.dmi.extractor import extract_target_assessment
 from app.dmi.scoring import (
@@ -41,11 +42,23 @@ def generate_target_risk_report(
     )
 
     # 1. Fetch literature (PubMed + bioRxiv/medRxiv preprints)
-    articles = fetch_target_literature(disease_name, target_name, max_results=50)
+    pubmed_error: LiteratureUnavailableError | None = None
+    try:
+        articles = fetch_target_literature(disease_name, target_name, max_results=50)
+    except LiteratureUnavailableError as exc:
+        logger.warning(
+            "PubMed unavailable for disease=%r target=%r; trying preprints only",
+            disease_name,
+            target_name,
+        )
+        pubmed_error = exc
+        articles = []
     preprints = fetch_preprints(f"{target_name} {disease_name}", max_results=10)
     articles = articles + [p for p in preprints if p.pmid not in {a.pmid for a in articles}]
 
     if not articles:
+        if pubmed_error is not None:
+            raise pubmed_error
         return TargetRiskResponse(
             target=target_name,
             disease=disease_name,
@@ -59,6 +72,10 @@ def generate_target_risk_report(
     extracted = extract_target_assessment(
         disease_name, target_name, vertical, articles
     )
+    if extracted.get("_fallback"):
+        raise ExtractionUnavailableError(
+            extracted.get("_error") or "The AI service could not analyze the literature."
+        )
 
     # 4. Build historical failures
     historical_failures = []
