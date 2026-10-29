@@ -109,8 +109,12 @@ def check_budget(budget_override: float | None = None) -> bool:
 
 
 def _load_daily_total(day: str) -> float:
-    log_file = _log_dir() / f"{day}.jsonl"
-    if not log_file.exists():
+    try:
+        log_file = _log_dir() / f"{day}.jsonl"
+        if not log_file.exists():
+            return 0.0
+    except Exception:
+        logger.warning("Cost log directory unavailable; starting today's total at 0", exc_info=True)
         return 0.0
     total = 0.0
     try:
