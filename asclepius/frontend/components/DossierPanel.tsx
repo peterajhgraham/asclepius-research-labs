@@ -65,7 +65,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="min-w-0 flex-1">
-            <h3 className="font-display text-ink text-display-m leading-none truncate">
+            <h3 className="text-sm font-medium leading-none text-ink truncate">
               {loading ? "Loading…" : (dossier?.name ?? "Dossier")}
             </h3>
             {dossier?.description && (
@@ -90,7 +90,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 font-mono uppercase transition text-[9px] ${
+              className={`flex-1 py-2 font-mono transition text-[11px] ${
                 tab === t
                   ? "text-green border-b-2 border-green"
                   : "text-faint hover:text-ink-2"

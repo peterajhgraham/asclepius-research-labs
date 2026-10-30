@@ -1,273 +1,141 @@
 "use client";
 
-import { useState } from "react";
 import type { TargetRiskResponse } from "@/lib/dmi-api";
+import { PmidList, Section } from "@/components/report-ui";
 
-function PmidLink({ pmid }: { pmid: string }) {
-  const clean = pmid.replace(/^PMID:?\s*/i, "").trim();
-  return (
-    <a
-      href={`https://pubmed.ncbi.nlm.nih.gov/${clean}/`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 rounded-md border border-line-2 bg-bg-3 px-1.5 py-0.5 text-[10px] font-mono text-muted transition hover:border-green/40 hover:text-green"
-    >
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50">
-        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
-      </svg>
-      {clean}
-    </a>
-  );
+type Level = "low" | "moderate" | "high";
+
+function levelOf(score: number): Level {
+  return score >= 60 ? "high" : score >= 30 ? "moderate" : "low";
 }
 
-function RiskGauge({
-  label,
-  subtitle,
-  score,
-  barColor,
-}: {
-  label: string;
-  subtitle: string;
-  score: number;
-  barColor: string;
-}) {
-  const riskLevel = score >= 60 ? "HIGH" : score >= 30 ? "MODERATE" : "LOW";
-  const riskColor = score >= 60 ? "text-red-400" : score >= 30 ? "text-yellow-400" : "text-green-400";
-  const riskBg = score >= 60 ? "bg-red-500/10" : score >= 30 ? "bg-yellow-500/10" : "bg-green-500/10";
-  const riskBorder = score >= 60 ? "border-red-500/20" : score >= 30 ? "border-yellow-500/20" : "border-green-500/20";
+const LEVEL_TEXT: Record<Level, string> = { low: "text-green", moderate: "text-amber", high: "text-risk" };
+const LEVEL_BAR: Record<Level, string> = { low: "bg-green", moderate: "bg-amber", high: "bg-risk" };
 
+// One score as a row: label, a thin bar, the number. Colour carries only the level.
+function ScoreRow({ label, hint, score }: { label: string; hint: string; score: number }) {
+  const level = levelOf(score);
   return (
-    <div className={`rounded-xl border ${riskBorder} ${riskBg} p-4`}>
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-light">{label}</p>
-          <p className="text-[10px] text-muted mt-0.5 leading-snug">{subtitle}</p>
-        </div>
-        <div className="text-right">
-          <span className={`font-display tabular-nums ${riskColor}`} style={{ fontSize: 32 }}>{score}</span>
-          <span className="text-muted text-xs">/100</span>
-        </div>
-      </div>
-      <div className="h-2.5 rounded-full bg-surface-3/80 overflow-hidden mb-2">
+    <div title={hint} className="grid grid-cols-[9.5rem_1fr_2.5rem] items-center gap-4 py-1.5">
+      <span className="text-sm text-ink-2">{label}</span>
+      <div className="h-1 overflow-hidden rounded-full bg-bg-3">
         <div
-          className={`h-full rounded-full transition-all duration-700 ${barColor}`}
-          style={{ width: `${score}%` }}
+          className={`h-full rounded-full transition-all duration-700 ${LEVEL_BAR[level]}`}
+          style={{ width: `${Math.max(2, Math.min(100, score))}%` }}
         />
       </div>
-      <div className="flex items-center justify-between">
-        <span className={`text-[10px] font-bold uppercase tracking-wider ${riskColor}`}>
-          {riskLevel} RISK
-        </span>
-        <div className="flex gap-1 text-[9px] text-muted">
-          <span>0</span>
-          <span className="mx-1 text-muted-dim">·</span>
-          <span>30</span>
-          <span className="mx-1 text-muted-dim">·</span>
-          <span>60</span>
-          <span className="mx-1 text-muted-dim">·</span>
-          <span>100</span>
-        </div>
-      </div>
+      <span className="text-right text-sm tabular-nums text-ink">{score}</span>
     </div>
   );
 }
 
-function AttributeBadge({
+// A labelled attribute whose value is tinted by what it implies for risk.
+function Attribute({
   label,
   value,
-  colorClass,
-  tooltip,
+  tone,
+  hint,
 }: {
   label: string;
   value: string;
-  colorClass: string;
-  tooltip: string;
+  tone: "good" | "watch" | "bad";
+  hint: string;
 }) {
-  const [showTip, setShowTip] = useState(false);
+  const dot = tone === "good" ? "bg-green" : tone === "bad" ? "bg-risk" : "bg-amber";
   return (
-    <div className="relative">
-      <button
-        className="flex flex-col items-center gap-1 rounded-lg border border-surface-3 bg-surface-2 px-3 py-2.5 text-center hover:border-surface-4 transition min-w-[90px]"
-        onMouseEnter={() => setShowTip(true)}
-        onMouseLeave={() => setShowTip(false)}
-        type="button"
-      >
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${colorClass}`}>
-          {value}
-        </span>
-        <span className="text-[10px] text-muted">{label}</span>
-      </button>
-      {showTip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 w-48 rounded-lg border border-surface-4 bg-surface-0 px-3 py-2 text-[11px] text-gray-300 shadow-lg leading-relaxed">
-          {tooltip}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-surface-0" />
-        </div>
-      )}
+    <div title={hint}>
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 flex items-center gap-2 text-sm capitalize text-ink">
+        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden="true" />
+        {value}
+      </p>
     </div>
   );
 }
 
 export default function TargetRiskCard({ data }: { data: TargetRiskResponse }) {
-  const positionColor =
-    data.pathway_position === "upstream"
-      ? "bg-green-500/15 text-green-400"
-      : data.pathway_position === "downstream"
-        ? "bg-red-500/15 text-red-400"
-        : "bg-yellow-500/15 text-yellow-400";
-
-  const redundancyColor =
-    data.redundancy_level === "low"
-      ? "bg-green-500/15 text-green-400"
-      : data.redundancy_level === "high"
-        ? "bg-red-500/15 text-red-400"
-        : "bg-yellow-500/15 text-yellow-400";
-
-  const biomarkerColor =
-    data.biomarker_alignment === "strong"
-      ? "bg-green-500/15 text-green-400"
-      : data.biomarker_alignment === "weak"
-        ? "bg-red-500/15 text-red-400"
-        : "bg-yellow-500/15 text-yellow-400";
-
-  const overallRiskColor =
-    data.overall_risk_score >= 60
-      ? "bg-red-500"
-      : data.overall_risk_score >= 30
-        ? "bg-yellow-500"
-        : "bg-green-500";
+  const position =
+    data.pathway_position === "upstream" ? "good" : data.pathway_position === "downstream" ? "bad" : "watch";
+  const redundancy =
+    data.redundancy_level === "low" ? "good" : data.redundancy_level === "high" ? "bad" : "watch";
+  const biomarkers =
+    data.biomarker_alignment === "strong" ? "good" : data.biomarker_alignment === "weak" ? "bad" : "watch";
+  const overall = levelOf(data.overall_risk_score);
 
   return (
-    <div className="space-y-4">
-      {/* Target header */}
-      <div className="rounded-xl border border-line bg-bg-2 px-5 py-4">
-        <div className="flex items-start gap-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-display text-ink text-display-m">{data.target}</h3>
-            <p className="text-sm text-muted mt-0.5">
-              Therapeutic target risk assessment in <span className="text-ink-2 font-medium">{data.disease}</span>
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="font-mono uppercase text-faint mb-1" style={{ fontSize: 10, letterSpacing: "0.14em" }}>Overall Risk</p>
-            <span className={`font-display tabular-nums ${data.overall_risk_score >= 60 ? "text-risk" : data.overall_risk_score >= 30 ? "text-amber" : "text-green"}`} style={{ fontSize: 52, lineHeight: 1 }}>
-              {data.overall_risk_score}
-            </span>
-            <span className="text-muted text-sm">/100</span>
-          </div>
+    <div>
+      <div className="flex items-start justify-between gap-6 pb-6">
+        <div className="min-w-0">
+          <h3 className="text-xl font-medium tracking-tight text-ink">{data.target}</h3>
+          <p className="mt-1 text-sm text-muted">
+            Risk assessment in <span className="text-ink-2">{data.disease}</span>
+          </p>
         </div>
-
-        {/* Attribute badges */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          <AttributeBadge
-            label="Pathway Position"
-            value={data.pathway_position}
-            colorClass={positionColor}
-            tooltip="Upstream targets (closer to disease root cause) are generally more druggable but may have broader effects."
-          />
-          <AttributeBadge
-            label="Redundancy"
-            value={data.redundancy_level}
-            colorClass={redundancyColor}
-            tooltip="High redundancy means parallel pathways can compensate, reducing therapeutic impact. Low redundancy targets are harder to escape."
-          />
-          <AttributeBadge
-            label="Biomarker Alignment"
-            value={data.biomarker_alignment}
-            colorClass={biomarkerColor}
-            tooltip="Strong biomarker alignment means measurable endpoints exist to track target engagement and therapeutic response."
-          />
+        <div className="shrink-0 text-right">
+          <p className="text-3xl font-medium leading-none tabular-nums text-ink">
+            {data.overall_risk_score}
+            <span className="ml-1 text-sm font-normal text-faint">/100</span>
+          </p>
+          <p className={`mt-1.5 text-xs ${LEVEL_TEXT[overall]}`}>
+            {overall === "moderate" ? "Moderate risk" : overall === "high" ? "High risk" : "Low risk"}
+          </p>
         </div>
       </div>
 
-      {/* Risk Score Gauges */}
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-2.5 px-0.5">Risk Score Breakdown</p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <RiskGauge
-            label="Mechanistic Risk"
-            subtitle="Causal link to disease pathobiology"
-            score={data.mechanistic_risk_score}
-            barColor="bg-pathway"
-          />
-          <RiskGauge
-            label="Translational Risk"
-            subtitle="Likelihood of clinical success"
-            score={data.translational_risk_score}
-            barColor="bg-cytokine"
-          />
-          <RiskGauge
-            label="Overall Risk"
-            subtitle="Combined composite score"
-            score={data.overall_risk_score}
-            barColor={overallRiskColor}
-          />
-        </div>
+      <div className="grid grid-cols-3 gap-6 border-t border-line py-5">
+        <Attribute
+          label="Pathway position"
+          value={data.pathway_position}
+          tone={position}
+          hint="Upstream targets (closer to the root cause) are generally more druggable but may have broader effects."
+        />
+        <Attribute
+          label="Redundancy"
+          value={data.redundancy_level}
+          tone={redundancy}
+          hint="High redundancy means parallel pathways can compensate, reducing therapeutic impact."
+        />
+        <Attribute
+          label="Biomarker alignment"
+          value={data.biomarker_alignment}
+          tone={biomarkers}
+          hint="Strong alignment means measurable endpoints exist to track target engagement and response."
+        />
       </div>
 
-      {/* Risk Explanation */}
+      <div className="border-t border-line py-5">
+        <ScoreRow label="Mechanistic risk" hint="Causal link to disease pathobiology" score={data.mechanistic_risk_score} />
+        <ScoreRow label="Translational risk" hint="Likelihood of clinical success" score={data.translational_risk_score} />
+        <ScoreRow label="Overall risk" hint="Combined composite score" score={data.overall_risk_score} />
+      </div>
+
       {data.risk_explanation && (
-        <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
-          <div className="flex items-center gap-2 mb-2">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-400">
-              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light">Risk Rationale</p>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-300">{data.risk_explanation}</p>
-        </div>
+        <Section label="Rationale">
+          <p className="text-sm leading-relaxed text-ink-2">{data.risk_explanation}</p>
+        </Section>
       )}
 
-      {/* Historical Failures */}
       {(data.historical_failures ?? []).length > 0 && (
-        <div className="rounded-xl border border-red-500/20 overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-500/8 border-b border-red-500/15" style={{ backgroundColor: "rgba(239, 68, 68, 0.05)" }}>
-            <p className="text-xs font-bold uppercase tracking-widest text-red-400">
-              Historical Failures ({data.historical_failures.length})
-            </p>
-            <p className="text-[10px] text-muted ml-2">Clinical or preclinical programs that did not succeed</p>
-          </div>
-          <div className="px-4 py-4 bg-surface-1/50 space-y-4">
+        <Section label="Historical failures" count={data.historical_failures.length}>
+          <div className="space-y-5">
             {data.historical_failures.map((hf, i) => (
-              <div key={i} className={`${i > 0 ? "pt-4 border-t border-surface-3" : ""}`}>
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400 uppercase whitespace-nowrap">
-                    {hf.failure_stage}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-100">{hf.program}</p>
-                    <p className="text-sm text-gray-400 mt-1 leading-relaxed">{hf.reason}</p>
-                    {hf.evidence_pmids.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {hf.evidence_pmids.map((p, j) => (
-                          <PmidLink key={j} pmid={p} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div key={i}>
+                <p className="text-sm font-medium text-ink">
+                  {hf.program}
+                  <span className="ml-2 text-xs font-normal text-muted">{hf.failure_stage}</span>
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{hf.reason}</p>
+                <PmidList pmids={hf.evidence_pmids} />
               </div>
             ))}
           </div>
-        </div>
+        </Section>
       )}
 
-      {/* Citations */}
       {(data.citations ?? []).length > 0 && (
-        <div className="rounded-xl border border-surface-3 bg-surface-1 px-4 py-3">
-          <div className="flex items-center gap-2 mb-2.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-light">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" />
-            </svg>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light">
-              Supporting Literature ({data.citations.length})
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {data.citations.map((pmid, i) => (
-              <PmidLink key={i} pmid={pmid} />
-            ))}
-          </div>
-        </div>
+        <Section label="Citations" count={data.citations.length} defaultOpen={false}>
+          <PmidList pmids={data.citations} />
+        </Section>
       )}
     </div>
   );

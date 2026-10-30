@@ -33,7 +33,7 @@ function ReasoningSection({
       <div className="flex items-center gap-2.5 px-4 py-3 bg-surface-2">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${accentClass}`} style={{ backgroundColor: "currentColor" }} />
         <div>
-          <p className={`text-xs font-bold uppercase tracking-widest ${accentClass}`}>{label}</p>
+          <p className={`text-xs font-medium ${accentClass}`}>{label}</p>
           <p className="text-[10px] text-muted mt-0.5">{subtitle}</p>
         </div>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[9px] font-bold ${accentClass} opacity-70`}>
@@ -65,7 +65,7 @@ function CausalNetworkSection({ graphContext }: { graphContext: QueryResponse["g
       <div className="flex items-center gap-2 px-4 py-3 bg-surface-2">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-accent-400">Causal Network Impact</p>
+          <p className="text-xs font-medium text-accent-400">Causal Network Impact</p>
           <p className="text-[10px] text-muted mt-0.5">Predicted downstream network effects</p>
         </div>
         {graphContext.node_count > 0 && (
@@ -148,7 +148,7 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
       {/* Topic context banner */}
       {r?.topic_context && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Topic Context</p>
+          <p className="text-[11px] font-medium text-muted-light mb-2">Topic Context</p>
           <p className="text-sm leading-relaxed text-gray-300">{r.topic_context}</p>
         </div>
       )}
@@ -158,7 +158,7 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
         <div className="rounded-xl border border-accent-500/15 bg-accent-600/5 px-5 py-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="h-1.5 w-1.5 rounded-full bg-accent-400" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-accent-400">Mechanistic Summary</p>
+            <p className="text-[11px] font-medium text-accent-400">Mechanistic Summary</p>
           </div>
           <p className="text-sm leading-relaxed text-gray-200 whitespace-pre-wrap">{r.summary}</p>
         </div>
@@ -218,7 +218,7 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
       {/* Sources */}
       {data.sources.length > 0 && (
         <div className="rounded-xl border border-surface-3 bg-surface-1 px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2.5">Literature References</p>
+          <p className="text-[11px] font-medium text-muted-light mb-2.5">Literature References</p>
           <div className="flex flex-wrap gap-1.5">
             {data.sources.map((src, i) => {
               const { text, href } = formatPubMedLink(src);
