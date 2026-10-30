@@ -55,7 +55,7 @@ function OverlapTabContent({
     <div className="space-y-4 pt-4">
       {cfg.shared.length > 0 && (
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2 flex items-center gap-1.5">
+          <p className="text-[11px] font-medium text-muted-light mb-2 flex items-center gap-1.5">
             <span className="inline-block h-2 w-2 rounded-full bg-accent-400" />
             Shared ({cfg.shared.length})
           </p>
@@ -64,14 +64,14 @@ function OverlapTabContent({
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2 flex items-center gap-1.5">
+          <p className="text-[11px] font-medium text-blue-400 mb-2 flex items-center gap-1.5">
             <span className="inline-block h-2 w-2 rounded-full bg-blue-400" />
             Only {nameA} ({cfg.a.length})
           </p>
           <TagList items={cfg.a} colorClass="border-blue-500/25 bg-blue-500/5 text-blue-400" />
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 mb-2 flex items-center gap-1.5">
+          <p className="text-[11px] font-medium text-purple-400 mb-2 flex items-center gap-1.5">
             <span className="inline-block h-2 w-2 rounded-full bg-purple-400" />
             Only {nameB} ({cfg.b.length})
           </p>
@@ -106,7 +106,7 @@ export default function CompareCard({ data }: CompareCardProps) {
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-surface-2 border-b border-surface-3">
-              <th className="text-left px-4 py-2.5 text-muted font-semibold uppercase tracking-wider">Category</th>
+              <th className="text-left px-4 py-2.5 text-muted font-medium">Category</th>
               <th className="text-center px-3 py-2.5 text-accent-400 font-semibold">Shared</th>
               <th className="text-center px-3 py-2.5 text-blue-400 font-semibold">{nameA} only</th>
               <th className="text-center px-3 py-2.5 text-purple-400 font-semibold">{nameB} only</th>
@@ -141,14 +141,14 @@ export default function CompareCard({ data }: CompareCardProps) {
       <div className="rounded-xl border border-accent-500/25 overflow-hidden">
         <div className="px-5 py-4 bg-surface-1">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display text-ink text-display-m">
+            <h3 className="text-lg font-medium tracking-tight text-ink">
               <span>{a.disease_name}</span>
               <span className="mx-3 text-muted font-mono text-sm">vs</span>
               <span>{b.disease_name}</span>
             </h3>
             <div className="text-right">
-              <p className="font-mono uppercase text-faint" style={{ fontSize: 10, letterSpacing: "0.14em" }}>Similarity</p>
-              <span className="font-display tabular-nums text-green" style={{ fontSize: 32 }}>{pct}%</span>
+              <p className="text-[11px] font-medium text-muted">Similarity</p>
+              <span className="text-3xl font-medium tabular-nums text-ink">{pct}%</span>
             </div>
           </div>
           {/* Similarity bar */}
@@ -167,7 +167,7 @@ export default function CompareCard({ data }: CompareCardProps) {
 
       {/* Summary */}
       <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Comparison Summary</p>
+        <p className="text-[11px] font-medium text-muted-light mb-2">Comparison Summary</p>
         <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{summary}</p>
       </div>
 
@@ -190,7 +190,7 @@ export default function CompareCard({ data }: CompareCardProps) {
             </p>
             {disease.prevalence && (
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] text-muted font-medium uppercase tracking-wider">Prevalence</span>
+                <span className="text-[11px] text-muted font-medium">Prevalence</span>
                 <span className="text-xs text-gray-300">{disease.prevalence}</span>
               </div>
             )}
@@ -221,7 +221,7 @@ export default function CompareCard({ data }: CompareCardProps) {
       {/* Overlap Analysis: tabbed */}
       <div className="rounded-xl border border-surface-3 overflow-hidden">
         <div className="border-b border-surface-3 bg-surface-2 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-2">Overlap Analysis</p>
+          <p className="text-[11px] font-medium text-muted-light mb-2">Overlap Analysis</p>
           <div className="flex flex-wrap gap-0.5">
             {OVERLAP_TABS.map((tab) => (
               <button

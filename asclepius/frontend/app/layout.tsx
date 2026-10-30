@@ -1,16 +1,8 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Newsreader } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
-
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-newsreader",
-  weight: ["300", "400", "500", "600"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Asclepius Research Labs",
@@ -34,7 +26,7 @@ export default function RootLayout({
   const content = (
     <html
       lang="en"
-      className={`${newsreader.variable} ${GeistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body className="min-h-screen bg-bg text-ink-2 antialiased font-sans">
         {children}
