@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Generator
 
-from app.core.ai_client import get_client
+from app.core.ai_client import get_client, sdk_kwargs
 from app.routing.classifier import classify_complexity, starting_tier
 from app.routing.cost_tracker import check_budget, record_query
 
@@ -44,11 +44,14 @@ def call_with_routing(
 
     try:
         response = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system,
-            messages=messages,
+            **sdk_kwargs(
+                client.messages.create,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system,
+                messages=messages,
+            )
         )
         answer = response.content[0].text if response.content else ""
         cost = record_query(
@@ -96,11 +99,14 @@ def stream_with_routing(
     cost = 0.0
     try:
         with client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system,
-            messages=messages,
+            **sdk_kwargs(
+                client.messages.stream,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system,
+                messages=messages,
+            )
         ) as stream:
             for text in stream.text_stream:
                 yield text
