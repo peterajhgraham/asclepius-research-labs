@@ -13,15 +13,15 @@ const INK = "rgb(var(--c-on-accent))";
  * filled with the theme's accent gradient. It is the ONLY brand mark in the app (sidebar, landing,
  * headers, favicon) and takes its colours from the active theme.
  *
- * Large sizes get the full serpent (belly plates, tongue); small sizes get a heavier, simpler cut so
+ * Large sizes get the full serpent (with a tongue); small sizes get a heavier, simpler cut so
  * the silhouette still reads as a snake on a staff.
  */
 export function Logo({ size = 24, className }: LogoProps) {
   const id = `logo-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const detailed = size >= 40;
   const g: LogoGeometry = size >= 30 ? LOGO_FULL : LOGO_TINY;
-  const staffW = size >= 30 ? 4.2 : 5.6;
-  const knob = size >= 30 ? 2.7 : 3.3;
+  const staffW = size >= 30 ? 4.8 : 5.6;
+  const knob = size >= 30 ? 3.0 : 3.3;
   const staffX = 32;
 
   return (
@@ -61,17 +61,7 @@ export function Logo({ size = 24, className }: LogoProps) {
       <path d={g.head} fill={INK} />
 
       {detailed && (
-        <>
-          <path
-            d={g.scales}
-            style={{ stroke: "rgb(var(--c-accent-hi))" }}
-            strokeOpacity=".42"
-            strokeWidth=".65"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path d={g.tongue} style={{ stroke: INK }} strokeWidth=".95" strokeLinecap="round" strokeLinejoin="round" />
-        </>
+        <path d={g.tongue} style={{ stroke: INK }} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
       )}
       <circle cx={g.eye[0]} cy={g.eye[1]} r={detailed ? 1 : 1.2} style={{ fill: "rgb(var(--c-accent-hi))" }} />
     </svg>
