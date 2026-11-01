@@ -278,7 +278,7 @@ export default function QueryInputBar({
             type="submit"
             disabled={submitDisabled}
             aria-label="Submit query"
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-green px-3.5 text-[13px] font-medium text-on-accent transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-green/40 disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-faint"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-br from-green-hi to-green px-3.5 text-[13px] font-medium text-on-accent transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-green/40 disabled:cursor-not-allowed disabled:bg-none disabled:bg-bg-3 disabled:text-faint"
           >
             {isLoading ? (
               <span className="block h-4 w-4 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent" />

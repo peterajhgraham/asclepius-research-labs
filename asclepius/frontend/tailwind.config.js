@@ -23,6 +23,7 @@ module.exports = {
           DEFAULT: v("accent"),
           2: v("accent-fg"),
           deep: v("accent"),
+          hi: v("accent-hi"),
           faint: "rgb(var(--c-accent) / 0.14)",
         },
         accent: {

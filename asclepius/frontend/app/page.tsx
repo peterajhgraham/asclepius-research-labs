@@ -668,7 +668,7 @@ export default function HomePage() {
               <div className="aura" aria-hidden="true" />
               <div className="relative mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 pb-24 pt-16">
                 <div style={{ filter: "drop-shadow(0 10px 30px rgb(var(--c-accent) / 0.45))" }}>
-                  <Logo size={48} />
+                  <Logo size={60} />
                 </div>
 
                 <h1 className="mt-7 bg-gradient-to-b from-ink to-ink/65 bg-clip-text text-balance text-center text-[1.75rem] font-medium leading-[1.15] tracking-[-0.025em] text-transparent sm:text-[2.125rem]">

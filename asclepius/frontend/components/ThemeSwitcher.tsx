@@ -3,17 +3,17 @@
 import { useEffect, useState } from "react";
 
 export const THEMES = [
-  { id: "ember", label: "Ember", swatch: "#f47030" },
-  { id: "indigo", label: "Indigo", swatch: "#6366f1" },
-  { id: "lagoon", label: "Lagoon", swatch: "#2dd4bf" },
-  { id: "paper", label: "Paper", swatch: "linear-gradient(135deg, #f7f5f0 50%, #c2410c 50%)" },
+  { id: "verdigris", label: "Verdigris", swatch: "linear-gradient(135deg, #86efac, #34c280)" },
+  { id: "indigo", label: "Indigo", swatch: "linear-gradient(135deg, #979aff, #6366f1)" },
+  { id: "lagoon", label: "Lagoon", swatch: "linear-gradient(135deg, #5eead4, #2dd4bf)" },
+  { id: "helix", label: "Helix", swatch: "linear-gradient(135deg, #4ade80, #3896f5)" },
 ] as const;
 
 type ThemeId = (typeof THEMES)[number]["id"];
 
 /** Small colour-way picker. The choice is remembered in this browser (and `?theme=` works on any URL). */
 export default function ThemeSwitcher() {
-  const [theme, setTheme] = useState<ThemeId>("ember");
+  const [theme, setTheme] = useState<ThemeId>("verdigris");
 
   useEffect(() => {
     const current = document.documentElement.getAttribute("data-theme") as ThemeId | null;

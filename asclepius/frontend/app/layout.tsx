@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 // Applies the saved (or ?theme=) colour theme before first paint, so there is no flash.
-const THEME_INIT = `(function(){try{var q=new URLSearchParams(location.search).get("theme");var t=q||localStorage.getItem("asclepius-theme")||"ember";if(["ember","indigo","lagoon","paper"].indexOf(t)<0)t="ember";document.documentElement.setAttribute("data-theme",t);if(q)localStorage.setItem("asclepius-theme",t)}catch(e){}})()`;
+const THEME_INIT = `(function(){try{var q=new URLSearchParams(location.search).get("theme");var t=q||localStorage.getItem("asclepius-theme")||"verdigris";if(["verdigris","indigo","lagoon","helix"].indexOf(t)<0)t="verdigris";document.documentElement.setAttribute("data-theme",t);if(q)localStorage.setItem("asclepius-theme",t)}catch(e){}})()`;
 
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -29,7 +29,7 @@ export default function RootLayout({
   const content = (
     <html
       lang="en"
-      data-theme="ember"
+      data-theme="verdigris"
       suppressHydrationWarning
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
