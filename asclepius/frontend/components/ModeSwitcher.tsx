@@ -28,14 +28,14 @@ export default function ModeSwitcher({ mode, onModeChange }: Props) {
             <button
               type="button"
               onClick={() => onModeChange(m)}
-              aria-label={MODE_CONFIG[m].description}
+              aria-describedby={`mode-tip-${m}`}
               className={`rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
                 active ? "bg-green/15 text-green-2" : "text-muted hover:bg-bg-3 hover:text-ink"
               }`}
             >
               {MODE_CONFIG[m].label}
             </button>
-            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <div id={`mode-tip-${m}`} role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               <div className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[11px] text-muted whitespace-nowrap shadow-xl">
                 {MODE_CONFIG[m].description}
               </div>

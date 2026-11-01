@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { HypothesisResponse, Hypothesis } from "@/lib/api";
+import { stripEmDashes } from "@/lib/utils";
 
 const CATEGORY_CONFIG: Record<string, { color: string; icon: string; description: string }> = {
   "Target Discovery":    { color: "bg-accent-600/20 text-accent-400 border-accent-500/25",   icon: "🎯", description: "Novel therapeutic targets based on disease mechanisms" },
@@ -57,7 +58,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
             {index + 1}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-100 leading-relaxed">{h.hypothesis}</p>
+            <p className="text-sm font-semibold text-gray-100 leading-relaxed">{stripEmDashes(h.hypothesis)}</p>
             <div className="flex flex-wrap items-center gap-3 mt-2">
               <CategoryBadge category={h.category} />
               <ConfidenceMeter confidence={h.confidence} />
@@ -78,7 +79,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
           {/* Rationale */}
           <div>
             <p className="text-[11px] font-medium text-muted-light mb-1.5">Scientific Rationale</p>
-            <p className="text-sm text-gray-300 leading-relaxed">{h.rationale}</p>
+            <p className="text-sm text-gray-300 leading-relaxed">{stripEmDashes(h.rationale)}</p>
           </div>
 
           {/* Experimental Design */}
@@ -107,7 +108,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
                   {h.experimental_design.readouts.map((r, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent-400/60" />
-                      {r}
+                      {stripEmDashes(r)}
                     </li>
                   ))}
                 </ul>
@@ -120,7 +121,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
                   {h.experimental_design.controls.map((c, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gray-500" />
-                      {c}
+                      {stripEmDashes(c)}
                     </li>
                   ))}
                 </ul>
@@ -137,7 +138,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
                   {h.biomarkers.map((b, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-cell/60" />
-                      {b}
+                      {stripEmDashes(b)}
                     </li>
                   ))}
                 </ul>
@@ -150,7 +151,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
                   {h.confounders.map((c, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-yellow-400/60" />
-                      {c}
+                      {stripEmDashes(c)}
                     </li>
                   ))}
                 </ul>
