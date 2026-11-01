@@ -143,7 +143,7 @@ export default function CompareCard({ data }: CompareCardProps) {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-medium tracking-tight text-ink">
               <span>{a.disease_name}</span>
-              <span className="mx-3 text-muted font-mono text-sm">vs</span>
+              <span className="mx-3 text-muted text-sm">vs</span>
               <span>{b.disease_name}</span>
             </h3>
             <div className="text-right">

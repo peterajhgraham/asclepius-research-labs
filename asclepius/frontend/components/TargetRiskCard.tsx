@@ -9,8 +9,8 @@ function levelOf(score: number): Level {
   return score >= 60 ? "high" : score >= 30 ? "moderate" : "low";
 }
 
-const LEVEL_TEXT: Record<Level, string> = { low: "text-green", moderate: "text-amber", high: "text-risk" };
-const LEVEL_BAR: Record<Level, string> = { low: "bg-green", moderate: "bg-amber", high: "bg-risk" };
+const LEVEL_TEXT: Record<Level, string> = { low: "text-ok", moderate: "text-warn", high: "text-bad" };
+const LEVEL_BAR: Record<Level, string> = { low: "bg-ok", moderate: "bg-warn", high: "bg-bad" };
 
 // One score as a row: label, a thin bar, the number. Colour carries only the level.
 function ScoreRow({ label, hint, score }: { label: string; hint: string; score: number }) {
@@ -41,7 +41,7 @@ function Attribute({
   tone: "good" | "watch" | "bad";
   hint: string;
 }) {
-  const dot = tone === "good" ? "bg-green" : tone === "bad" ? "bg-risk" : "bg-amber";
+  const dot = tone === "good" ? "bg-ok" : tone === "bad" ? "bg-bad" : "bg-warn";
   return (
     <div title={hint}>
       <p className="text-xs text-muted">{label}</p>

@@ -12,7 +12,7 @@ export function PmidLink({ pmid }: { pmid: string }) {
       href={`https://pubmed.ncbi.nlm.nih.gov/${clean}/`}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded bg-bg-3 px-1.5 py-0.5 font-mono text-[11px] text-muted transition hover:bg-bg-4 hover:text-ink"
+      className="rounded bg-bg-3 px-1.5 py-0.5 font-code text-[11px] text-muted transition hover:bg-bg-4 hover:text-ink"
     >
       {clean}
     </a>
@@ -32,7 +32,7 @@ export function PmidList({ pmids }: { pmids: string[] }) {
 
 // A neutral content chip (genes, biomarkers).
 export function Tag({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-md bg-bg-3 px-2 py-0.5 font-mono text-xs text-ink-2">{children}</span>;
+  return <span className="rounded-md bg-bg-3 px-2 py-0.5 font-code text-xs text-ink-2">{children}</span>;
 }
 
 export function Section({

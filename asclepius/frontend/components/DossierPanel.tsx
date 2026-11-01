@@ -90,7 +90,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 font-mono transition text-[11px] ${
+              className={`flex-1 py-2 transition text-[11px] ${
                 tab === t
                   ? "text-green border-b-2 border-green"
                   : "text-faint hover:text-ink-2"
@@ -127,7 +127,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
                     className="rounded-lg border border-line bg-bg-2 p-3 transition hover:bg-bg-3"
                   >
                     <p className="text-xs font-medium text-ink leading-snug">{entry.query}</p>
-                    <p className="mt-1 font-mono text-faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>
+                    <p className="mt-1 text-faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>
                       {new Date(entry.created_at).toLocaleDateString()}
                     </p>
                     {entry.notes && (
@@ -155,7 +155,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
                   <div className="space-y-1.5">
                     {insights.notes.map((n) => (
                       <div key={n.entry_id} className="rounded border border-line bg-bg-3 px-2.5 py-2">
-                        <p className="text-[10px] text-muted font-mono truncate">{n.query}</p>
+                        <p className="text-[10px] text-muted truncate">{n.query}</p>
                         <p className="mt-1 text-xs text-ink-2 italic">{n.notes}</p>
                       </div>
                     ))}
@@ -168,7 +168,7 @@ export default function DossierPanel({ dossierId, onClose }: Props) {
 
         {/* Footer */}
         <div className="border-t border-line px-4 py-2.5 flex items-center justify-between">
-          <p className="font-mono text-faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>
+          <p className="text-faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>
             {dossier ? `${dossier.entry_count} entries · ${dossier.id}` : ""}
           </p>
         </div>
@@ -183,7 +183,7 @@ function StatRow({ label, value }: { label: string; value: number }) {
       <span className="text-[11px] font-medium text-muted">
         {label}
       </span>
-      <span className="font-mono tabular-nums text-ink-2 text-xs">{value}</span>
+      <span className="tabular-nums text-ink-2 text-xs">{value}</span>
     </div>
   );
 }
@@ -213,13 +213,13 @@ function ChipSection({
         {items.slice(0, 12).map((item) => (
           <span
             key={item}
-            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono border border-line bg-bg-3 ${accent}`}
+            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] border border-line bg-bg-3 ${accent}`}
           >
             {item}
           </span>
         ))}
         {items.length > 12 && (
-          <span className="text-[10px] font-mono text-faint">+{items.length - 12} more</span>
+          <span className="text-[10px] text-faint">+{items.length - 12} more</span>
         )}
       </div>
     </div>

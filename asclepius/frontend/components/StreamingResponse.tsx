@@ -20,14 +20,14 @@ function SourceBadge({ source }: { source: string }) {
         href={pmidToUrl(pmidMatch[1])}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono tabular-nums border border-green/30 bg-green-faint text-green hover:brightness-110 transition"
+        className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] tabular-nums border border-green/30 bg-green-faint text-green hover:brightness-110 transition"
       >
         {source}
       </a>
     );
   }
   return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono border border-line bg-bg-3 text-muted">
+    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] border border-line bg-bg-3 text-muted">
       {source}
     </span>
   );
@@ -60,7 +60,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
           {done ? modelDisplayName(done.model) : "Asclepius"}
         </span>
         {done?.cost != null && done.cost > 0 && (
-          <span className="font-mono tabular-nums text-faint">${done.cost.toFixed(5)}</span>
+          <span className="tabular-nums text-faint">${done.cost.toFixed(5)}</span>
         )}
 
         {isStreaming ? (
@@ -78,7 +78,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
           <button
             onClick={onShowCitations}
             aria-label={`View ${citations.length} retrieved citations`}
-            className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2 py-0.5 font-mono text-[10px] text-muted transition hover:border-green/30 hover:text-ink-2"
+            className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2 py-0.5 text-[10px] text-muted transition hover:border-green/30 hover:text-ink-2"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
@@ -105,7 +105,7 @@ export default function StreamingResponse({ state, onShowCitations }: Props) {
             {sources.length > 5 && (
               <button
                 onClick={() => setSourcesExpanded(!sourcesExpanded)}
-                className="font-mono text-[10px] text-muted transition hover:text-ink-2"
+                className="text-[10px] text-muted transition hover:text-ink-2"
               >
                 {sourcesExpanded ? "show less" : `+${sources.length - 5} more`}
               </button>

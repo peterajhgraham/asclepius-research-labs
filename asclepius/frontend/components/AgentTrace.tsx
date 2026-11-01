@@ -126,9 +126,9 @@ export default function AgentTrace({ state }: Props) {
         <span className={`cc-dot ${state.isStreaming ? "is-active" : "is-done"}`} aria-hidden="true" />
         <Logo size={13} />
         <span className="font-sans tracking-tight text-ink-2">Research Agent</span>
-        <span className="font-mono text-faint">· {modelDisplayName(model)}</span>
+        <span className="text-faint">· {modelDisplayName(model)}</span>
         {state.done && (
-          <span className="ml-auto font-mono tabular-nums text-faint">
+          <span className="ml-auto tabular-nums text-faint">
             {state.done.iterations} iter · ${(state.done.cost_usd ?? 0).toFixed(4)}
           </span>
         )}
@@ -140,7 +140,7 @@ export default function AgentTrace({ state }: Props) {
         <button
           type="button"
           onClick={() => setTraceOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-3 py-2 font-mono text-[11px] text-muted transition hover:text-ink-2"
+          className="flex w-full items-center gap-2 px-3 py-2 text-[11px] text-muted transition hover:text-ink-2"
         >
           <svg
             width="10" height="10" viewBox="0 0 24 24" fill="none"
@@ -180,7 +180,7 @@ export default function AgentTrace({ state }: Props) {
                 })}
 
                 {iters.length === 0 && state.isStreaming && (
-                  <p className="flex items-center gap-2 py-1 font-mono text-[11px] text-muted">
+                  <p className="flex items-center gap-2 py-1 text-[11px] text-muted">
                     <span className="hx-spin" /> planner thinking…
                   </p>
                 )}
@@ -213,7 +213,7 @@ export default function AgentTrace({ state }: Props) {
               Figure-grounded verification: {VERDICT_STYLE[state.verification.verdict]?.label ?? state.verification.verdict}
             </span>
             {state.verification.images_inspected > 0 && (
-              <span className="font-mono opacity-70">
+              <span className="opacity-70">
                 · {state.verification.images_inspected} figure{state.verification.images_inspected !== 1 ? "s" : ""} inspected
                 · conf {((state.verification.confidence ?? 0) * 100).toFixed(0)}%
               </span>

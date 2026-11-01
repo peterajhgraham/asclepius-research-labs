@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { MODE_CONFIG } from "@/components/ModeSwitcher";
 import { BrandLockup } from "@/components/Logo";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import type { SavedSession } from "@/lib/types";
 import { listDossiers, createDossier, type DossierSummary } from "@/lib/api";
 
@@ -166,7 +167,7 @@ export default function Sidebar({
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Dossier name…"
                   autoFocus
-                  className="w-full rounded-md border border-line bg-bg-3 px-2.5 py-1.5 text-xs text-ink placeholder-faint outline-none focus:border-green/50 font-mono"
+                  className="w-full rounded-md border border-line bg-bg-3 px-2.5 py-1.5 text-xs text-ink placeholder-faint outline-none focus:border-green/50"
                 />
               </form>
             )}
@@ -189,7 +190,7 @@ export default function Sidebar({
                     </svg>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate leading-snug">{d.name}</p>
-                      <p className="font-mono text-faint" style={{ fontSize: 10 }}>
+                      <p className="text-faint" style={{ fontSize: 10 }}>
                         {d.entry_count} {d.entry_count === 1 ? "entry" : "entries"}
                       </p>
                     </div>
@@ -207,17 +208,20 @@ export default function Sidebar({
               onClick={onOpenGraph}
               className="group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-muted transition hover:bg-bg-3 hover:text-ink-2"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
-                <circle cx="12" cy="5" r="2" />
-                <circle cx="5" cy="19" r="2" />
-                <circle cx="19" cy="19" r="2" />
-                <line x1="12" y1="7" x2="5" y2="17" />
-                <line x1="12" y1="7" x2="19" y2="17" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <circle cx="6" cy="6" r="2.2" />
+                <circle cx="18" cy="8" r="2.2" />
+                <circle cx="9" cy="18" r="2.2" />
+                <path d="M7.9 7 16 7.8M7 8l1.2 7.8M16.6 9.9 10.8 16.6" />
               </svg>
-              <span className="text-xs">Knowledge Graph</span>
+              <span className="text-[13px]">Knowledge Graph</span>
             </button>
           </div>
         )}
+
+        <div className="border-t border-line">
+          <ThemeSwitcher />
+        </div>
       </aside>
     </>
   );

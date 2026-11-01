@@ -30,7 +30,7 @@ export default function ModeSwitcher({ mode, onModeChange }: Props) {
               onClick={() => onModeChange(m)}
               aria-label={MODE_CONFIG[m].description}
               className={`rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
-                active ? "bg-bg-3 text-ink" : "text-muted hover:bg-bg-2 hover:text-ink-2"
+                active ? "bg-green/15 text-green-2" : "text-muted hover:bg-bg-3 hover:text-ink"
               }`}
             >
               {MODE_CONFIG[m].label}

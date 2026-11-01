@@ -21,7 +21,7 @@ export default function ImageAnalysisCard({ analysis, previewUrl }: Props) {
           <polyline points="21 15 16 10 5 21" />
         </svg>
         <span className="text-xs font-semibold text-gray-200 tracking-tight">Visual Analysis</span>
-        <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] text-faint">
+        <span className="ml-auto flex items-center gap-1.5 text-[10px] text-faint">
           <Logo size={11} />
           <span>sonnet · vision</span>
         </span>

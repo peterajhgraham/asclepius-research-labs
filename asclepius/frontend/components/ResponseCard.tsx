@@ -69,7 +69,7 @@ function CausalNetworkSection({ graphContext }: { graphContext: QueryResponse["g
           <p className="text-[10px] text-muted mt-0.5">Predicted downstream network effects</p>
         </div>
         {graphContext.node_count > 0 && (
-          <span className="ml-auto text-[10px] text-muted font-mono">
+          <span className="ml-auto text-[10px] text-muted">
             {graphContext.node_count}n · {graphContext.edge_count}e
           </span>
         )}
@@ -79,14 +79,14 @@ function CausalNetworkSection({ graphContext }: { graphContext: QueryResponse["g
           const barWidth = Math.min(Math.abs(item.score) * 100, 100);
           return (
             <div key={i} className="flex items-center gap-3">
-              <span className="w-24 text-xs text-gray-300 font-mono truncate">{item.node}</span>
+              <span className="w-24 text-xs text-gray-300 truncate">{item.node}</span>
               <div className="flex-1 h-2 rounded-full bg-surface-3 overflow-hidden">
                 <div
                   className={`h-full rounded-full ${item.score >= 0 ? "bg-accent-500" : "bg-red-500"}`}
                   style={{ width: `${barWidth}%` }}
                 />
               </div>
-              <span className={`text-[10px] font-mono w-14 text-right ${item.score >= 0 ? "text-accent-400" : "text-red-400"}`}>
+              <span className={`text-[10px] w-14 text-right ${item.score >= 0 ? "text-accent-400" : "text-red-400"}`}>
                 {item.score >= 0 ? "+" : ""}{item.score.toFixed(3)}
               </span>
             </div>
@@ -128,14 +128,14 @@ export default function ResponseCard({ data }: { data: QueryResponse }) {
           {(data.model_used || (data.cost_usd ?? 0) > 0) && (
             <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-surface-3 text-[10px] text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
-              <span className="font-mono">
+              <span className="">
                 {data.model_used?.includes("haiku") ? "Tier I"
                   : data.model_used?.includes("sonnet") ? "Tier II"
                   : data.model_used?.includes("opus") ? "Tier III"
                   : data.model_used ? "Engine" : "Local"}
               </span>
               {(data.cost_usd ?? 0) > 0 && (
-                <><span className="text-surface-4">·</span><span className="font-mono">${data.cost_usd!.toFixed(5)}</span></>
+                <><span className="text-surface-4">·</span><span className="">${data.cost_usd!.toFixed(5)}</span></>
               )}
               {(data.retrieved_propositions?.length ?? 0) > 0 && (
                 <><span className="text-surface-4">·</span><span>{data.retrieved_propositions!.length} propositions retrieved</span></>

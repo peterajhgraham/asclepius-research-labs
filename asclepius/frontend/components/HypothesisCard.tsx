@@ -171,7 +171,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
                       href={`https://pubmed.ncbi.nlm.nih.gov/${pmidMatch[1]}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-mono border border-line-2 bg-bg-3 text-muted hover:text-green hover:border-green/40 transition"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border border-line-2 bg-bg-3 text-muted hover:text-green hover:border-green/40 transition"
                     >
                       {cite}
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

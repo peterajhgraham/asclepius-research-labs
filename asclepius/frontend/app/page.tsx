@@ -43,7 +43,7 @@ import DossierPanel from "@/components/DossierPanel";
 import FrozenStreamEntry from "@/components/FrozenStreamEntry";
 import HypothesisCard from "@/components/HypothesisCard";
 import ImageAnalysisCard from "@/components/ImageAnalysisCard";
-import { Logo } from "@/components/Logo";
+import { Logo, BrandLockup } from "@/components/Logo";
 import QueryInputBar from "@/components/QueryInputBar";
 import ResponseCard from "@/components/ResponseCard";
 import Sidebar from "@/components/Sidebar";
@@ -129,7 +129,7 @@ function ImageResponseCard({ response }: { response: QueryResponse }) {
       <div className="mb-2 flex items-center gap-2 text-[11px]">
         <span className="cc-dot is-done" aria-hidden="true" />
         <Logo size={13} />
-        <span className="font-mono text-faint">
+        <span className="text-faint">
           {modelDisplayName(response.model_used ?? "")} · multimodal vision
         </span>
       </div>
@@ -147,14 +147,14 @@ function ImageResponseCard({ response }: { response: QueryResponse }) {
                 href={pmidToUrl(m[1])}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 transition"
+                className="rounded px-1.5 py-0.5 text-[10px] border border-accent-700/40 bg-accent-900/20 text-accent-400 hover:text-accent-300 transition"
               >
                 {s}
               </a>
             ) : (
               <span
                 key={s}
-                className="rounded px-1.5 py-0.5 text-[10px] font-mono border border-surface-3 bg-surface-2 text-muted-light"
+                className="rounded px-1.5 py-0.5 text-[10px] border border-surface-3 bg-surface-2 text-muted-light"
               >
                 {s}
               </span>
@@ -598,7 +598,7 @@ export default function HomePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm border-2 border-dashed border-green/40 animate-fade-in">
           <div className="text-center">
             <p className="text-xl font-medium text-ink">Drop to attach</p>
-            <p className="text-sm text-muted mt-1 font-mono">Images · PDF documents</p>
+            <p className="text-sm text-muted mt-1">Images · PDF documents</p>
           </div>
         </div>
       )}
@@ -631,9 +631,8 @@ export default function HomePage() {
                   <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <button onClick={handleNewSession} aria-label="Home" className="flex items-center gap-2.5">
-                <Logo size={20} />
-                <span className="font-sans font-semibold text-ink text-base leading-none tracking-tight">Asclepius</span>
+              <button onClick={handleNewSession} aria-label="Home">
+                <BrandLockup size={22} />
               </button>
             </div>
             <AuthHeader />
@@ -665,28 +664,35 @@ export default function HomePage() {
 
           {/* Landing */}
           {!showGraph && isEmpty && (
-            <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 pb-24 pt-16 animate-fade-in">
-              <Logo size={28} />
+            <div className="relative flex min-h-full flex-col animate-fade-in">
+              <div className="aura" aria-hidden="true" />
+              <div className="relative mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 pb-24 pt-16">
+                <div style={{ filter: "drop-shadow(0 10px 30px rgb(var(--c-accent) / 0.45))" }}>
+                  <Logo size={48} />
+                </div>
 
-              <h1 className="mt-6 text-center text-[1.625rem] font-medium leading-tight tracking-tight text-ink sm:text-[1.875rem]">
-                Multimodal Agentic RAG System over PubMed
-              </h1>
-              <p className="mt-2 text-center text-sm text-muted">Every claim traced to a primary source.</p>
+                <h1 className="mt-7 bg-gradient-to-b from-ink to-ink/65 bg-clip-text text-balance text-center text-[1.75rem] font-medium leading-[1.15] tracking-[-0.025em] text-transparent sm:text-[2.125rem]">
+                  Multimodal Agentic RAG System over PubMed
+                </h1>
+                <p className="mt-3 text-center text-[15px] text-muted">
+                  Every claim traced to a <span className="text-green-2">primary source</span>.
+                </p>
 
-              <div className="mt-9 w-full">{composer(true)}</div>
+                <div className="mt-10 w-full">{composer(true)}</div>
 
-              <ul className="mt-8 w-full space-y-0.5">
-                {examples.map((example) => (
-                  <li key={example}>
-                    <button
-                      onClick={() => handleExampleClick(example)}
-                      className="w-full truncate rounded-md px-3 py-2 text-left text-[13px] text-muted transition hover:bg-bg-2 hover:text-ink-2"
-                    >
-                      {example}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                <ul className="mt-8 flex flex-wrap justify-center gap-2">
+                  {examples.slice(0, 6).map((example) => (
+                    <li key={example} className="max-w-full">
+                      <button
+                        onClick={() => handleExampleClick(example)}
+                        className="max-w-full truncate rounded-full border border-line px-3.5 py-1.5 text-[13px] text-muted transition hover:border-line-2 hover:bg-bg-3 hover:text-ink"
+                      >
+                        {example}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
@@ -773,7 +779,7 @@ export default function HomePage() {
                             <span className="cc-dot is-active" aria-hidden="true" />
                             <Logo size={13} />
                             <span className="hx-spin" />
-                            <span className="font-mono text-muted">
+                            <span className="text-muted">
                               {entry.mode === "compare"
                                 ? "Running comparative analysis…"
                                 : entry.mode === "hypothesis"

@@ -1,24 +1,37 @@
-interface GlyphProps {
+import { useId } from "react";
+
+interface LogoProps {
   size?: number;
-  color?: string;
-  bg?: string;
   className?: string;
 }
 
 /**
- * Helix brand mark: a three-node graph triangle. Three propositions
- * connected by inference, the smallest unit of the platform. The single
- * outline node is the retrieval target.
+ * The Asclepius mark: the Rod of Asclepius as a clean glyph on an accent tile.
+ * This is the ONLY brand mark in the app (sidebar, landing, headers, favicon),
+ * and it takes its colours from the active theme.
  */
-export function Logo({ size = 22, color = "#87f085", bg = "#0b0c0e", className }: GlyphProps) {
+export function Logo({ size = 24, className }: LogoProps) {
+  const gradId = `logo-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 26 26" className={className} aria-hidden="true">
-      <line x1="5" y1="20" x2="21" y2="20" stroke={color} strokeWidth="1.4" opacity="0.7" />
-      <line x1="5" y1="20" x2="13" y2="5" stroke={color} strokeWidth="1.4" opacity="0.7" />
-      <line x1="21" y1="20" x2="13" y2="5" stroke={color} strokeWidth="1.4" opacity="0.7" />
-      <circle cx="5" cy="20" r="3" fill={color} />
-      <circle cx="21" cy="20" r="3" fill={bg} stroke={color} strokeWidth="1.6" />
-      <circle cx="13" cy="5" r="3" fill={color} />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={gradId} x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+          <stop style={{ stopColor: "rgb(var(--c-accent-fg))" }} />
+          <stop offset="1" style={{ stopColor: "rgb(var(--c-accent))" }} />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="22" height="22" rx="6.4" fill={`url(#${gradId})`} />
+      <g
+        transform="translate(1.6 1.6) scale(.867)"
+        style={{ stroke: "rgb(var(--c-on-accent))" }}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 3v18" />
+        <path d="M7.4 6.2c1.2 1 2.7 1.5 4.6 1.5s3.4-.5 4.6-1.5" />
+        <path d="M12 19.4c4.2-1.1 4.2-4.2 0-4.9-4.2-.7-4.2-4 0-4.7" />
+      </g>
     </svg>
   );
 }
@@ -28,14 +41,12 @@ interface LockupProps {
   className?: string;
 }
 
-/** Glyph + "Asclepius" wordmark, vertically centered. */
-export function BrandLockup({ size = 22, className }: LockupProps) {
+/** Mark + wordmark, vertically centred. */
+export function BrandLockup({ size = 24, className }: LockupProps) {
   return (
     <span className={`flex items-center gap-2.5 ${className ?? ""}`}>
       <Logo size={size} />
-      <span className="font-sans font-semibold leading-none text-ink tracking-tight" style={{ fontSize: 18 }}>
-        Asclepius
-      </span>
+      <span className="text-[17px] font-semibold leading-none tracking-[-0.02em] text-ink">Asclepius</span>
     </span>
   );
 }

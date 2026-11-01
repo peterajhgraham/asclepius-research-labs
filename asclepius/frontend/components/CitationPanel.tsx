@@ -81,7 +81,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                 >
                   {/* Ref number + figure thumbnail (images only) + meta */}
                   <div className="flex items-start gap-3">
-                    <span className="shrink-0 pt-0.5 font-mono text-[11px] font-semibold tabular-nums text-green" style={{ minWidth: 24 }}>
+                    <span className="shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-green" style={{ minWidth: 24 }}>
                       [{i + 1}]
                     </span>
                     {isImage && (
@@ -108,7 +108,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                         <p className="mt-0.5 text-[11px] font-medium text-ink-2 truncate">{c.source}</p>
                       )}
                       {c.pmid && (
-                        <p className="mt-0.5 font-mono tabular-nums text-muted" style={{ fontSize: 10 }}>
+                        <p className="mt-0.5 tabular-nums text-muted" style={{ fontSize: 10 }}>
                           PMID:{c.pmid}
                         </p>
                       )}
@@ -117,7 +117,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
 
                   {/* Table markdown rendering */}
                   {isTable && c.table_markdown && (
-                    <pre className="mt-2 max-h-40 overflow-auto rounded border border-line bg-bg-3 p-2 text-[10px] font-mono text-ink-2 whitespace-pre">
+                    <pre className="mt-2 max-h-40 overflow-auto rounded border border-line bg-bg-3 p-2 text-[10px] text-ink-2 whitespace-pre">
                       {c.table_markdown}
                     </pre>
                   )}
@@ -131,7 +131,7 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
                       href={`https://pubmed.ncbi.nlm.nih.gov/${c.pmid}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 flex items-center gap-1 text-[10px] font-mono text-green hover:brightness-110 transition"
+                      className="mt-2 flex items-center gap-1 text-[10px] text-green hover:brightness-110 transition"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
