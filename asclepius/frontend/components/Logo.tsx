@@ -10,7 +10,7 @@ interface GlyphProps {
  * connected by inference, the smallest unit of the platform. The single
  * outline node is the retrieval target.
  */
-export function Logo({ size = 22, color = "#87f085", bg = "#0c1014", className }: GlyphProps) {
+export function Logo({ size = 22, color = "#87f085", bg = "#0b0c0e", className }: GlyphProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 26 26" className={className} aria-hidden="true">
       <line x1="5" y1="20" x2="21" y2="20" stroke={color} strokeWidth="1.4" opacity="0.7" />

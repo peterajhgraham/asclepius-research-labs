@@ -11,7 +11,7 @@ import logging
 import re
 from typing import Any
 
-from app.core.ai_client import get_client as _get_anthropic_client
+from app.core.ai_client import get_client as _get_anthropic_client, sdk_kwargs
 from app.routing.cost_tracker import record_query
 from app.services.pubmed_service import PubMedArticle
 
@@ -322,7 +322,7 @@ def _describe_llm_error(exc: Exception) -> str:
         return "The AI service rejected the request."
     if isinstance(exc, anthropic.APIStatusError) and getattr(exc, "status_code", 0) >= 500:
         return "The AI service is temporarily overloaded. Please try again in a moment."
-    return _GENERIC_LLM_ERROR
+    return f"The AI service request failed ({type(exc).__name__}). Please try again in a moment."
 
 
 def _record_cost(label: str, response: Any) -> None:
@@ -361,11 +361,14 @@ def _call_extraction(
     for attempt in range(2):
         try:
             response = client.messages.create(
-                model=_DMI_EXTRACTION_MODEL,
-                max_tokens=tokens,
-                temperature=0.2,
-                system=system,
-                messages=[{"role": "user", "content": user}],
+                **sdk_kwargs(
+                    client.messages.create,
+                    model=_DMI_EXTRACTION_MODEL,
+                    max_tokens=tokens,
+                    temperature=0.2,
+                    system=system,
+                    messages=[{"role": "user", "content": user}],
+                )
             )
         except Exception as exc:
             logger.warning("Claude extraction failed for %r: %s", label, type(exc).__name__, exc_info=True)

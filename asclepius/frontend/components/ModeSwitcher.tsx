@@ -20,7 +20,7 @@ interface Props {
 
 export default function ModeSwitcher({ mode, onModeChange }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible">
       {ALL_MODES.map((m) => {
         const active = mode === m;
         return (
@@ -29,10 +29,8 @@ export default function ModeSwitcher({ mode, onModeChange }: Props) {
               type="button"
               onClick={() => onModeChange(m)}
               aria-label={MODE_CONFIG[m].description}
-              className={`relative rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap transition-all ${
-                active
-                  ? "border-green/50 bg-green-faint text-green"
-                  : "border-line-2 bg-bg-3 text-muted hover:bg-bg-4 hover:text-ink-2"
+              className={`rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
+                active ? "bg-bg-3 text-ink" : "text-muted hover:bg-bg-2 hover:text-ink-2"
               }`}
             >
               {MODE_CONFIG[m].label}

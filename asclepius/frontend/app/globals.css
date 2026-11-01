@@ -11,18 +11,18 @@
 
 :root {
   /* ---- Neutrals · cool dark scale ---- */
-  --bg:        #0c1014;  /* page background        */
-  --bg-2:      #131820;  /* card surface           */
-  --bg-3:      #1b2230;  /* nested surface         */
-  --bg-4:      #243042;  /* thumbnails / inputs    */
-  --line:      #232a36;  /* hairline divider       */
-  --line-2:    #39434f;  /* interactive border / strong divider */
+  --bg:        #0b0c0e;  /* page background        */
+  --bg-2:      #111316;  /* card surface           */
+  --bg-3:      #181a1e;  /* nested surface         */
+  --bg-4:      #202327;  /* thumbnails / inputs    */
+  --line:      #1d2025;  /* hairline divider       */
+  --line-2:    #2c3036;  /* interactive border / strong divider */
 
   /* ---- Text ---- */
-  --ink:       #f3f6f8;  /* primary text / headings */
-  --ink-2:     #d3d8de;  /* body text               */
-  --muted:     #8a929e;  /* captions / meta         */
-  --faint:     #565e6b;  /* hints / disabled        */
+  --ink:       #ededef;  /* primary text / headings */
+  --ink-2:     #c5c8ce;  /* body text               */
+  --muted:     #868b94;  /* captions / meta         */
+  --faint:     #5b6068;  /* hints / disabled        */
 
   /* ---- Signature · fluorophore green ----
      Use ONLY for signal: live state, verified, key data,
@@ -47,8 +47,8 @@
   --glow-green:  0 0 12px rgba(135, 240, 133, 0.18);
 
   /* ---- Type families ---- */
-  --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
-  --font-ui:      var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ui:      var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data:    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -166,7 +166,7 @@ body {
 .prose h1 { font-size: 1.2rem; margin: 1.4em 0 0.5em; }
 .prose h2 { font-size: 1.05rem; margin: 1.4em 0 0.5em; }
 .prose h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; }
-.prose h4 { font-size: 0.85rem; margin: 1.1em 0 0.4em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.prose h4 { font-size: 0.85rem; margin: 1.1em 0 0.4em; color: var(--muted); }
 .prose strong { color: var(--ink); font-weight: 600; }
 .prose em { color: var(--ink-2); }
 .prose a { color: var(--green-2); text-decoration: none; }

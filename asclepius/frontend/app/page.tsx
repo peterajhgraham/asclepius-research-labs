@@ -115,17 +115,8 @@ async function ingestDocument(
 // Wrapper that attributes non-streaming response cards to the engine
 // TODO: extract to components/AiResponseWrapper.tsx
 // ------------------------------------------------------------------
-function AiResponseWrapper({ children, label }: { children: React.ReactNode; label: string }) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-2 text-[11px]">
-        <span className="cc-dot is-done" aria-hidden="true" />
-        <Logo size={13} />
-        <span className="font-mono text-faint">{label}</span>
-      </div>
-      <div className="pl-[18px]">{children}</div>
-    </div>
-  );
+function AiResponseWrapper({ children }: { children: React.ReactNode; label?: string }) {
+  return <div>{children}</div>;
 }
 
 // ------------------------------------------------------------------
@@ -535,6 +526,31 @@ export default function HomePage() {
   const examples = EXAMPLE_PROMPTS[mode];
   const isLoading = loading || streaming.isStreaming || agent.isStreaming;
 
+  const composer = (hero: boolean) => (
+    <QueryInputBar
+      hero={hero}
+      mode={mode}
+      onModeChange={setMode}
+      question={question}
+      onQuestionChange={setQuestion}
+      diseaseB={diseaseB}
+      onDiseaseBChange={setDiseaseB}
+      targetName={targetName}
+      onTargetNameChange={setTargetName}
+      uploadedImage={uploadedImage}
+      onClearImage={() => setUploadedImage(null)}
+      uploadedPdf={uploadedPdf}
+      onClearPdf={() => setUploadedPdf(null)}
+      imageInputRef={imageInputRef}
+      pdfInputRef={pdfInputRef}
+      onImageFileSelected={processImageFile}
+      onPdfFileSelected={handlePdfSelected}
+      isLoading={isLoading}
+      onSubmit={handleSubmit}
+    />
+  );
+
+
   // Put a failed question back in the composer (and drop the failed turn) so it can be re-run.
   function handleRetry(entry: ConversationEntry) {
     setEntries((prev) => prev.filter((e) => e.id !== entry.id));
@@ -581,7 +597,7 @@ export default function HomePage() {
       {isDragging && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm border-2 border-dashed border-green/40 animate-fade-in">
           <div className="text-center">
-            <p className="font-display text-2xl text-ink">Drop to attach</p>
+            <p className="text-xl font-medium text-ink">Drop to attach</p>
             <p className="text-sm text-muted mt-1 font-mono">Images · PDF documents</p>
           </div>
         </div>
@@ -649,39 +665,34 @@ export default function HomePage() {
 
           {/* Landing */}
           {!showGraph && isEmpty && (
-            <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 py-16 text-center animate-fade-in">
-              {/* Brand mark */}
-              <Logo size={32} />
+            <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-6 pb-24 pt-16 animate-fade-in">
+              <Logo size={28} />
 
-              {/* Headline */}
-              <h1 className="mt-6 max-w-2xl font-display leading-[1.2] text-ink text-[1.25rem] sm:text-[1.5rem]">
-                Multimodal Agentic RAG System over PubMed.
-                <span className="mt-2 block font-sans text-sm text-muted">Every claim traced to a primary source.</span>
+              <h1 className="mt-6 text-center text-[1.625rem] font-medium leading-tight tracking-tight text-ink sm:text-[1.875rem]">
+                Multimodal Agentic RAG System over PubMed
               </h1>
+              <p className="mt-2 text-center text-sm text-muted">Every claim traced to a primary source.</p>
 
-              {/* Example prompts - terminal-style suggestions */}
-              <div className="mt-10 w-full text-left">
-                <div className="overflow-hidden rounded-xl border border-line-2 bg-bg-2">
-                  {examples.map((example, i) => (
+              <div className="mt-9 w-full">{composer(true)}</div>
+
+              <ul className="mt-8 w-full space-y-0.5">
+                {examples.map((example) => (
+                  <li key={example}>
                     <button
-                      key={example}
                       onClick={() => handleExampleClick(example)}
-                      className={`group flex w-full items-start gap-2.5 px-4 py-2.5 text-left font-mono text-[12.5px] leading-relaxed text-ink-2 transition hover:bg-bg-3 ${
-                        i > 0 ? "border-t border-line" : ""
-                      }`}
+                      className="w-full truncate rounded-md px-3 py-2 text-left text-[13px] text-muted transition hover:bg-bg-2 hover:text-ink-2"
                     >
-                      <span className="select-none text-faint transition group-hover:text-green">&gt;</span>
-                      <span className="flex-1">{example}</span>
+                      {example}
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
           {/* Results */}
           {!showGraph && !isEmpty && (
-            <div className="mx-auto max-w-4xl px-4 py-8 space-y-8 sm:px-6">
+            <div className="mx-auto max-w-3xl space-y-10 px-4 py-8 sm:px-5">
               {entries.map((entry) => {
                 const isCurrentlyStreaming = entry.id === streamingEntryId;
                 return (
@@ -689,22 +700,19 @@ export default function HomePage() {
                     key={entry.id}
                     className="animate-fade-in"
                   >
-                    {/* User prompt - Claude Code `>` style */}
-                    <div className="mb-4">
+                    {/* The question is the heading of its turn */}
+                    <div className="mb-5">
                       {entry.imagePreviewUrl && (
                         <img
                           src={entry.imagePreviewUrl}
                           alt="Uploaded"
-                          className="mb-2 ml-[22px] h-16 w-16 rounded-md object-cover border border-line"
+                          className="mb-2 h-16 w-16 rounded-md border border-line object-cover"
                         />
                       )}
-                      <div className="flex items-baseline gap-2.5">
-                        <span className="select-none font-mono text-[15px] leading-snug text-green">&gt;</span>
-                        <p className="min-w-0 flex-1 text-[15px] leading-snug text-ink">
-                          {entry.question}
-                        </p>
-                      </div>
-                      <p className="mt-1 pl-[22px] text-[11px] font-medium text-muted">
+                      <h2 className="text-lg font-medium leading-snug tracking-tight text-ink">
+                        {entry.question}
+                      </h2>
+                      <p className="mt-1 text-xs text-muted">
                         {MODE_CONFIG[entry.mode]?.label} ·{" "}
                         {new Date(entry.timestamp).toLocaleTimeString([], {
                           hour: "2-digit",
@@ -825,26 +833,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <QueryInputBar
-          mode={mode}
-          onModeChange={setMode}
-          question={question}
-          onQuestionChange={setQuestion}
-          diseaseB={diseaseB}
-          onDiseaseBChange={setDiseaseB}
-          targetName={targetName}
-          onTargetNameChange={setTargetName}
-          uploadedImage={uploadedImage}
-          onClearImage={() => setUploadedImage(null)}
-          uploadedPdf={uploadedPdf}
-          onClearPdf={() => setUploadedPdf(null)}
-          imageInputRef={imageInputRef}
-          pdfInputRef={pdfInputRef}
-          onImageFileSelected={processImageFile}
-          onPdfFileSelected={handlePdfSelected}
-          isLoading={isLoading}
-          onSubmit={handleSubmit}
-        />
+        {!(isEmpty && !showGraph) && composer(false)}
       </main>
 
       <CitationPanel

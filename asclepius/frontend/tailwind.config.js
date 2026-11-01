@@ -10,20 +10,20 @@ module.exports = {
       colors: {
         // ---- Helix named tokens (preferred) ----
         bg: {
-          DEFAULT: "#0c1014", // page
-          2: "#131820",       // card surface
-          3: "#1b2230",       // nested surface
-          4: "#243042",       // thumbs / inputs
+          DEFAULT: "#0b0c0e", // page
+          2: "#111316",       // card surface
+          3: "#181a1e",       // nested surface
+          4: "#202327",       // thumbs / inputs
         },
         line: {
-          DEFAULT: "#232a36", // hairline
-          2: "#39434f",       // interactive border / strong divider
+          DEFAULT: "#1d2025", // hairline
+          2: "#2c3036",       // interactive border / strong divider
         },
         ink: {
-          DEFAULT: "#f3f6f8", // primary text
-          2: "#d3d8de",       // body
+          DEFAULT: "#ededef", // primary text
+          2: "#c5c8ce",       // body
         },
-        faint: "#565e6b",
+        faint: "#5b6068",
         // Signature — signal only
         green: {
           DEFAULT: "#87f085",
@@ -38,11 +38,11 @@ module.exports = {
         // ---- Legacy aliases remapped onto the Helix scale ----
         // (existing components reference these; they now render Helix tokens)
         surface: {
-          0: "#0c1014",
-          1: "#131820",
-          2: "#1b2230",
-          3: "#232a36",
-          4: "#2e3744",
+          0: "#0b0c0e",
+          1: "#111316",
+          2: "#181a1e",
+          3: "#1d2025",
+          4: "#272a30",
         },
         accent: {
           50:  "#eafdea",
@@ -57,25 +57,25 @@ module.exports = {
           900: "#0f4a24",
         },
         muted: {
-          DEFAULT: "#8a929e",
-          light: "#d3d8de",
-          dim: "#565e6b",
+          DEFAULT: "#868b94",
+          light: "#c5c8ce",
+          dim: "#5b6068",
         },
         // Category tones — disciplined onto neutral + green + amber
-        cell:       "#8a929e",
-        cytokine:   "#8a929e",
-        pathway:    "#8a929e",
+        cell:       "#868b94",
+        cytokine:   "#868b94",
+        pathway:    "#868b94",
         target:     "#87f085",
         gene:       "#87f085",
         hypothesis: "#f5c062",
         // Override default scales used for state so they read Helix
         gray: {
-          100: "#f3f6f8",
-          200: "#d3d8de",
-          300: "#d3d8de",
-          400: "#8a929e",
-          500: "#565e6b",
-          600: "#565e6b",
+          100: "#ededef",
+          200: "#c5c8ce",
+          300: "#c5c8ce",
+          400: "#868b94",
+          500: "#5b6068",
+          600: "#5b6068",
         },
         red: {
           300: "#f4a8a6",
@@ -93,25 +93,25 @@ module.exports = {
         // Compare A/B + Hypothesis category tags — disciplined onto the
         // neutral scale and the signature green (distinction via layout/labels).
         blue: {
-          400: "#d3d8de",
-          500: "#d3d8de",
+          400: "#c5c8ce",
+          500: "#c5c8ce",
         },
         purple: {
-          400: "#8a929e",
-          500: "#8a929e",
+          400: "#868b94",
+          500: "#868b94",
         },
         pink: {
           400: "#87f085",
           500: "#87f085",
         },
         cyan: {
-          400: "#8a929e",
-          500: "#8a929e",
+          400: "#868b94",
+          500: "#868b94",
         },
       },
       fontFamily: {
-        display: ["var(--font-newsreader)", "Georgia", "serif"],
-        sans: ["var(--font-newsreader)", "Georgia", "serif"],
+        display: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {

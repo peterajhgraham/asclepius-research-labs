@@ -77,32 +77,32 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
         <div className="border-t border-surface-3 bg-surface-0/50 px-5 py-5 space-y-5">
           {/* Rationale */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-1.5">Scientific Rationale</p>
+            <p className="text-[11px] font-medium text-muted-light mb-1.5">Scientific Rationale</p>
             <p className="text-sm text-gray-300 leading-relaxed">{h.rationale}</p>
           </div>
 
           {/* Experimental Design */}
           <div className="rounded-xl border border-line bg-bg-2 p-4 space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+            <p className="text-[11px] font-medium text-muted">
               Experimental Design
             </p>
             <div className="grid gap-3 sm:grid-cols-2 text-sm">
               <div className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2">
-                <p className="text-[10px] text-muted font-semibold uppercase mb-1">Model System</p>
+                <p className="text-[11px] text-muted font-medium mb-1">Model System</p>
                 <p className="text-gray-300">{h.experimental_design.model}</p>
               </div>
               <div className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2">
-                <p className="text-[10px] text-muted font-semibold uppercase mb-1">Timeline</p>
+                <p className="text-[11px] text-muted font-medium mb-1">Timeline</p>
                 <p className="text-gray-300">{h.experimental_design.timeline}</p>
               </div>
             </div>
             <div className="rounded-lg border border-surface-3 bg-surface-1 px-3 py-2">
-              <p className="text-[10px] text-muted font-semibold uppercase mb-1">Intervention</p>
+              <p className="text-[11px] text-muted font-medium mb-1">Intervention</p>
               <p className="text-sm text-gray-300">{h.experimental_design.intervention}</p>
             </div>
             {h.experimental_design.readouts.length > 0 && (
               <div>
-                <p className="text-[10px] text-muted font-semibold uppercase mb-1.5">Readouts</p>
+                <p className="text-[11px] text-muted font-medium mb-1.5">Readouts</p>
                 <ul className="space-y-1">
                   {h.experimental_design.readouts.map((r, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
@@ -115,7 +115,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
             )}
             {h.experimental_design.controls.length > 0 && (
               <div>
-                <p className="text-[10px] text-muted font-semibold uppercase mb-1.5">Controls</p>
+                <p className="text-[11px] text-muted font-medium mb-1.5">Controls</p>
                 <ul className="space-y-1">
                   {h.experimental_design.controls.map((c, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
@@ -132,7 +132,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
           <div className="grid gap-3 sm:grid-cols-2">
             {h.biomarkers.length > 0 && (
               <div className="rounded-xl border border-line bg-bg-2 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Biomarkers</p>
+                <p className="text-[11px] font-medium text-muted mb-2">Biomarkers</p>
                 <ul className="space-y-1">
                   {h.biomarkers.map((b, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
@@ -145,7 +145,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
             )}
             {h.confounders.length > 0 && (
               <div className="rounded-xl border border-amber/20 p-3" style={{ backgroundColor: "rgba(245, 192, 98, 0.05)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-amber mb-2">Confounders</p>
+                <p className="text-[11px] font-medium text-amber mb-2">Confounders</p>
                 <ul className="space-y-1">
                   {h.confounders.map((c, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
@@ -161,7 +161,7 @@ function SingleHypothesis({ h, index }: { h: Hypothesis; index: number }) {
           {/* Supporting Evidence with clickable PubMed links */}
           {h.supporting_evidence.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-1.5">Supporting Evidence</p>
+              <p className="text-[11px] font-medium text-muted-light mb-1.5">Supporting Evidence</p>
               <div className="flex flex-wrap gap-1.5">
                 {h.supporting_evidence.map((cite, i) => {
                   const pmidMatch = cite.match(/(?:PMID:?\s*)?(\d{7,9})/i);
@@ -205,23 +205,23 @@ export default function HypothesisCard({ data }: { data: HypothesisResponse }) {
     <div className="space-y-4">
       {/* Evidence Context */}
       <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-light mb-3">Evidence Context</p>
+        <p className="text-[11px] font-medium text-muted-light mb-3">Evidence Context</p>
         <div className="flex flex-wrap gap-4 text-xs text-gray-400">
           {data.context.diseases_matched.length > 0 && (
             <div>
-              <span className="text-muted font-medium uppercase tracking-wider text-[9px]">Diseases matched</span>
+              <span className="text-muted font-medium text-[11px]">Diseases matched</span>
               <p className="text-gray-300 mt-0.5">{data.context.diseases_matched.join(", ")}</p>
             </div>
           )}
           {data.context.pathways_matched.length > 0 && (
             <div>
-              <span className="text-muted font-medium uppercase tracking-wider text-[9px]">Pathways</span>
+              <span className="text-muted font-medium text-[11px]">Pathways</span>
               <p className="text-gray-300 mt-0.5">{data.context.pathways_matched.join(", ")}</p>
             </div>
           )}
           {data.context.therapeutics_matched.length > 0 && (
             <div>
-              <span className="text-muted font-medium uppercase tracking-wider text-[9px]">Therapeutics</span>
+              <span className="text-muted font-medium text-[11px]">Therapeutics</span>
               <p className="text-gray-300 mt-0.5">{data.context.therapeutics_matched.join(", ")}</p>
             </div>
           )}
@@ -231,7 +231,7 @@ export default function HypothesisCard({ data }: { data: HypothesisResponse }) {
       {/* Category filter */}
       {categories.length > 1 && (
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-[10px] text-muted font-semibold uppercase tracking-wider">Filter:</span>
+          <span className="text-[11px] text-muted font-medium">Filter:</span>
           <button
             onClick={() => setCategoryFilter(null)}
             className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${

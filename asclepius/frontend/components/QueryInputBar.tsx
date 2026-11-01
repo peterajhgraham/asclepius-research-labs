@@ -3,7 +3,6 @@
 import { type FormEvent, type RefObject } from "react";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import type { Mode, UploadedImage, UploadedPdf } from "@/lib/types";
-import { getModelLabel } from "@/lib/utils";
 
 // Borderless inputs - the composer box owns the border + focus ring.
 const INPUT_CLS =
@@ -31,6 +30,8 @@ interface Props {
   onPdfFileSelected: (file: File) => void;
   isLoading: boolean;
   onSubmit: (e?: FormEvent<HTMLFormElement>) => void;
+  /** Landing layout: borderless, centered, mode tabs below the box. */
+  hero?: boolean;
 }
 
 export default function QueryInputBar({
@@ -44,6 +45,7 @@ export default function QueryInputBar({
   onImageFileSelected, onPdfFileSelected,
   isLoading,
   onSubmit,
+  hero = false,
 }: Props) {
   const submitDisabled =
     isLoading ||
@@ -51,21 +53,17 @@ export default function QueryInputBar({
     (mode === "compare" && !diseaseB.trim()) ||
     (mode === "target-risk" && !targetName.trim());
 
+  const modes = (
+    <div className={hero ? "mt-3 flex justify-center" : "mb-2.5"}>
+      <ModeSwitcher mode={mode} onModeChange={onModeChange} />
+    </div>
+  );
+
   return (
-    <div className="border-t border-line bg-bg/95 backdrop-blur-md">
-      <form onSubmit={onSubmit} className="mx-auto max-w-3xl px-4 py-3 sm:px-5">
+    <div className={hero ? "w-full" : "border-t border-line bg-bg/95 backdrop-blur-md"}>
+      <form onSubmit={onSubmit} className={hero ? "w-full" : "mx-auto max-w-3xl px-4 py-3 sm:px-5"}>
 
-        {/* Top row: mode switcher + a static engine label (consistent across all
-            modes - no per-mode controls that pop in and out as you switch). */}
-        <div className="flex items-center justify-between mb-2.5 gap-3 flex-wrap">
-          <ModeSwitcher mode={mode} onModeChange={onModeChange} />
-
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="hidden sm:inline font-mono tabular-nums text-faint" style={{ fontSize: 10 }}>
-              {getModelLabel(mode)}
-            </span>
-          </div>
-        </div>
+        {!hero && modes}
 
         {/* PDF status banner */}
         {uploadedPdf && (
@@ -168,9 +166,12 @@ export default function QueryInputBar({
           }}
         />
 
-        {/* Composer - single terminal-style box with a `>` prompt marker */}
-        <div className="flex items-center gap-2 rounded-xl border border-line-2 bg-bg-3 px-3 py-1.5 transition focus-within:border-green/70 focus-within:ring-2 focus-within:ring-green-faint">
-          <span className="select-none font-mono text-base leading-none text-green">&gt;</span>
+        {/* Composer: one quiet box; the focus state is a slightly stronger hairline */}
+        <div
+          className={`flex items-center gap-2 rounded-xl border border-line-2 bg-bg-2 px-3 transition focus-within:border-muted/60 ${
+            hero ? "py-2.5" : "py-1.5"
+          }`}
+        >
 
           {/* Text inputs */}
           {mode === "target-risk" ? (
@@ -275,8 +276,7 @@ export default function QueryInputBar({
             type="submit"
             disabled={submitDisabled}
             aria-label="Submit query"
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold text-bg transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-green-faint disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: "linear-gradient(180deg, var(--green), var(--green-2))" }}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-green px-3.5 text-[13px] font-medium text-bg transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-green/40 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isLoading ? (
               <span className="block h-4 w-4 animate-spin rounded-full border-2 border-bg/40 border-t-bg" />
@@ -291,6 +291,7 @@ export default function QueryInputBar({
             )}
           </button>
         </div>
+        {hero && modes}
       </form>
     </div>
   );

@@ -37,11 +37,11 @@ export default function CitationPanel({ citations, isOpen, onClose }: Props) {
       {/* Backdrop - mobile overlay only, shown when panel is open */}
       {isOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} />}
 
-      {/* Panel - hidden on mobile when closed; at lg+ always shown as persistent column */}
+      {/* Panel - only shown while open; at lg+ it docks as a column instead of overlaying */}
       <aside
         ref={panelRef}
         className={`${isOpen ? "flex fixed" : "hidden"} right-0 top-0 z-40 h-full w-60 border-l border-line bg-bg-2 shadow-card animate-slide-in flex-col
-                   lg:flex lg:relative lg:right-auto lg:top-auto lg:z-auto lg:shadow-none lg:flex-shrink-0`}
+                   lg:relative lg:right-auto lg:top-auto lg:z-auto lg:shadow-none lg:flex-shrink-0`}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line px-4 py-3">

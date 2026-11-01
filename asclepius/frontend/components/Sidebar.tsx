@@ -121,7 +121,7 @@ export default function Sidebar({
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate leading-snug">{session.title}</p>
-                    <p className="mt-0.5 font-mono text-faint" style={{ fontSize: 10 }}>
+                    <p className="mt-0.5 text-[11px] text-faint">
                       {MODE_CONFIG[session.mode]?.label} · {session.entries.length}q
                     </p>
                   </div>
