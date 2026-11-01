@@ -127,7 +127,7 @@ export default function GraphExplorer() {
       {/* Legend - always visible */}
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
         {TYPE_ORDER.map((type) => (
-          <span key={type} className="flex items-center gap-1.5 font-mono text-[10px] text-muted">
+          <span key={type} className="flex items-center gap-1.5 text-[10px] text-muted">
             <span
               className="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
               style={{ background: TYPE_COLORS[type] ?? TYPE_COLORS.Unknown }}
@@ -146,8 +146,8 @@ export default function GraphExplorer() {
       )}
       {!subgraphLoading && subgraph && (
         <>
-          <div className="flex items-center gap-2 font-mono text-[10px] text-faint">
-            <span className="text-ink-2 font-mono">{selectedHub}</span>
+          <div className="flex items-center gap-2 text-[10px] text-faint">
+            <span className="text-ink-2">{selectedHub}</span>
             <span className="text-line-2">·</span>
             <span>{subgraph.node_count} nodes</span>
             <span className="text-line-2">·</span>
@@ -166,7 +166,7 @@ export default function GraphExplorer() {
               {activeTypes
                 .filter((t) => TYPE_COLORS[t])
                 .map((t) => (
-                  <span key={t} className="flex items-center gap-1.5 font-mono text-[10px] text-faint">
+                  <span key={t} className="flex items-center gap-1.5 text-[10px] text-faint">
                     <span
                       className="inline-block h-2 w-2 rounded-full flex-shrink-0"
                       style={{ background: TYPE_COLORS[t] }}
@@ -183,12 +183,11 @@ export default function GraphExplorer() {
           className="flex flex-col items-center justify-center gap-2 rounded-lg border border-line bg-bg-2 text-center"
           style={{ height: 420 }}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-faint">
-            <circle cx="12" cy="5" r="2" />
-            <circle cx="5" cy="19" r="2" />
-            <circle cx="19" cy="19" r="2" />
-            <line x1="12" y1="7" x2="5" y2="17" />
-            <line x1="12" y1="7" x2="19" y2="17" />
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-faint">
+            <circle cx="6" cy="6" r="2.2" />
+            <circle cx="18" cy="8" r="2.2" />
+            <circle cx="9" cy="18" r="2.2" />
+            <path d="M7.9 7 16 7.8M7 8l1.2 7.8M16.6 9.9 10.8 16.6" />
           </svg>
           <p className="text-xs text-faint max-w-[240px] leading-relaxed">
             {subgraphError ?? hubsError ?? "Select a node below"}
@@ -236,10 +235,10 @@ export default function GraphExplorer() {
                         className="shrink-0 h-2 w-2 rounded-full"
                         style={{ background: TYPE_COLORS[normalizeType(hub.type)] ?? TYPE_COLORS.unknown }}
                       />
-                      <span className="flex-1 min-w-0 text-xs font-mono text-ink-2 truncate">
+                      <span className="flex-1 min-w-0 text-xs text-ink-2 truncate">
                         {hub.node_id}
                       </span>
-                      <span className="shrink-0 font-mono tabular-nums text-[10px] text-muted">
+                      <span className="shrink-0 tabular-nums text-[10px] text-muted">
                         deg {hub.degree}
                       </span>
                     </button>

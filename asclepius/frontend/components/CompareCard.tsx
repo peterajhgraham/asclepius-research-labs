@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { CompareResponse } from "@/lib/api";
+import { PROSE_CLS, stripEmDashes } from "@/lib/utils";
 
 interface CompareCardProps {
   data: CompareResponse;
@@ -143,7 +146,7 @@ export default function CompareCard({ data }: CompareCardProps) {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-medium tracking-tight text-ink">
               <span>{a.disease_name}</span>
-              <span className="mx-3 text-muted font-mono text-sm">vs</span>
+              <span className="mx-3 text-muted text-sm">vs</span>
               <span>{b.disease_name}</span>
             </h3>
             <div className="text-right">
@@ -168,7 +171,9 @@ export default function CompareCard({ data }: CompareCardProps) {
       {/* Summary */}
       <div className="rounded-xl border border-surface-3 bg-surface-1 px-5 py-4">
         <p className="text-[11px] font-medium text-muted-light mb-2">Comparison Summary</p>
-        <p className="text-sm leading-relaxed text-gray-300 whitespace-pre-wrap">{summary}</p>
+        <div className={PROSE_CLS}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripEmDashes(summary)}</ReactMarkdown>
+        </div>
       </div>
 
       {/* Side-by-side disease profiles */}

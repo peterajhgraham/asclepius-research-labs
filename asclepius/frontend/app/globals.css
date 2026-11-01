@@ -3,71 +3,120 @@
 @tailwind utilities;
 
 /* ============================================================
-   HELIX design tokens: Asclepius Research Labs
-   The entire UI is the neutral scale + one signature green.
-   Hierarchy comes from elevation (bg to bg-3) plus the green
-   accent. Amber/red are semantic only, never decorative.
+   ASCLEPIUS design system
+   One typeface (Geist Sans; Geist Mono only for identifiers),
+   one tinted neutral ramp, ONE accent per theme. Everything in
+   the app reads these variables, so a theme is just a block of
+   values. Colours are space-separated RGB triplets so Tailwind
+   opacity utilities (bg-green/20) keep working.
+
+   Neutral ramp (5 steps, no more):
+     bg      canvas
+     bg-2    raised: sidebar, composer, panels
+     bg-3    hover / selected / chips
+     line    hairline
+     line-2  stronger border
+   Text (3 levels): ink, muted, faint.
+   Accent: --c-accent (fills), --c-accent-fg (text/icons on canvas),
+           --c-on-accent (text on an accent fill).
+   Semantic (risk only, never decorative): ok, warn, bad.
    ============================================================ */
 
+/* Verdigris (default): navy-ink neutrals with an aged-bronze green accent. Science with composure. */
+:root,
+[data-theme="verdigris"] {
+  color-scheme: dark;
+  --c-bg: 8 12 17;        --c-bg-2: 13 19 26;     --c-bg-3: 20 28 38;
+  --c-line: 25 35 47;     --c-line-2: 38 52 69;
+  --c-ink: 232 240 244;   --c-muted: 134 152 166;  --c-faint: 84 100 114;
+  --c-accent: 52 194 128; --c-accent-hi: 134 239 172; --c-accent-fg: 118 228 160; --c-on-accent: 5 20 12;
+  --c-ok: 74 222 128;     --c-warn: 244 190 80;    --c-bad: 248 113 113;
+  --aura-1: 52 194 128;   --aura-2: 59 130 246;
+}
+
+/* Indigo: cool, put together, Linear-adjacent */
+[data-theme="indigo"] {
+  color-scheme: dark;
+  --c-bg: 10 10 14;       --c-bg-2: 16 16 22;     --c-bg-3: 25 25 34;
+  --c-line: 30 30 41;     --c-line-2: 44 44 59;
+  --c-ink: 237 237 243;   --c-muted: 141 141 158;  --c-faint: 91 91 108;
+  --c-accent: 99 102 241; --c-accent-hi: 151 154 255; --c-accent-fg: 151 154 255; --c-on-accent: 8 8 23;
+  --c-ok: 62 207 142;     --c-warn: 240 180 70;    --c-bad: 244 96 96;
+  --aura-1: 99 102 241;   --aura-2: 168 85 247;
+}
+
+/* Lagoon: deep teal-black with an aqua accent */
+[data-theme="lagoon"] {
+  color-scheme: dark;
+  --c-bg: 7 12 14;        --c-bg-2: 12 19 22;     --c-bg-3: 19 29 33;
+  --c-line: 23 36 41;     --c-line-2: 36 54 62;
+  --c-ink: 233 244 245;   --c-muted: 128 152 158;  --c-faint: 82 106 112;
+  --c-accent: 45 212 191; --c-accent-hi: 94 234 212; --c-accent-fg: 94 234 212; --c-on-accent: 4 24 22;
+  --c-ok: 74 222 128;     --c-warn: 250 204 21;    --c-bad: 251 113 133;
+  --aura-1: 45 212 191;   --aura-2: 56 189 248;
+}
+
+/* Helix: midnight blue with a green-to-blue gradient accent, like a fluorophore */
+[data-theme="helix"] {
+  color-scheme: dark;
+  --c-bg: 7 11 20;        --c-bg-2: 12 17 29;     --c-bg-3: 19 26 42;
+  --c-line: 24 33 52;     --c-line-2: 37 50 76;
+  --c-ink: 233 240 250;   --c-muted: 135 150 175;  --c-faint: 84 98 124;
+  --c-accent: 56 150 245; --c-accent-hi: 74 222 128; --c-accent-fg: 125 205 250; --c-on-accent: 4 16 28;
+  --c-ok: 74 222 128;     --c-warn: 244 190 80;    --c-bad: 248 113 113;
+  --aura-1: 56 150 245;   --aura-2: 74 222 128;
+}
+
 :root {
-  /* ---- Neutrals · cool dark scale ---- */
-  --bg:        #0b0c0e;  /* page background        */
-  --bg-2:      #111316;  /* card surface           */
-  --bg-3:      #181a1e;  /* nested surface         */
-  --bg-4:      #202327;  /* thumbnails / inputs    */
-  --line:      #1d2025;  /* hairline divider       */
-  --line-2:    #2c3036;  /* interactive border / strong divider */
+  /* Legacy names used by raw CSS below; they simply read the active theme. */
+  --bg: rgb(var(--c-bg));        --bg-2: rgb(var(--c-bg-2));  --bg-3: rgb(var(--c-bg-3));
+  --bg-4: rgb(var(--c-bg-3));
+  --line: rgb(var(--c-line));    --line-2: rgb(var(--c-line-2));
+  --ink: rgb(var(--c-ink));      --ink-2: rgb(var(--c-ink));
+  --muted: rgb(var(--c-muted));  --faint: rgb(var(--c-faint));
+  --green: rgb(var(--c-accent-fg));  --green-2: rgb(var(--c-accent-fg));
+  --green-deep: rgb(var(--c-accent));
+  --green-faint: rgb(var(--c-accent) / 0.14);
+  --amber: rgb(var(--c-warn));   --red: rgb(var(--c-bad));
 
-  /* ---- Text ---- */
-  --ink:       #ededef;  /* primary text / headings */
-  --ink-2:     #c5c8ce;  /* body text               */
-  --muted:     #868b94;  /* captions / meta         */
-  --faint:     #5b6068;  /* hints / disabled        */
+  /* Radii: two values only */
+  --r-sm: 6px;  --r-md: 8px;  --r-lg: 10px;  --r-xl: 14px;
 
-  /* ---- Signature · fluorophore green ----
-     Use ONLY for signal: live state, verified, key data,
-     the cited reference, primary action. */
-  --green:        #87f085;
-  --green-2:      #4dca60;
-  --green-deep:   #1a7a3a;
-  --green-faint:  rgba(135, 240, 133, 0.10);
+  --shadow-card: 0 12px 40px rgb(0 0 0 / 0.35);
+  --glow-green: 0 0 14px rgb(var(--c-accent) / 0.25);
 
-  /* ---- Semantic (warnings only, never decorative) ---- */
-  --amber:     #f5c062;  /* watch / partial */
-  --red:       #f08987;  /* risk / fail     */
-
-  /* ---- Radii ---- */
-  --r-sm:  6px;
-  --r-md:  8px;
-  --r-lg:  10px;
-  --r-xl:  14px;
-
-  /* ---- Elevation ---- */
-  --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.02);
-  --glow-green:  0 0 12px rgba(135, 240, 133, 0.18);
-
-  /* ---- Type families ---- */
+  /* One family. Geist Mono is for identifiers only (PMIDs, gene symbols, code). */
   --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-ui:      var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data:    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* The aura: a soft accent glow behind hero content. Decorative only. */
+.aura {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(52% 46% at 50% -6%, rgb(var(--aura-1) / 0.22), transparent 70%),
+    radial-gradient(34% 30% at 82% 8%, rgb(var(--aura-2) / 0.10), transparent 72%),
+    radial-gradient(30% 26% at 14% 14%, rgb(var(--aura-1) / 0.08), transparent 72%);
+}
+
 body {
   background-color: var(--bg);
-  color: var(--ink-2);
+  color: var(--ink);
   font-family: var(--font-ui);
-  letter-spacing: -0.005em;
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-::selection { background: var(--green-faint); color: var(--green); }
+::selection { background: rgb(var(--c-accent) / 0.30); color: var(--ink); }
 
 /* Scrollbar: thin, neutral */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #3a4555; }
+::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 
 /* ---- Pending-state primitives ----
    One calm visual language for "in progress": a neutral caret while text
@@ -116,7 +165,6 @@ body {
 /* The ⎿ result branch glyph, drawn so it renders identically everywhere. */
 .cc-branch {
   position: relative; padding-left: 18px;
-  font-family: var(--font-data);
 }
 .cc-branch::before {
   content: ""; position: absolute; left: 3px; top: 0; bottom: 50%;
@@ -132,10 +180,10 @@ body {
   background: var(--green-faint); color: var(--green);
   border-radius: 4px; font-size: 0.62em; font-weight: 600;
   vertical-align: super; margin: 0 1px; cursor: pointer;
-  font-family: var(--font-data); font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
-.hx-cite-ref:hover { background: rgba(135, 240, 133, 0.2); box-shadow: var(--glow-green); }
+.hx-cite-ref:hover { background: rgb(var(--c-accent) / 0.24); box-shadow: var(--glow-green); }
 
 /* Highlight pulse applied to a rail citation when its marker is clicked */
 .hx-cite-target {
@@ -208,7 +256,7 @@ body {
 
 /* Glass card effect */
 .glass {
-  background: rgba(19, 24, 32, 0.6);
+  background: rgb(var(--c-bg-2) / 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

@@ -92,7 +92,7 @@ export default function QueryInputBar({
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
                 )}
-                <span className="font-mono truncate max-w-[200px]">{uploadedPdf.fileName}</span>
+                <span className="truncate max-w-[200px]">{uploadedPdf.fileName}</span>
                 {uploadedPdf.status === "indexing" && (
                   <span className="text-muted">Extracting &amp; indexing propositions…</span>
                 )}
@@ -134,7 +134,7 @@ export default function QueryInputBar({
                 </button>
               </div>
               <div>
-                <p className="text-[11px] text-gray-300 font-medium font-mono truncate max-w-[180px]">
+                <p className="text-[11px] text-gray-300 font-medium truncate max-w-[180px]">
                   {uploadedImage.fileName}
                 </p>
                 <p className="text-[10px] text-muted">Multimodal Vision · RAG Pipeline</p>
@@ -168,8 +168,10 @@ export default function QueryInputBar({
 
         {/* Composer: one quiet box; the focus state is a slightly stronger hairline */}
         <div
-          className={`flex items-center gap-2 rounded-xl border border-line-2 bg-bg-2 px-3 transition focus-within:border-muted/60 ${
-            hero ? "py-2.5" : "py-1.5"
+          className={`flex items-center gap-2 rounded-xl border px-3 transition focus-within:border-green/60 focus-within:ring-4 focus-within:ring-green/10 ${
+            hero
+              ? "border-line-2 bg-bg-2/80 py-2.5 shadow-[0_10px_40px_-12px_rgb(0_0_0/0.45)] backdrop-blur-xl"
+              : "border-line-2 bg-bg-2 py-1.5"
           }`}
         >
 
@@ -184,7 +186,7 @@ export default function QueryInputBar({
                 disabled={isLoading}
                 className={INPUT_CLS}
               />
-              <span className="shrink-0 font-mono text-[11px] font-semibold text-muted">·</span>
+              <span className="shrink-0 text-[11px] font-semibold text-muted">·</span>
               <input
                 type="text"
                 value={targetName}
@@ -204,7 +206,7 @@ export default function QueryInputBar({
                 disabled={isLoading}
                 className={INPUT_CLS}
               />
-              <span className="shrink-0 font-mono text-[11px] font-semibold text-muted">vs</span>
+              <span className="shrink-0 text-[11px] font-semibold text-muted">vs</span>
               <input
                 type="text"
                 value={diseaseB}
@@ -276,10 +278,10 @@ export default function QueryInputBar({
             type="submit"
             disabled={submitDisabled}
             aria-label="Submit query"
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-green px-3.5 text-[13px] font-medium text-bg transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-green/40 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-br from-green-hi to-green px-3.5 text-[13px] font-medium text-on-accent transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-green/40 disabled:cursor-not-allowed disabled:bg-none disabled:bg-bg-3 disabled:text-faint"
           >
             {isLoading ? (
-              <span className="block h-4 w-4 animate-spin rounded-full border-2 border-bg/40 border-t-bg" />
+              <span className="block h-4 w-4 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent" />
             ) : (
               <>
                 <span>Run</span>

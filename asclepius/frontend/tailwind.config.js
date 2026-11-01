@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const v = (name) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
 module.exports = {
   content: [
     "./app/**/*.{ts,tsx}",
@@ -8,111 +10,55 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // ---- Helix named tokens (preferred) ----
-        bg: {
-          DEFAULT: "#0b0c0e", // page
-          2: "#111316",       // card surface
-          3: "#181a1e",       // nested surface
-          4: "#202327",       // thumbs / inputs
-        },
-        line: {
-          DEFAULT: "#1d2025", // hairline
-          2: "#2c3036",       // interactive border / strong divider
-        },
-        ink: {
-          DEFAULT: "#ededef", // primary text
-          2: "#c5c8ce",       // body
-        },
-        faint: "#5b6068",
-        // Signature — signal only
-        green: {
-          DEFAULT: "#87f085",
-          2: "#4dca60",
-          deep: "#1a7a3a",
-          faint: "rgba(135,240,133,0.10)",
-        },
-        // Semantic — warnings only
-        amber: "#f5c062",
-        risk: "#f08987",
+        // Every colour reads a theme variable (see app/globals.css), so a theme
+        // is only a block of values. The neutral ramp has five steps.
+        bg: { DEFAULT: v("bg"), 2: v("bg-2"), 3: v("bg-3"), 4: v("bg-3") },
+        line: { DEFAULT: v("line"), 2: v("line-2") },
+        ink: { DEFAULT: v("ink"), 2: v("ink") },
+        muted: { DEFAULT: v("muted"), light: v("ink"), dim: v("faint") },
+        faint: v("faint"),
 
-        // ---- Legacy aliases remapped onto the Helix scale ----
-        // (existing components reference these; they now render Helix tokens)
-        surface: {
-          0: "#0b0c0e",
-          1: "#111316",
-          2: "#181a1e",
-          3: "#1d2025",
-          4: "#272a30",
+        // The accent. `green` is the historical name; it now means "accent".
+        green: {
+          DEFAULT: v("accent"),
+          2: v("accent-fg"),
+          deep: v("accent"),
+          hi: v("accent-hi"),
+          faint: "rgb(var(--c-accent) / 0.14)",
         },
         accent: {
-          50:  "#eafdea",
-          100: "#c9f8c8",
-          200: "#aef4ac",
-          300: "#87f085",
-          400: "#87f085",
-          500: "#87f085",
-          600: "#4dca60",
-          700: "#1a7a3a",
-          800: "#176b33",
-          900: "#0f4a24",
+          50: v("accent-fg"), 100: v("accent-fg"), 200: v("accent-fg"), 300: v("accent-fg"),
+          400: v("accent-fg"), 500: v("accent"), 600: v("accent"), 700: v("accent"),
+          800: v("accent"), 900: v("accent"),
         },
-        muted: {
-          DEFAULT: "#868b94",
-          light: "#c5c8ce",
-          dim: "#5b6068",
-        },
-        // Category tones — disciplined onto neutral + green + amber
-        cell:       "#868b94",
-        cytokine:   "#868b94",
-        pathway:    "#868b94",
-        target:     "#87f085",
-        gene:       "#87f085",
-        hypothesis: "#f5c062",
-        // Override default scales used for state so they read Helix
-        gray: {
-          100: "#ededef",
-          200: "#c5c8ce",
-          300: "#c5c8ce",
-          400: "#868b94",
-          500: "#5b6068",
-          600: "#5b6068",
-        },
-        red: {
-          300: "#f4a8a6",
-          400: "#f08987",
-          500: "#f08987",
-        },
-        yellow: {
-          400: "#f5c062",
-          500: "#f5c062",
-        },
-        emerald: {
-          400: "#87f085",
-          500: "#87f085",
-        },
-        // Compare A/B + Hypothesis category tags — disciplined onto the
-        // neutral scale and the signature green (distinction via layout/labels).
-        blue: {
-          400: "#c5c8ce",
-          500: "#c5c8ce",
-        },
-        purple: {
-          400: "#868b94",
-          500: "#868b94",
-        },
-        pink: {
-          400: "#87f085",
-          500: "#87f085",
-        },
-        cyan: {
-          400: "#868b94",
-          500: "#868b94",
-        },
+        "on-accent": v("on-accent"),
+
+        // Semantic colours are for risk and status only, never decoration.
+        ok: v("ok"),
+        warn: v("warn"),
+        bad: v("bad"),
+        amber: v("warn"),
+        risk: v("bad"),
+
+        // Legacy aliases, collapsed onto the ramp above.
+        surface: { 0: v("bg"), 1: v("bg-2"), 2: v("bg-3"), 3: v("line"), 4: v("line-2") },
+        gray: { 100: v("ink"), 200: v("ink"), 300: v("ink"), 400: v("muted"), 500: v("faint"), 600: v("faint") },
+        red: { 300: v("bad"), 400: v("bad"), 500: v("bad") },
+        yellow: { 400: v("warn"), 500: v("warn") },
+        emerald: { 400: v("ok"), 500: v("ok") },
+        blue: { 400: v("ink"), 500: v("ink") },
+        purple: { 400: v("muted"), 500: v("muted") },
+        pink: { 400: v("accent-fg"), 500: v("accent-fg") },
+        cyan: { 400: v("muted"), 500: v("muted") },
+        cell: v("muted"), cytokine: v("muted"), pathway: v("muted"),
+        target: v("accent-fg"), gene: v("accent-fg"), hypothesis: v("warn"),
       },
       fontFamily: {
         display: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        // Identifiers only (PMIDs, gene symbols, code).
+        code: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {
         // Helix type ramp (px → rem)
@@ -128,8 +74,8 @@ module.exports = {
         sm: "6px", md: "8px", lg: "10px", xl: "14px",
       },
       boxShadow: {
-        card: "0 12px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.02)",
-        "glow-green": "0 0 12px rgba(135,240,133,0.18)",
+        card: "0 12px 40px rgb(0 0 0 / 0.35)",
+        "glow-green": "0 0 14px rgb(var(--c-accent) / 0.25)",
       },
       animation: {
         "fade-in":   "fadeIn 0.2s ease-in-out",
